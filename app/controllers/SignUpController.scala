@@ -13,12 +13,13 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers, Controller}
-import security.{AuthToken, UserInfo, TokenProvider, TokenStorage}
+import security._
 import slick.driver.JdbcProfile
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 
 class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
@@ -37,16 +38,18 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         val existsQuery = for {
           user <- Users if user.email === dto.email
         } yield user
-        db.run(existsQuery.length.result) flatMap  {
+        db.run(existsQuery.length.result) flatMap {
           case x if x == 0 =>
             //TODO: add Twillio number check
-            val user= emailSighUpUser(dto)
-            val userInsert = DBIO.seq(
-              Users.map(u => (u.firstName, u.lastName, u.email, u.phone, u.salt, u.password, u.userType)) += user
-            )
-            db.run(userInsert) map { u =>
-              val token = createToken(user)
-              ok(token.key)
+            val user = emailSighUpUser(dto)
+            val insertQuery = Users.map(u => (u.firstName, u.lastName, u.email, u.phone, u.salt,
+              u.password, u.userType)) returning Users.map(_.id)
+            db.run((insertQuery += user).asTry) map {
+              case Success(insertResult) =>
+                val token = getToken(insertResult, user)
+                ok(TokenKey(token.key))(AuthToken.tokenKeyFormat)
+
+              case Failure(e) => badRequest(e.getMessage, DatabaseError)
             }
 
           case _ => Future.successful(validationFailed("User with this email already exists"))
@@ -54,11 +57,11 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  private def createToken(user: (String, String, Option[String], String, Option[String], Option[String], Int)) = {
-    val userInfo = UserInfo(1, user._3, user._1, user._2, false, user._7)
+  private def getToken(id: Integer,
+                          user: (String, String, Option[String], String, Option[String], Option[String], Int)) = {
+    val userInfo = UserInfo(id, user._3, user._1, user._2, false, user._7)
     val token = tokenProvider.generateToken(userInfo)
     tokenStorage.setToken(token)
-    token
   }
 
   private def emailSighUpUser(dto: SignUpDto) = {

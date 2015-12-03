@@ -13,6 +13,7 @@ class TokenStorage @Inject()(sedisPool: Pool) {
   def setToken(token: AuthToken) = {
     sedisPool.withClient { client =>
       client.set(token.key, Json.toJson(token).toString())
+      token
     }
   }
 
