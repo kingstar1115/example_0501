@@ -111,17 +111,17 @@ trait Tables {
    *  @param lastName Database column last_name SqlType(varchar), Length(150,true)
    *  @param email Database column email SqlType(varchar), Length(255,true), Default(None)
    *  @param password Database column password SqlType(varchar), Length(255,true), Default(None)
-   *  @param salt Database column salt SqlType(varchar), Length(16,true), Default(None)
+   *  @param salt Database column salt SqlType(varchar), Length(255,true), Default(None)
    *  @param verifyCode Database column verify_code SqlType(int4), Default(None)
    *  @param facebookId Database column facebook_id SqlType(int8), Default(None)
-   *  @param phone Database column phone SqlType(int8)
+   *  @param phone Database column phone SqlType(varchar), Length(16,true)
    *  @param userType Database column user_type SqlType(int4)
    *  @param verified Database column verified SqlType(bool), Default(false) */
-  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: Option[String] = None, verifyCode: Option[Int] = None, facebookId: Option[Long] = None, phone: Long, userType: Int, verified: Boolean = false)
+  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: Option[String] = None, verifyCode: Option[Int] = None, facebookId: Option[Long] = None, phone: String, userType: Int, verified: Boolean = false)
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
-  implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Option[Int]], e5: GR[Option[Long]], e6: GR[Long], e7: GR[Boolean]): GR[UsersRow] = GR{
+  implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Option[Int]], e5: GR[Option[Long]], e6: GR[Boolean]): GR[UsersRow] = GR{
     prs => import prs._
-    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<?[String], <<?[Int], <<?[Long], <<[Long], <<[Int], <<[Boolean]))
+    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<?[String], <<?[Int], <<?[Long], <<[String], <<[Int], <<[Boolean]))
   }
   /** Table description of table users. Objects of this class serve as prototypes for rows in queries. */
   class Users(_tableTag: Tag) extends Table[UsersRow](_tableTag, "users") {
@@ -143,14 +143,14 @@ trait Tables {
     val email: Rep[Option[String]] = column[Option[String]]("email", O.Length(255,varying=true), O.Default(None))
     /** Database column password SqlType(varchar), Length(255,true), Default(None) */
     val password: Rep[Option[String]] = column[Option[String]]("password", O.Length(255,varying=true), O.Default(None))
-    /** Database column salt SqlType(varchar), Length(16,true), Default(None) */
-    val salt: Rep[Option[String]] = column[Option[String]]("salt", O.Length(16,varying=true), O.Default(None))
+    /** Database column salt SqlType(varchar), Length(255,true), Default(None) */
+    val salt: Rep[Option[String]] = column[Option[String]]("salt", O.Length(255,varying=true), O.Default(None))
     /** Database column verify_code SqlType(int4), Default(None) */
     val verifyCode: Rep[Option[Int]] = column[Option[Int]]("verify_code", O.Default(None))
     /** Database column facebook_id SqlType(int8), Default(None) */
     val facebookId: Rep[Option[Long]] = column[Option[Long]]("facebook_id", O.Default(None))
-    /** Database column phone SqlType(int8) */
-    val phone: Rep[Long] = column[Long]("phone")
+    /** Database column phone SqlType(varchar), Length(16,true) */
+    val phone: Rep[String] = column[String]("phone", O.Length(16,varying=true))
     /** Database column user_type SqlType(int4) */
     val userType: Rep[Int] = column[Int]("user_type")
     /** Database column verified SqlType(bool), Default(false) */
