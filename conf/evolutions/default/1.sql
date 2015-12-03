@@ -8,10 +8,10 @@ CREATE TABLE IF NOT EXISTS users (
   last_name    VARCHAR(150) NOT NULL,
   email        VARCHAR(255),
   password     VARCHAR(255),
-  salt         VARCHAR(16),
+  salt         VARCHAR(255),
   verify_code  INT,
   facebook_id  BIGINT,
-  phone        BIGINT       NOT NULL,
+  phone        VARCHAR(16)  NOT NULL,
   user_type    INTEGER      NOT NULL,
   verified     BOOLEAN      NOT NULL DEFAULT FALSE
 );

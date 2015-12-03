@@ -7,7 +7,7 @@ case class AuthToken(key: String,
                      userInfo: UserInfo)
 
 case class UserInfo(id: Int,
-                    email: String,
+                    email: Option[String],
                     name: String,
                     surname: String,
                     verified: Boolean,

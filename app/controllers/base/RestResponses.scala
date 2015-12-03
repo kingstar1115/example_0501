@@ -2,27 +2,29 @@ package controllers.base
 
 
 import commons.enums.{ValidationError, ErrorType}
-import controllers.base.RestResponses.ErrorResponse
 import play.api.http.MimeTypes
-import play.api.libs.json.Json
+import play.api.libs.json._
 import play.api.mvc.Results._
 
 
 trait RestResponses {
 
-  implicit val errorResponseReads = Json.format[ErrorResponse]
+  def ok[X](data: X)(implicit writes: Writes[X]) = {
+    Ok(Json.toJson[X](data)).as(MimeTypes.JSON)
+  }
 
-  def validationFailed(validationErrors: String) = {
+  def validationFailed[X](validationErrors: X)(implicit writes: Writes[X]) = {
     badRequest(validationErrors, ValidationError)
   }
 
-  def badRequest(message: String, errorType: ErrorType) = {
-    BadRequest(Json.toJson(ErrorResponse(message, errorType.name))).as(MimeTypes.JSON)
+  def badRequest[X](message: X, errorType: ErrorType)(implicit writes: Writes[X]) = {
+    BadRequest(createErrorResponse(ErrorResponse(message, errorType.name))).as(MimeTypes.JSON)
+  }
+
+  private def createErrorResponse[X](error: ErrorResponse[X])(implicit writes: Writes[X]) = {
+    Json.obj("message" -> Json.toJson[X](error.message), "code" -> JsString(error.code))
   }
 }
 
-object RestResponses {
+case class ErrorResponse[X](message: X, code: String)
 
-  case class ErrorResponse(message: String, code: String)
-
-}

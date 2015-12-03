@@ -12,8 +12,7 @@ class TokenStorage @Inject()(sedisPool: Pool) {
 
   def setToken(token: AuthToken) = {
     sedisPool.withClient { client =>
-      //Token expires in 30 minutes
-      client.setex(token.key, 1800, Json.toJson(token).toString())
+      client.set(token.key, Json.toJson(token).toString())
     }
   }
 
@@ -22,9 +21,7 @@ class TokenStorage @Inject()(sedisPool: Pool) {
       Try {
         client.get(key).map(Json.parse(_).as[AuthToken]).getOrElse(None)
       } match {
-        case Success(token) => updateExpire(key)
-          token
-
+        case Success(token) => token
         case Failure(e) => None
       }
     }
@@ -36,10 +33,5 @@ class TokenStorage @Inject()(sedisPool: Pool) {
     }
   }
 
-  def updateExpire(key: String) = {
-    sedisPool.withClient { client =>
-      client.expire(key, 1800)
-    }
-  }
 
 }
