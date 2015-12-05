@@ -13,10 +13,14 @@ case class UserInfo(id: Int,
                     verified: Boolean,
                     userType: Int)
 
-case class TokenKey(key: String)
+case class AuthResponse(key: String,
+                        name: String,
+                        surname: String,
+                        userType: Int,
+                        verified: Boolean)
 
 object AuthToken {
   implicit val userInfoFormat = Json.format[UserInfo]
   implicit val tokenFormat = Json.format[AuthToken]
-  implicit val tokenKeyFormat = Json.format[TokenKey]
+  implicit val authResponseFormat = Json.format[AuthResponse]
 }

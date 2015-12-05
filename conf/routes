@@ -10,3 +10,4 @@ POST        /api/v1/sign-up        @controllers.SignUpController.emailSighUp
 
 #Log in
 POST        /api/v1/log-in         @controllers.LogInController.logIn
+GET         /api/v1/log-out        @controllers.LogInController.logOut
