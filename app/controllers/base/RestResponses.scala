@@ -1,7 +1,7 @@
 package controllers.base
 
 
-import commons.enums.{ValidationError, ErrorType}
+import commons.enums.{ServerError, ValidationError, ErrorType}
 import play.api.http.MimeTypes
 import play.api.libs.json._
 import play.api.mvc.Results._
@@ -25,6 +25,10 @@ trait RestResponses {
 
   def forbidden[X](message: X, errorType: ErrorType)(implicit writes: Writes[X]) = {
     Forbidden(createErrorResponse(ErrorResponse(message, errorType.name))).as(MimeTypes.JSON)
+  }
+
+  def serverError(t: Throwable) = {
+    InternalServerError(createErrorResponse(ErrorResponse(t.getMessage, ServerError.name))).as(MimeTypes.JSON)
   }
 
   private def createErrorResponse[X](error: ErrorResponse[X])(implicit writes: Writes[X]) = {
