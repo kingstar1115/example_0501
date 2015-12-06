@@ -26,13 +26,13 @@ trait Tables {
    *  @param country Database column country SqlType(varchar), Length(255,true)
    *  @param state Database column state SqlType(varchar), Length(255,true), Default(None)
    *  @param city Database column city SqlType(varchar), Length(255,true)
-   *  @param zipCode Database column zip_code SqlType(int4)
+   *  @param zipCode Database column zip_code SqlType(varchar), Length(6,true)
    *  @param userId Database column user_id SqlType(int4) */
-  case class LocationsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, name: String, country: String, state: Option[String] = None, city: String, zipCode: Int, userId: Int)
+  case class LocationsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, name: String, country: String, state: Option[String] = None, city: String, zipCode: String, userId: Int)
   /** GetResult implicit for fetching LocationsRow objects using plain SQL queries */
   implicit def GetResultLocationsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]]): GR[LocationsRow] = GR{
     prs => import prs._
-    LocationsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<[String], <<[Int], <<[Int]))
+    LocationsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<[String], <<[String], <<[Int]))
   }
   /** Table description of table locations. Objects of this class serve as prototypes for rows in queries. */
   class Locations(_tableTag: Tag) extends Table[LocationsRow](_tableTag, "locations") {
@@ -54,8 +54,8 @@ trait Tables {
     val state: Rep[Option[String]] = column[Option[String]]("state", O.Length(255,varying=true), O.Default(None))
     /** Database column city SqlType(varchar), Length(255,true) */
     val city: Rep[String] = column[String]("city", O.Length(255,varying=true))
-    /** Database column zip_code SqlType(int4) */
-    val zipCode: Rep[Int] = column[Int]("zip_code")
+    /** Database column zip_code SqlType(varchar), Length(6,true) */
+    val zipCode: Rep[String] = column[String]("zip_code", O.Length(6,varying=true))
     /** Database column user_id SqlType(int4) */
     val userId: Rep[Int] = column[Int]("user_id")
 
@@ -113,15 +113,15 @@ trait Tables {
    *  @param password Database column password SqlType(varchar), Length(255,true), Default(None)
    *  @param salt Database column salt SqlType(varchar), Length(255,true), Default(None)
    *  @param verifyCode Database column verify_code SqlType(int4), Default(None)
-   *  @param facebookId Database column facebook_id SqlType(int8), Default(None)
+   *  @param facebookId Database column facebook_id SqlType(varchar), Length(100,true), Default(None)
    *  @param phone Database column phone SqlType(varchar), Length(16,true)
    *  @param userType Database column user_type SqlType(int4)
    *  @param verified Database column verified SqlType(bool), Default(false) */
-  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: Option[String] = None, verifyCode: Option[Int] = None, facebookId: Option[Long] = None, phone: String, userType: Int, verified: Boolean = false)
+  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: Option[String] = None, verifyCode: Option[Int] = None, facebookId: Option[String] = None, phone: String, userType: Int, verified: Boolean = false)
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
-  implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Option[Int]], e5: GR[Option[Long]], e6: GR[Boolean]): GR[UsersRow] = GR{
+  implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Option[Int]], e5: GR[Boolean]): GR[UsersRow] = GR{
     prs => import prs._
-    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<?[String], <<?[Int], <<?[Long], <<[String], <<[Int], <<[Boolean]))
+    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<?[String], <<?[Int], <<?[String], <<[String], <<[Int], <<[Boolean]))
   }
   /** Table description of table users. Objects of this class serve as prototypes for rows in queries. */
   class Users(_tableTag: Tag) extends Table[UsersRow](_tableTag, "users") {
@@ -147,14 +147,17 @@ trait Tables {
     val salt: Rep[Option[String]] = column[Option[String]]("salt", O.Length(255,varying=true), O.Default(None))
     /** Database column verify_code SqlType(int4), Default(None) */
     val verifyCode: Rep[Option[Int]] = column[Option[Int]]("verify_code", O.Default(None))
-    /** Database column facebook_id SqlType(int8), Default(None) */
-    val facebookId: Rep[Option[Long]] = column[Option[Long]]("facebook_id", O.Default(None))
+    /** Database column facebook_id SqlType(varchar), Length(100,true), Default(None) */
+    val facebookId: Rep[Option[String]] = column[Option[String]]("facebook_id", O.Length(100,varying=true), O.Default(None))
     /** Database column phone SqlType(varchar), Length(16,true) */
     val phone: Rep[String] = column[String]("phone", O.Length(16,varying=true))
     /** Database column user_type SqlType(int4) */
     val userType: Rep[Int] = column[Int]("user_type")
     /** Database column verified SqlType(bool), Default(false) */
     val verified: Rep[Boolean] = column[Boolean]("verified", O.Default(false))
+
+    /** Uniqueness Index over (facebookId) (database name users_facebook_id_key) */
+    val index1 = index("users_facebook_id_key", facebookId, unique=true)
   }
   /** Collection-like TableQuery object for table Users */
   lazy val Users = new TableQuery(tag => new Users(tag))

@@ -14,8 +14,8 @@ case class UserInfo(id: Int,
                     userType: Int)
 
 case class AuthResponse(key: String,
-                        name: String,
-                        surname: String,
+                        firstName: String,
+                        lastName: String,
                         userType: Int,
                         verified: Boolean)
 
