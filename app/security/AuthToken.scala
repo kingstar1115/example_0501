@@ -8,8 +8,8 @@ case class AuthToken(key: String,
 
 case class UserInfo(id: Int,
                     email: Option[String],
-                    name: String,
-                    surname: String,
+                    firstName: String,
+                    lastName: String,
                     verified: Boolean,
                     userType: Int)
 

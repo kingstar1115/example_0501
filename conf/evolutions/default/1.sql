@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_date TIMESTAMP    NOT NULL DEFAULT now(),
   first_name   VARCHAR(150) NOT NULL,
   last_name    VARCHAR(150) NOT NULL,
-  email        VARCHAR(255),
+  email        VARCHAR(255) UNIQUE,
   password     VARCHAR(255),
   salt         VARCHAR(255),
   verify_code  INT,
@@ -30,5 +30,5 @@ CREATE TABLE IF NOT EXISTS locations (
 
 # --- !Downs
 
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS locations CASCADE;
