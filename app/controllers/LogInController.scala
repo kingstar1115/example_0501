@@ -2,13 +2,15 @@ package controllers
 
 import javax.inject.Inject
 
-import controllers.LogInController.EmailLogInDto
-import controllers.base.{SimpleResponse, BaseController, ApiActions, RestResponses}
+import commons.enums.FacebookError
+import controllers.LogInController.{FacebookLogInDto, EmailLogInDto}
+import controllers.base._
 import models.Tables
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Reads._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{JsSuccess, JsError, JsPath, Reads}
+import play.api.libs.ws.WSClient
 import play.api.mvc.{BodyParsers, Action, Controller}
 import security._
 import slick.driver.JdbcProfile
@@ -21,8 +23,11 @@ import scala.concurrent.Future
 
 class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                 tokenProvider: TokenProvider,
-                                tokenStorage: TokenStorage)
-  extends BaseController(tokenStorage, dbConfigProvider) {
+                                tokenStorage: TokenStorage,
+                                ws: WSClient)
+  extends BaseController(tokenStorage, dbConfigProvider) with FacebookCalls {
+
+  override val wsClient: WSClient = ws
 
   def logIn = Action.async(BodyParsers.parse.json) { request =>
     val parseResult = request.body.validate[EmailLogInDto]
@@ -35,13 +40,10 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.password, u.salt)
         db.run(userQuery.result).map { result =>
           result.headOption.filter { r =>
-            dto.password.bcrypt(r._8.get) == r._7.get
+            r._8.isDefined && dto.password.bcrypt(r._8.get) == r._7.get
           }.map { r =>
             val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6)
-            val token = tokenProvider.generateToken(userInfo)
-            tokenStorage.setToken(token)
-            ok(AuthResponse(token.key, userInfo.name, userInfo.surname,
-              userInfo.userType, userInfo.verified))(AuthToken.authResponseFormat)
+            tokenOkResponse(userInfo)
           }.getOrElse(validationFailed("Wrong email or password"))
         }
     }
@@ -51,15 +53,56 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     tokenStorage.deleteToken(request.token.get)
     ok(SimpleResponse("Success"))
   }
+
+  def facebookLogIn = Action.async(BodyParsers.parse.json) { request =>
+    val parseResult = request.body.validate[FacebookLogInDto]
+    parseResult match {
+      case JsError(errors) => Future.successful(validationFailed(JsError.toJson(errors)))
+
+      case JsSuccess(dto, jsPath) =>
+        facebookMe(dto.token).flatMap { wsResponse =>
+          wsResponse.status match {
+            case 200 =>
+              wsResponse.json.validate[FacebookResponseDto] match {
+                case JsError(e) => Future.successful(badRequest("Invalid token", FacebookError))
+
+                case JsSuccess(facebookDto, jsPath) =>
+                  val userQuery = for {
+                    u <- Tables.Users if u.facebookId.isDefined && u.facebookId === facebookDto.id
+                  } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType)
+                  db.run(userQuery.take(1).result).map { resultSet =>
+                    resultSet.headOption.map { r =>
+                      val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6)
+                      tokenOkResponse(userInfo)
+                    }.getOrElse(validationFailed("Can't find user"))
+                  }
+              }
+
+            case _ => Future.successful(badRequest(s"Failed to fetch data. Code - ${wsResponse.status}", FacebookError))
+          }
+        }
+    }
+  }
+
+  private def tokenOkResponse(userInfo: UserInfo) = {
+    val token = tokenProvider.generateToken(userInfo)
+    tokenStorage.setToken(token)
+    ok(AuthResponse(token.key, userInfo.firstName, userInfo.lastName,
+      userInfo.userType, userInfo.verified))(AuthToken.authResponseFormat)
+  }
 }
 
 object LogInController {
 
   case class EmailLogInDto(email: String, password: String)
 
+  case class FacebookLogInDto(token: String)
+
   implicit val emailLogInDtoReads: Reads[EmailLogInDto] = (
       (JsPath \ "email").read[String](email) and
       (JsPath \ "password").read[String](minLength[String](6) keepAnd maxLength[String](32))
     )(EmailLogInDto.apply _)
+
+  implicit val facebookLogInDtoReads: Reads[FacebookLogInDto] = (JsPath \ "token").read[String].map(FacebookLogInDto.apply)
 
 }
