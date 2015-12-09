@@ -3,7 +3,7 @@ package controllers
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
-import commons.enums.{DatabaseError, FacebookError}
+import commons.enums.{AuthyError, DatabaseError, FacebookError}
 import controllers.SignUpController.{EmailSignUpDto, FacebookSighUpDto}
 import controllers.base.{BaseController, FacebookCalls, RestResponses}
 import models.Tables._
@@ -13,6 +13,7 @@ import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, BodyParsers}
+import security.AuthyVerifyService.VerifyResponseDto
 import security._
 import slick.driver.PostgresDriver.api._
 
@@ -24,7 +25,8 @@ import scala.util.{Failure, Success}
 class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                  tokenProvider: TokenProvider,
                                  tokenStorage: TokenStorage,
-                                 ws: WSClient)
+                                 ws: WSClient,
+                                 verifyService: AuthyVerifyService)
   extends BaseController(tokenStorage, dbConfigProvider) with RestResponses with FacebookCalls {
 
   override val wsClient: WSClient = ws
@@ -40,18 +42,23 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         } yield user
         db.run(existsQuery.length.result).flatMap {
           case x if x == 0 =>
-            //TODO: add Twilio number check
-            val user = emailSighUpUser(dto)
-            val insertQuery = Users.map(u => (u.firstName, u.lastName, u.email, u.phone, u.salt,
-              u.password, u.userType)) returning Users.map(_.id)
+            verifyService.sendVerifyCode(dto.phoneNumber.charAt(1).toInt, dto.phoneNumber.substring(2)).flatMap {
+              case verifyResult: VerifyResponseDto if verifyResult.success =>
+                val user = emailSighUpUser(dto)
+                val insertQuery = Users.map(u => (u.firstName, u.lastName, u.email, u.phone, u.salt,
+                  u.password, u.userType)) returning Users.map(_.id)
 
-            db.run((insertQuery += user).asTry).map {
-              case Success(insertResult) =>
-                val token = getToken(insertResult, (user._1, user._2, user._3, 0))
-                ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                  0, token.userInfo.verified))(AuthToken.authResponseFormat)
+                db.run((insertQuery += user).asTry).map {
+                  case Success(insertResult) =>
+                    val token = getToken(insertResult, (user._1, user._2, user._3, 0))
+                    ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
+                      0, token.userInfo.verified))(AuthToken.authResponseFormat)
 
-              case Failure(e) => badRequest(e.getMessage, DatabaseError)
+                  case Failure(e) => badRequest(e.getMessage, DatabaseError)
+                }
+              case other => Future.successful(badRequest(other.message, AuthyError))
+            } recover {
+              case e: Exception => serverError(e)
             }
 
           case _ => Future.successful(validationFailed("User with this email already exists"))
