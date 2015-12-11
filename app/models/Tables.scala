@@ -112,22 +112,22 @@ trait Tables {
    *  @param email Database column email SqlType(varchar), Length(255,true), Default(None)
    *  @param password Database column password SqlType(varchar), Length(255,true), Default(None)
    *  @param salt Database column salt SqlType(varchar), Length(255,true), Default(None)
-   *  @param verifyCode Database column verify_code SqlType(int4), Default(None)
    *  @param facebookId Database column facebook_id SqlType(varchar), Length(100,true), Default(None)
+   *  @param phoneCode Database column phone_code SqlType(varchar), Length(4,true)
    *  @param phone Database column phone SqlType(varchar), Length(16,true)
    *  @param userType Database column user_type SqlType(int4)
    *  @param verified Database column verified SqlType(bool), Default(false) */
-  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: Option[String] = None, verifyCode: Option[Int] = None, facebookId: Option[String] = None, phone: String, userType: Int, verified: Boolean = false)
+  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: Option[String] = None, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false)
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
-  implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Option[Int]], e5: GR[Boolean]): GR[UsersRow] = GR{
+  implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[UsersRow] = GR{
     prs => import prs._
-    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<?[String], <<?[Int], <<?[String], <<[String], <<[Int], <<[Boolean]))
+    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<?[String], <<?[String], <<[String], <<[String], <<[Int], <<[Boolean]))
   }
   /** Table description of table users. Objects of this class serve as prototypes for rows in queries. */
   class Users(_tableTag: Tag) extends Table[UsersRow](_tableTag, "users") {
-    def * = (id, createdDate, updatedDate, firstName, lastName, email, password, salt, verifyCode, facebookId, phone, userType, verified) <> (UsersRow.tupled, UsersRow.unapply)
+    def * = (id, createdDate, updatedDate, firstName, lastName, email, password, salt, facebookId, phoneCode, phone, userType, verified) <> (UsersRow.tupled, UsersRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(firstName), Rep.Some(lastName), email, password, salt, verifyCode, facebookId, Rep.Some(phone), Rep.Some(userType), Rep.Some(verified)).shaped.<>({r=>import r._; _1.map(_=> UsersRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7, _8, _9, _10, _11.get, _12.get, _13.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(firstName), Rep.Some(lastName), email, password, salt, facebookId, Rep.Some(phoneCode), Rep.Some(phone), Rep.Some(userType), Rep.Some(verified)).shaped.<>({r=>import r._; _1.map(_=> UsersRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7, _8, _9, _10.get, _11.get, _12.get, _13.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -145,10 +145,10 @@ trait Tables {
     val password: Rep[Option[String]] = column[Option[String]]("password", O.Length(255,varying=true), O.Default(None))
     /** Database column salt SqlType(varchar), Length(255,true), Default(None) */
     val salt: Rep[Option[String]] = column[Option[String]]("salt", O.Length(255,varying=true), O.Default(None))
-    /** Database column verify_code SqlType(int4), Default(None) */
-    val verifyCode: Rep[Option[Int]] = column[Option[Int]]("verify_code", O.Default(None))
     /** Database column facebook_id SqlType(varchar), Length(100,true), Default(None) */
     val facebookId: Rep[Option[String]] = column[Option[String]]("facebook_id", O.Length(100,varying=true), O.Default(None))
+    /** Database column phone_code SqlType(varchar), Length(4,true) */
+    val phoneCode: Rep[String] = column[String]("phone_code", O.Length(4,varying=true))
     /** Database column phone SqlType(varchar), Length(16,true) */
     val phone: Rep[String] = column[String]("phone", O.Length(16,varying=true))
     /** Database column user_type SqlType(int4) */
@@ -156,8 +156,12 @@ trait Tables {
     /** Database column verified SqlType(bool), Default(false) */
     val verified: Rep[Boolean] = column[Boolean]("verified", O.Default(false))
 
+    /** Uniqueness Index over (phoneCode,phone) (database name u_phone) */
+    val index1 = index("u_phone", (phoneCode, phone), unique=true)
+    /** Uniqueness Index over (email) (database name users_email_key) */
+    val index2 = index("users_email_key", email, unique=true)
     /** Uniqueness Index over (facebookId) (database name users_facebook_id_key) */
-    val index1 = index("users_facebook_id_key", facebookId, unique=true)
+    val index3 = index("users_facebook_id_key", facebookId, unique=true)
   }
   /** Collection-like TableQuery object for table Users */
   lazy val Users = new TableQuery(tag => new Users(tag))

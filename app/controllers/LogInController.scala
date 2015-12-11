@@ -22,11 +22,11 @@ import scala.concurrent.Future
 
 class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                 tokenProvider: TokenProvider,
-                                tokenStorage: TokenStorage,
-                                ws: WSClient)
-  extends BaseController(tokenStorage, dbConfigProvider) with FacebookCalls {
+                                val tokenStorage: TokenStorage,
+                                val ws: WSClient)
+  extends BaseController() with FacebookCalls {
 
-  override val wsClient: WSClient = ws
+  val db = dbConfigProvider.get.db
 
   def logIn = Action.async(BodyParsers.parse.json) { request =>
     val parseResult = request.body.validate[EmailLogInDto]

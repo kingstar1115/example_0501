@@ -27,7 +27,7 @@ class AuthyVerifyService @Inject()(ws: WSClient) {
   def sendVerifyCode(countryCode: Int = 1, phone: String) = {
     val requestDto = VerifyDto("sms", countryCode, phone)
     Try {
-      req("start")
+      req("start").withHeaders(HeaderNames.CONTENT_TYPE -> MimeTypes.JSON)
         .withQueryString("api_key" -> apiKey)
         .post(Json.toJson(requestDto))
     } match {
@@ -36,10 +36,10 @@ class AuthyVerifyService @Inject()(ws: WSClient) {
     }
   }
 
-  def checkVerifyCode(countryCode: Int, phone: String, verifyCode: String) = {
+  def checkVerifyCode(countryCode: String, phone: String, verifyCode: String) = {
     Try {
       req("check")
-        .withQueryString("api_key" -> apiKey, "country_code" -> countryCode.toString,
+        .withQueryString("api_key" -> apiKey, "country_code" -> countryCode,
           "phone_number" -> phone, "verification_code" -> verifyCode)
         .get()
     } match {
@@ -52,7 +52,6 @@ class AuthyVerifyService @Inject()(ws: WSClient) {
 
   def req(path: String) = {
     ws.url(s"$baseVerifyUrl/$path")
-      .withHeaders(HeaderNames.CONTENT_TYPE -> MimeTypes.JSON)
   }
 }
 

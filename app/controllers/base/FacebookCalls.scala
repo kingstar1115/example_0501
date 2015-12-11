@@ -10,7 +10,7 @@ import controllers.base.FacebookCalls._
 
 trait FacebookCalls {
 
-  val wsClient: WSClient
+  val ws: WSClient
 
   implicit val facebookResponseDtoReads: Reads[FacebookResponseDto] = (
       (JsPath \ "id").read[String] and
@@ -21,7 +21,7 @@ trait FacebookCalls {
                                  email: Option[String])
 
   def facebookMe(token: String) = {
-    wsClient.url(facebookMeUrl)
+    ws.url(facebookMeUrl)
       .withRequestTimeout(5000)
       .withQueryString("access_token" -> token, "fields" -> "email")
       .get()
