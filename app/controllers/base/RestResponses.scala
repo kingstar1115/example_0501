@@ -9,10 +9,8 @@ import play.api.mvc.Results._
 
 trait RestResponses {
 
-  implicit val simpleResponseFormat = Json.format[SimpleResponse]
-
   def ok[X](data: X)(implicit writes: Writes[X]) = {
-    Ok(Json.toJson[X](data)).as(MimeTypes.JSON)
+    Ok(toJson(ApiResponse(data))).as(MimeTypes.JSON)
   }
 
   def validationFailed[X](validationErrors: X)(implicit writes: Writes[X]) = {
@@ -20,24 +18,22 @@ trait RestResponses {
   }
 
   def badRequest[X](message: X, errorType: ErrorType)(implicit writes: Writes[X]) = {
-    BadRequest(createErrorResponse(ErrorResponse(message, errorType.name))).as(MimeTypes.JSON)
+    BadRequest(toJson(ApiResponse(message, errorType.name))).as(MimeTypes.JSON)
   }
 
   def forbidden[X](message: X, errorType: ErrorType)(implicit writes: Writes[X]) = {
-    Forbidden(createErrorResponse(ErrorResponse(message, errorType.name))).as(MimeTypes.JSON)
+    Forbidden(toJson(ApiResponse(message, errorType.name))).as(MimeTypes.JSON)
   }
 
   def serverError(t: Throwable) = {
-    InternalServerError(createErrorResponse(ErrorResponse(t.getMessage, ServerError.name))).as(MimeTypes.JSON)
+    InternalServerError(toJson(ApiResponse(t.getMessage, ServerError.name))).as(MimeTypes.JSON)
   }
 
-  private def createErrorResponse[X](error: ErrorResponse[X])(implicit writes: Writes[X]) = {
-    Json.obj("message" -> Json.toJson[X](error.message), "code" -> JsString(error.code))
+  def toJson[X](response: ApiResponse[X])(implicit writes: Writes[X]) = {
+    Json.obj("message" -> Json.toJson[X](response.message), "code" -> JsString(response.code))
   }
 }
 
-case class ErrorResponse[X](message: X, code: String)
-
-case class SimpleResponse(message: String)
+case class ApiResponse[X](message: X, code: String = "200")
 
 

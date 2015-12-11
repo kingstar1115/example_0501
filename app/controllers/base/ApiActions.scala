@@ -13,9 +13,9 @@ trait ApiActions extends RestResponses {
   val tokenStorage: TokenStorage
 
   val transformAction = new UserAction
-  val authCheckAction = new AuthCheckAction
+  val authorizedAction = new AuthCheckAction
 
-  val authenticatedAction = transformAction andThen authCheckAction
+  val authorized = transformAction andThen authorizedAction
 
 
   class UserRequest[A](val token: Option[AuthToken], request: Request[A]) extends WrappedRequest[A](request)

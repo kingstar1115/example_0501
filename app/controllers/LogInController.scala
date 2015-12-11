@@ -48,9 +48,9 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  def logOut = authenticatedAction { request =>
+  def logOut = authorized { request =>
     tokenStorage.deleteToken(request.token.get)
-    ok(SimpleResponse("Success"))
+    ok("Success log out")
   }
 
   def facebookLogIn = Action.async(BodyParsers.parse.json) { request =>

@@ -1,7 +1,3 @@
-# Routes
-# This file defines all application routes (Higher priority routes first)
-# ~~~~
-
 # Home page
 GET         /                                 @controllers.Application.index
 
@@ -17,3 +13,4 @@ GET         /api/v1/log-out                   @controllers.LogInController.logOu
 #Phone verification
 POST        /api/v1/phone/verify/:code        @controllers.PhoneVerificationController.verifyCode(code)
 POST        /api/v1/phone/resend              @controllers.PhoneVerificationController.resendCode
+POST        /api/v1/phone/change              @controllers.PhoneVerificationController.changePhoneNumber

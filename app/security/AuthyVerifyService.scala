@@ -31,7 +31,7 @@ class AuthyVerifyService @Inject()(ws: WSClient) {
         .withQueryString("api_key" -> apiKey)
         .post(Json.toJson(requestDto))
     } match {
-      case Success(wsResponse) => wsResponse.map{resp => resp.json.as[VerifyResponseDto]}
+      case Success(wsResponse) => wsResponse.map { resp => resp.json.as[AuthyResponseDto] }
       case Failure(e) => Future.failed(e)
     }
   }
@@ -43,9 +43,9 @@ class AuthyVerifyService @Inject()(ws: WSClient) {
           "phone_number" -> phone, "verification_code" -> verifyCode)
         .get()
     } match {
-      case Success(wsResponse) => wsResponse.map(_.json.as[CheckResponseDto])
+      case Success(wsResponse) => wsResponse.map(_.json.as[AuthyResponseDto])
       case Failure(e) =>
-        val errorDto = CheckResponseDto(success = false, s"Failed to send verify request. Cause: ${e.getMessage}}")
+        val errorDto = AuthyResponseDto(success = false, s"Failed to send verify request. Cause: ${e.getMessage}}")
         Future.successful(errorDto)
     }
   }
@@ -58,15 +58,10 @@ class AuthyVerifyService @Inject()(ws: WSClient) {
 object AuthyVerifyService {
 
   case class VerifyDto(via: String,
-                       country_code: Int,
-                       phone_number: String)
+                       countryCode: Int,
+                       phoneNumber: String)
 
-  case class VerifyResponseDto(success: Boolean,
-                               message: String,
-                               isPorted: Option[Boolean],
-                               isCellphone: Option[Boolean])
-
-  case class CheckResponseDto(success: Boolean,
+  case class AuthyResponseDto(success: Boolean,
                               message: String)
 
   implicit val verifyDtoWrites: Writes[VerifyDto] = (
@@ -75,15 +70,8 @@ object AuthyVerifyService {
       (__ \ "phone_number").write[String]
     )(unlift(VerifyDto.unapply))
 
-  implicit val verifyResponseReads: Reads[VerifyResponseDto] = (
+  implicit val authyResponseDtoReads: Reads[AuthyResponseDto] = (
       (__ \ "success").read[Boolean] and
-      (__ \ "message").read[String] and
-      (__ \ "is_ported").readNullable[Boolean] and
-      (__ \ "is_cellphone").readNullable[Boolean]
-    )(VerifyResponseDto.apply _)
-
-  implicit val checkResponseDtoReads: Reads[CheckResponseDto] = (
-    (__ \ "success").read[Boolean] and
       (__ \ "message").read[String]
-    )(CheckResponseDto.apply _)
+    )(AuthyResponseDto.apply _)
 }

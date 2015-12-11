@@ -41,7 +41,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         } yield user
         db.run(existsQuery.length.result).flatMap {
           case x if x == 0 =>
-            verifyService.sendVerifyCode(dto.phoneCode.toInt, dto.phoneNumber).flatMap {
+            verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
               case verifyResult if verifyResult.success =>
                 val user = emailSighUpUser(dto)
                 val insertQuery = Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.salt,
@@ -84,11 +84,11 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
                   db.run(existsQuery.length.result).flatMap {
                     case x if x == 0 =>
-                      verifyService.sendVerifyCode(dto.phoneCode.toInt, dto.phoneNumber).flatMap {
+                      verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
                         case verifyResult if verifyResult.success =>
                           val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.facebookId,
                             u.userType)) returning Users.map(_.id)) += (dto.firstName, dto.lastName, facebookDto.email,
-                            dto.phoneCode, dto.phoneNumber, Some(facebookDto.id), 1)
+                            dto.phoneCountryCode, dto.phoneNumber, Some(facebookDto.id), 1)
 
                           db.run(insertQuery.asTry).map {
                             case Success(insertResult) =>
@@ -122,7 +122,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   private def emailSighUpUser(dto: EmailSignUpDto) = {
     val salt = generateSalt
     val hashedPassword = dto.password.bcrypt(salt)
-    (dto.firstName, dto.lastName, Option(dto.email), dto.phoneCode, dto.phoneNumber, Option(salt)
+    (dto.firstName, dto.lastName, Option(dto.email), dto.phoneCountryCode, dto.phoneNumber, Option(salt)
       , Option(hashedPassword), 0)
   }
 }
@@ -132,21 +132,21 @@ object SignUpController {
 
   case class EmailSignUpDto(firstName: String,
                             lastName: String,
-                            phoneCode: String,
+                            phoneCountryCode: String,
                             phoneNumber: String,
                             email: String,
                             password: String)
 
   case class FacebookSighUpDto(firstName: String,
                                lastName: String,
-                               phoneCode: String,
+                               phoneCountryCode: String,
                                phoneNumber: String,
                                token: String)
 
   implicit val emailSignUpDtoReads: Reads[EmailSignUpDto] = (
       (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
-      (JsPath \ "phoneCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
+      (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "email").read[String](email) and
       (JsPath \ "password").read[String](minLength[String](6) keepAnd maxLength[String](32))
@@ -155,7 +155,7 @@ object SignUpController {
   implicit val facebookSighUpDtoReads: Reads[FacebookSighUpDto] = (
       (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
-      (JsPath \ "phoneCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
+      (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "token").read[String](minLength[String](10))
     )(FacebookSighUpDto.apply _)
