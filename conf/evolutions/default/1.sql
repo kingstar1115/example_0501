@@ -9,11 +9,12 @@ CREATE TABLE IF NOT EXISTS users (
   email        VARCHAR(255) UNIQUE,
   password     VARCHAR(255),
   salt         VARCHAR(255),
-  verify_code  INT,
   facebook_id  VARCHAR(100) UNIQUE,
+  phone_code   VARCHAR(4)   NOT NULL,
   phone        VARCHAR(16)  NOT NULL,
   user_type    INTEGER      NOT NULL,
-  verified     BOOLEAN      NOT NULL DEFAULT FALSE
+  verified     BOOLEAN      NOT NULL DEFAULT FALSE,
+  CONSTRAINT u_phone UNIQUE (phone_code, phone)
 );
 
 CREATE TABLE IF NOT EXISTS locations (

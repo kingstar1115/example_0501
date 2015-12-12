@@ -2,20 +2,19 @@ package controllers
 
 import javax.inject.Inject
 
+import com.github.t3hnar.bcrypt._
 import commons.enums.FacebookError
-import controllers.LogInController.{FacebookLogInDto, EmailLogInDto}
+import controllers.LogInController.{EmailLogInDto, FacebookLogInDto}
 import controllers.base._
 import models.Tables
 import play.api.db.slick.DatabaseConfigProvider
-import play.api.libs.json.Reads._
 import play.api.libs.functional.syntax._
-import play.api.libs.json.{JsSuccess, JsError, JsPath, Reads}
+import play.api.libs.json.Reads._
+import play.api.libs.json.{JsError, JsPath, JsSuccess, Reads}
 import play.api.libs.ws.WSClient
-import play.api.mvc.{BodyParsers, Action, Controller}
+import play.api.mvc.{Action, BodyParsers}
 import security._
-import slick.driver.JdbcProfile
 import slick.driver.PostgresDriver.api._
-import com.github.t3hnar.bcrypt._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -23,11 +22,11 @@ import scala.concurrent.Future
 
 class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                 tokenProvider: TokenProvider,
-                                tokenStorage: TokenStorage,
-                                ws: WSClient)
-  extends BaseController(tokenStorage, dbConfigProvider) with FacebookCalls {
+                                val tokenStorage: TokenStorage,
+                                val ws: WSClient)
+  extends BaseController() with FacebookCalls {
 
-  override val wsClient: WSClient = ws
+  val db = dbConfigProvider.get.db
 
   def logIn = Action.async(BodyParsers.parse.json) { request =>
     val parseResult = request.body.validate[EmailLogInDto]
@@ -49,9 +48,9 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  def logOut = authenticatedAction { request =>
+  def logOut = authorized { request =>
     tokenStorage.deleteToken(request.token.get)
-    ok(SimpleResponse("Success"))
+    ok("Success log out")
   }
 
   def facebookLogIn = Action.async(BodyParsers.parse.json) { request =>
@@ -66,7 +65,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
               wsResponse.json.validate[FacebookResponseDto] match {
                 case JsError(e) => Future.successful(badRequest("Invalid token", FacebookError))
 
-                case JsSuccess(facebookDto, jsPath) =>
+                case JsSuccess(facebookDto, p) =>
                   val userQuery = for {
                     u <- Tables.Users if u.facebookId.isDefined && u.facebookId === facebookDto.id
                   } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType)

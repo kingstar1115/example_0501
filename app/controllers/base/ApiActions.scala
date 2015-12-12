@@ -10,19 +10,19 @@ import scala.concurrent.Future
 
 trait ApiActions extends RestResponses {
 
-  val ts: TokenStorage
+  val tokenStorage: TokenStorage
 
   val transformAction = new UserAction
-  val authCheckAction = new AuthCheckAction
+  val authorizedAction = new AuthCheckAction
 
-  val authenticatedAction = transformAction andThen authCheckAction
+  val authorized = transformAction andThen authorizedAction
 
 
   class UserRequest[A](val token: Option[AuthToken], request: Request[A]) extends WrappedRequest[A](request)
 
   class UserAction extends ActionBuilder[UserRequest] with ActionTransformer[Request, UserRequest] {
     def transform[A](request: Request[A]) = Future.successful {
-      val token = ts.getToken(request.headers.get(HeaderNames.AUTHORIZATION).getOrElse(""))
+      val token = tokenStorage.getToken(request.headers.get(HeaderNames.AUTHORIZATION).getOrElse(""))
       new UserRequest(token, request)
     }
   }
