@@ -20,7 +20,7 @@ class AuthyVerifyService @Inject()(ws: WSClient,
                                     config: Configuration) {
 
   val apiKey = config.getString("authy.key").get
-  val baseVerifyUrl = "http://sandbox-api.authy.com/protected/json/phones/verification"
+  val baseVerifyUrl = "https://api.authy.com/protected/json/phones/verification"
 
   /**
    * @param phone phone number to verify
