@@ -3,6 +3,7 @@ package security
 import javax.inject.Inject
 
 import com.google.inject.Singleton
+import play.api.Configuration
 import play.api.http.{HeaderNames, MimeTypes}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Writes, _}
@@ -15,10 +16,11 @@ import scala.util.{Failure, Success, Try}
 
 
 @Singleton
-class AuthyVerifyService @Inject()(ws: WSClient) {
+class AuthyVerifyService @Inject()(ws: WSClient,
+                                    config: Configuration) {
 
-  val apiKey = "BYIz4mMkij1cEu0gNpxG7c32pyb1U3iY"
-  val baseVerifyUrl = "https://api.authy.com/protected/json/phones/verification"
+  val apiKey = config.getString("authy.key").get
+  val baseVerifyUrl = "http://sandbox-api.authy.com/protected/json/phones/verification"
 
   /**
    * @param phone phone number to verify
