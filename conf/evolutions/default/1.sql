@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone        VARCHAR(16)  NOT NULL,
   user_type    INTEGER      NOT NULL,
   verified     BOOLEAN      NOT NULL DEFAULT FALSE,
+  code         VARCHAR(32),
   CONSTRAINT u_phone UNIQUE (phone_code, phone)
 );
 

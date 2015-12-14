@@ -35,7 +35,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
       case JsSuccess(dto, jsPath) =>
         val userQuery = for {
-          u <- Tables.Users if u.email === dto.email
+          u <- Tables.Users if u.email === dto.email && u.userType === 0
         } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.password, u.salt)
         db.run(userQuery.result).map { result =>
           result.headOption.filter { r =>
@@ -67,7 +67,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
                 case JsSuccess(facebookDto, p) =>
                   val userQuery = for {
-                    u <- Tables.Users if u.facebookId.isDefined && u.facebookId === facebookDto.id
+                    u <- Tables.Users if u.facebookId.isDefined && u.facebookId === facebookDto.id && u.userType === 1
                   } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType)
                   db.run(userQuery.take(1).result).map { resultSet =>
                     resultSet.headOption.map { r =>

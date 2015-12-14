@@ -21,6 +21,10 @@ trait RestResponses {
     BadRequest(toJson(ApiResponse(message, errorType.name))).as(MimeTypes.JSON)
   }
 
+  def badRequest[X](message: X)(implicit writes: Writes[X]) = {
+    BadRequest(toJson(ApiResponse(message, "400"))).as(MimeTypes.JSON)
+  }
+
   def forbidden[X](message: X, errorType: ErrorType)(implicit writes: Writes[X]) = {
     Forbidden(toJson(ApiResponse(message, errorType.name))).as(MimeTypes.JSON)
   }

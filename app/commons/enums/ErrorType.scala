@@ -16,3 +16,5 @@ case object FacebookError extends ErrorType("FacebookError")
 
 case object AuthyError extends ErrorType("AuthyError")
 
+case object CommonError extends ErrorType("CommonError")
+

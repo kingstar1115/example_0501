@@ -8,6 +8,8 @@ import play.api.libs.Crypto
 class TokenProvider @Inject()(crypto: Crypto) {
 
   def generateToken(userInfo: UserInfo) = {
-    AuthToken(crypto.generateToken, userInfo)
+    AuthToken(generateKey, userInfo)
   }
+
+  def generateKey = crypto.generateToken
 }

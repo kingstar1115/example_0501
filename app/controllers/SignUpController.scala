@@ -3,8 +3,8 @@ package controllers
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
-import commons.enums.{AuthyError, DatabaseError, FacebookError}
-import controllers.SignUpController.{EmailSignUpDto, FacebookSighUpDto}
+import commons.enums.{AuthyError, CommonError, DatabaseError, FacebookError}
+import controllers.SignUpController.{EmailDto, EmailSignUpDto, FacebookSighUpDto}
 import controllers.base.{BaseController, FacebookCalls}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
@@ -77,22 +77,22 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
               wsResponse.json.validate[FacebookResponseDto] match {
                 case JsError(e) => Future.successful(badRequest("Invalid token", FacebookError))
 
-                case JsSuccess(facebookDto, p) =>
+                case JsSuccess(fDto, p) =>
                   val existsQuery = for {
-                    u <- Users if u.facebookId.isDefined && u.facebookId === facebookDto.id
+                    u <- Users if (u.facebookId === fDto.id).isDefined || (u.email === fDto.email)
                   } yield u
 
                   db.run(existsQuery.length.result).flatMap {
                     case x if x == 0 =>
                       verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
                         case verifyResult if verifyResult.success =>
-                          val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.facebookId,
-                            u.userType)) returning Users.map(_.id)) += (dto.firstName, dto.lastName, facebookDto.email,
-                            dto.phoneCountryCode, dto.phoneNumber, Some(facebookDto.id), 1)
+                          val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
+                            u.facebookId, u.userType)) returning Users.map(_.id)) +=(fDto.firstName, fDto.lastName,
+                            fDto.email, dto.phoneCountryCode, dto.phoneNumber, Some(fDto.id), 1)
 
                           db.run(insertQuery.asTry).map {
                             case Success(insertResult) =>
-                              val token = getToken(insertResult, (dto.firstName, dto.lastName, facebookDto.email, 1))
+                              val token = getToken(insertResult, (fDto.firstName, fDto.lastName, fDto.email, 1))
                               ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
                                 token.userInfo.userType, token.userInfo.verified))(AuthToken.authResponseFormat)
 
@@ -109,6 +109,16 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
             case _ => Future.successful(badRequest(s"Failed to fetch data. Code - ${wsResponse.status}", FacebookError))
           }
         }
+    }
+  }
+
+  def emailExists = Action.async(BodyParsers.parse.json[EmailDto]) { request =>
+    val existsQuery = for {
+      u <- Users if u.email === request.body.email
+    } yield u
+    db.run(existsQuery.length.result).map {
+      case 0 => ok(true)
+      case _ => badRequest(false)
     }
   }
 
@@ -137,11 +147,11 @@ object SignUpController {
                             email: String,
                             password: String)
 
-  case class FacebookSighUpDto(firstName: String,
-                               lastName: String,
-                               phoneCountryCode: String,
+  case class FacebookSighUpDto(phoneCountryCode: String,
                                phoneNumber: String,
                                token: String)
+
+  case class EmailDto(email: String)
 
   implicit val emailSignUpDtoReads: Reads[EmailSignUpDto] = (
       (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
@@ -153,11 +163,10 @@ object SignUpController {
     )(EmailSignUpDto.apply _)
 
   implicit val facebookSighUpDtoReads: Reads[FacebookSighUpDto] = (
-      (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
-      (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "token").read[String](minLength[String](10))
     )(FacebookSighUpDto.apply _)
 
+  implicit val emailDtoReads: Reads[EmailDto] = (__ \ 'email).read[String](email).map(EmailDto)
 }

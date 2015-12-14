@@ -14,16 +14,20 @@ trait FacebookCalls {
 
   implicit val facebookResponseDtoReads: Reads[FacebookResponseDto] = (
       (JsPath \ "id").read[String] and
-      (JsPath \ "email").readNullable[String](email)
+      (JsPath \ "email").readNullable[String] and
+      (JsPath \ "first_name").read[String] and
+      (JsPath \ "last_name").read[String]
     )(FacebookResponseDto.apply _)
 
   case class FacebookResponseDto(id: String,
-                                 email: Option[String])
+                                 email: Option[String],
+                                 firstName: String,
+                                 lastName: String)
 
   def facebookMe(token: String) = {
     ws.url(facebookMeUrl)
       .withRequestTimeout(5000)
-      .withQueryString("access_token" -> token, "fields" -> "email")
+      .withQueryString("access_token" -> token, "fields" -> "id,first_name,last_name,email")
       .get()
   }
 }
