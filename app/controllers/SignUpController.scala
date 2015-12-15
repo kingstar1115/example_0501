@@ -117,8 +117,8 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
       u <- Users if u.email === request.body.email
     } yield u
     db.run(existsQuery.length.result).map {
-      case 0 => ok(true)
-      case _ => badRequest(false)
+      case 0 => ok(true.toString)
+      case _ => badRequest(false.toString)
     }
   }
 
