@@ -1,4 +1,4 @@
-# Home page
+# Home
 GET         /                                 @controllers.Application.index
 
 #Sign up
