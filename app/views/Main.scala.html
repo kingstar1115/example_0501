@@ -1,0 +1,30 @@
+@(title: String = "")(content: Html)
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>play-example-form</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+    </head>
+    <body>
+        <div class="navbar navbar-inverse" role="navigation">
+            <div class="container">
+                <div class="navbar-header">
+                    <a class="navbar-brand" href="">Qweex</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            @content
+        </div>
+        <script src="http://code.jquery.com/jquery.min.js"></script>
+        <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+        <script type="text/javascript">
+            jQuery(function ($) {
+                $("[rel='tooltip']").tooltip()
+            });
+        </script>
+    </body>
+</html>

@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 
 @Singleton
 class AuthyVerifyService @Inject()(ws: WSClient,
-                                    config: Configuration) {
+                                   config: Configuration) {
 
   val apiKey = config.getString("authy.key").get
   val baseVerifyUrl = "https://api.authy.com/protected/json/phones/verification"

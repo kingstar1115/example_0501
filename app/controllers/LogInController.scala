@@ -3,10 +3,12 @@ package controllers
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
-import commons.enums.FacebookError
+import commons.enums.{CommonError, FacebookError}
 import controllers.LogInController.{EmailLogInDto, FacebookLogInDto}
+import controllers.SignUpController.EmailDto
 import controllers.base._
 import models.Tables
+import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
@@ -14,6 +16,7 @@ import play.api.libs.json.{JsError, JsPath, JsSuccess, Reads}
 import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, BodyParsers}
 import security._
+import services.EmailService
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -23,7 +26,8 @@ import scala.concurrent.Future
 class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                 tokenProvider: TokenProvider,
                                 val tokenStorage: TokenStorage,
-                                val ws: WSClient)
+                                val ws: WSClient,
+                                mailService: EmailService)
   extends BaseController() with FacebookCalls {
 
   val db = dbConfigProvider.get.db
@@ -81,6 +85,24 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
           }
         }
     }
+  }
+
+  def forgotPassword = Action.async(BodyParsers.parse.json[EmailDto]) { implicit request =>
+    val dto = request.body
+    val userQuery = for {u <- Users if u.email === dto.email} yield u
+    db.run(userQuery.result.headOption)
+      .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
+      .flatMap {
+        case Left(error) => Future.successful(error)
+        case Right(user) =>
+          val code = tokenProvider.generateKey
+          val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
+          mailService.sendPasswordForgetEmail(user.email.get, recoverURL)
+          db.run(Users.map(_.code).update(Option(code))).map {
+            case 1 => ok("Instruction send to specified email")
+            case _ => badRequest("Oops, something went wrong", CommonError)
+          }
+      }
   }
 
   private def tokenOkResponse(userInfo: UserInfo) = {

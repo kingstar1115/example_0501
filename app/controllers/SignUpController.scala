@@ -3,7 +3,7 @@ package controllers
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
-import commons.enums.{AuthyError, CommonError, DatabaseError, FacebookError}
+import commons.enums.{AuthyError, DatabaseError, FacebookError}
 import controllers.SignUpController.{EmailDto, EmailSignUpDto, FacebookSighUpDto}
 import controllers.base.{BaseController, FacebookCalls}
 import models.Tables._
