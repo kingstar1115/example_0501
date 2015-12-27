@@ -1,5 +1,9 @@
 package controllers
 
+import java.io.File
+import java.nio.file.Files
+import java.util.UUID
+import javax.imageio.ImageIO
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
@@ -7,20 +11,26 @@ import commons.enums.DatabaseError
 import controllers.UserProfileController._
 import controllers.base.BaseController
 import models.Tables
+import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
-import play.api.mvc.BodyParsers
+import play.api.mvc.{Action, BodyParsers}
 import security.TokenStorage
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 
 class UserProfileController @Inject()(val tokenStorage: TokenStorage,
-                                      dbConfigProvider: DatabaseConfigProvider) extends BaseController {
+                                      dbConfigProvider: DatabaseConfigProvider,
+                                      application: play.Application) extends BaseController {
+
+  val fileSeparator = File.separatorChar
+  val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}public${fileSeparator}files")
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
     val db = dbConfigProvider.get.db
@@ -48,6 +58,41 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
           }.getOrElse(Future.successful(badRequest("Can't find user")))
         }
     }
+  }
+
+  def uploadProfilePicture = authorized.async(BodyParsers.parse.multipartFormData) { request =>
+    request.body.file("picture").map { requestFile =>
+      val userId = request.token.get.userInfo.id
+      val tempFileName = s"temp-${requestFile.filename}"
+      val tempFile = requestFile.ref.moveTo(new File(picturesFolder, tempFileName))
+      Try(ImageIO.read(tempFile)).filter(image => image != null).flatMap(image => Try {
+        val extension = tempFile.getName.split("\\.").last
+        val newFileName = s"${UUID.randomUUID()}.$extension"
+        val newFile = new File(picturesFolder, newFileName)
+        Files.copy(tempFile.toPath, newFile.toPath)
+        tempFile.delete
+
+        val pictureQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture)
+        val updateQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture).update(Some(newFileName))
+        val db = dbConfigProvider.get.db
+        db.run(pictureQuery.result.head zip updateQuery).map { queryResult =>
+          queryResult._1.map { oldFileName =>
+            val oldFile = new File(picturesFolder, oldFileName)
+            oldFile.delete()
+          }
+          ok(newFileName)
+        }
+      }) match {
+        case Success(result) => result
+        case Failure(e) =>
+          Logger.debug("Failed to update profile picture", e)
+          Future.successful(badRequest(e.getMessage))
+      }
+    }.getOrElse(Future.successful(badRequest("Field picture required")))
+  }
+
+  def getProfilePicture(fileName: String) = Action { request =>
+    Ok.sendFile(new File(picturesFolder, fileName))
   }
 }
 
