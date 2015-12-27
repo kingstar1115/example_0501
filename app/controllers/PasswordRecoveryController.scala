@@ -57,11 +57,11 @@ class PasswordRecoveryController @Inject()(dbConfigProvider: DatabaseConfigProvi
         val userQuery = for {u <- Tables.Users if u.code === successForm.code} yield u
         db.run(userQuery.result.headOption).flatMap { userOpt =>
           userOpt.map { user =>
-            val userSalt = user.salt.getOrElse(generateSalt)
+            val userSalt = user.salt
             val newPassword = successForm.password.bcrypt(userSalt)
-            val updateQuery = Tables.Users.map(user => (user.code, user.password, user.salt))
+            val updateQuery = Tables.Users.map(user => (user.code, user.password))
               .filter(_._1 === user.code)
-              .update(None, Some(newPassword), Some(userSalt))
+              .update(None, Some(newPassword))
             db.run(updateQuery).map(count => Redirect(routes.PasswordRecoveryController.successPage()))
           }.getOrElse(Future.successful(BadRequest))
         }

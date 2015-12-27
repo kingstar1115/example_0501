@@ -42,12 +42,11 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
           u <- Tables.Users if u.email === dto.email && u.userType === 0
         } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.password, u.salt)
         db.run(userQuery.result).map { result =>
-          result.headOption.filter { r =>
-            r._8.isDefined && dto.password.bcrypt(r._8.get) == r._7.get
-          }.map { r =>
-            val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6)
-            tokenOkResponse(userInfo)
-          }.getOrElse(validationFailed("Wrong email or password"))
+          result.headOption.filter(r => dto.password.bcrypt(r._8) == r._7.get)
+            .map { r =>
+              val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6)
+              tokenOkResponse(userInfo)
+            }.getOrElse(validationFailed("Wrong email or password"))
         }
     }
   }

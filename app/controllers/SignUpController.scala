@@ -79,7 +79,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
                 case JsSuccess(fDto, p) =>
                   val existsQuery = for {
-                    u <- Users if (u.facebookId === fDto.id).isDefined || (u.email === fDto.email)
+                    u <- Users if u.facebookId === fDto.id || u.email === fDto.email
                   } yield u
 
                   db.run(existsQuery.length.result).flatMap {
@@ -87,8 +87,8 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                       verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
                         case verifyResult if verifyResult.success =>
                           val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
-                            u.facebookId, u.userType)) returning Users.map(_.id)) +=(fDto.firstName, fDto.lastName,
-                            fDto.email, dto.phoneCountryCode, dto.phoneNumber, Some(fDto.id), 1)
+                            u.facebookId, u.userType, u.salt)) returning Users.map(_.id)) +=(fDto.firstName, fDto.lastName,
+                            fDto.email, dto.phoneCountryCode, dto.phoneNumber, Some(fDto.id), 1, generateSalt)
 
                           db.run(insertQuery.asTry).map {
                             case Success(insertResult) =>
@@ -132,7 +132,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   private def emailSighUpUser(dto: EmailSignUpDto) = {
     val salt = generateSalt
     val hashedPassword = dto.password.bcrypt(salt)
-    (dto.firstName, dto.lastName, Option(dto.email), dto.phoneCountryCode, dto.phoneNumber, Option(salt)
+    (dto.firstName, dto.lastName, Option(dto.email), dto.phoneCountryCode, dto.phoneNumber, salt
       , Option(hashedPassword), 0)
   }
 }
