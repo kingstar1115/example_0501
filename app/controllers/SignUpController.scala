@@ -51,7 +51,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                   case Success(insertResult) =>
                     val token = getToken(insertResult, (user._1, user._2, user._3, 0))
                     ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                      0, token.userInfo.verified))(AuthToken.authResponseFormat)
+                      0, token.userInfo.verified, None))(AuthToken.authResponseFormat)
 
                   case Failure(e) => badRequest(e.getMessage, DatabaseError)
                 }
@@ -94,7 +94,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                             case Success(insertResult) =>
                               val token = getToken(insertResult, (fDto.firstName, fDto.lastName, fDto.email, 1))
                               ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                                token.userInfo.userType, token.userInfo.verified))(AuthToken.authResponseFormat)
+                                token.userInfo.userType, token.userInfo.verified, None))(AuthToken.authResponseFormat)
 
                             case Failure(e) => badRequest(e.getMessage, DatabaseError)
                           }
@@ -124,7 +124,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
   private def getToken(id: Integer,
                        user: (String, String, Option[String], Int)) = {
-    val userInfo = UserInfo(id, user._3, user._1, user._2, verified = false, user._4)
+    val userInfo = UserInfo(id, user._3, user._1, user._2, verified = false, user._4, None)
     val token = tokenProvider.generateToken(userInfo)
     tokenStorage.setToken(token)
   }

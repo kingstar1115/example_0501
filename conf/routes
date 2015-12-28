@@ -1,29 +1,31 @@
 # API controllers
 # Sign up
-POST        /api/v1/sign-up                        @controllers.SignUpController.emailSignUp
-POST        /api/v1/facebook-sign-up               @controllers.SignUpController.facebookSignUp
-POST        /api/v1/email/is-valid                 @controllers.SignUpController.emailExists
+POST        /api/v1/sign-up                          @controllers.SignUpController.emailSignUp
+POST        /api/v1/facebook-sign-up                 @controllers.SignUpController.facebookSignUp
+POST        /api/v1/email/is-valid                   @controllers.SignUpController.emailExists
 
 # Log in
-POST        /api/v1/log-in                         @controllers.LogInController.logIn
-POST        /api/v1/facebook-log-in                @controllers.LogInController.facebookLogIn
-GET         /api/v1/log-out                        @controllers.LogInController.logOut
-POST        /api/v1/forget-password                @controllers.LogInController.forgotPassword
+POST        /api/v1/log-in                           @controllers.LogInController.logIn
+POST        /api/v1/facebook-log-in                  @controllers.LogInController.facebookLogIn
+GET         /api/v1/log-out                          @controllers.LogInController.logOut
+POST        /api/v1/forget-password                  @controllers.LogInController.forgotPassword
 
 # Phone verification
-POST        /api/v1/phone/verify/:code             @controllers.PhoneVerificationController.verifyCode(code)
-POST        /api/v1/phone/resend                   @controllers.PhoneVerificationController.resendCode
-POST        /api/v1/phone/change                   @controllers.PhoneVerificationController.changePhoneNumber
+POST        /api/v1/phone/verify/:code               @controllers.PhoneVerificationController.verifyCode(code)
+POST        /api/v1/phone/resend                     @controllers.PhoneVerificationController.resendCode
+POST        /api/v1/phone/change                     @controllers.PhoneVerificationController.changePhoneNumber
 
 # User profile
-POST        /api/v1/profile/change-password        @controllers.UserProfileController.changePassword
+POST        /api/v1/profile/change-password          @controllers.UserProfileController.changePassword
+POST        /api/v1/profile/picture                  @controllers.UserProfileController.uploadProfilePicture
+GET         /api/v1/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(fileName)
 
 # Web controllers
 # Password recovery
-GET         /password-recover/success              @controllers.PasswordRecoveryController.successPage
-GET         /password-recover/not-found            @controllers.PasswordRecoveryController.notFound
-GET         /password-recover/:code                @controllers.PasswordRecoveryController.getRecoverPasswordPage(code: String)
-POST        /password-recover                      @controllers.PasswordRecoveryController.submitForm
+GET         /password-recover/success                @controllers.PasswordRecoveryController.successPage
+GET         /password-recover/not-found              @controllers.PasswordRecoveryController.notFound
+GET         /password-recover/:code                  @controllers.PasswordRecoveryController.getRecoverPasswordPage(code: String)
+POST        /password-recover                        @controllers.PasswordRecoveryController.submitForm
 
 # Home
-GET         /                                      @controllers.Application.index
+GET         /                                        @controllers.Application.index

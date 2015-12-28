@@ -40,11 +40,11 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
       case JsSuccess(dto, jsPath) =>
         val userQuery = for {
           u <- Tables.Users if u.email === dto.email && u.userType === 0
-        } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.password, u.salt)
+        } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.password, u.salt, u.profilePicture)
         db.run(userQuery.result).map { result =>
           result.headOption.filter(r => dto.password.bcrypt(r._8) == r._7.get)
             .map { r =>
-              val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6)
+              val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6, r._9)
               tokenOkResponse(userInfo)
             }.getOrElse(validationFailed("Wrong email or password"))
         }
@@ -71,10 +71,10 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                 case JsSuccess(facebookDto, p) =>
                   val userQuery = for {
                     u <- Tables.Users if u.facebookId.isDefined && u.facebookId === facebookDto.id && u.userType === 1
-                  } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType)
+                  } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.profilePicture)
                   db.run(userQuery.take(1).result).map { resultSet =>
                     resultSet.headOption.map { r =>
-                      val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6)
+                      val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6, r._7)
                       tokenOkResponse(userInfo)
                     }.getOrElse(validationFailed("Can't find user"))
                   }
@@ -108,7 +108,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     val token = tokenProvider.generateToken(userInfo)
     tokenStorage.setToken(token)
     ok(AuthResponse(token.key, userInfo.firstName, userInfo.lastName,
-      userInfo.userType, userInfo.verified))(AuthToken.authResponseFormat)
+      userInfo.userType, userInfo.verified, userInfo.picture))(AuthToken.authResponseFormat)
   }
 }
 
