@@ -11,13 +11,15 @@ case class UserInfo(id: Int,
                     firstName: String,
                     lastName: String,
                     verified: Boolean,
-                    userType: Int)
+                    userType: Int,
+                    picture: Option[String])
 
 case class AuthResponse(key: String,
                         firstName: String,
                         lastName: String,
                         userType: Int,
-                        verified: Boolean)
+                        verified: Boolean,
+                        picture: Option[String])
 
 object AuthToken {
   implicit val userInfoFormat = Json.format[UserInfo]

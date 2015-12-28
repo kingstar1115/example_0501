@@ -38,7 +38,7 @@ class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProv
                 val updatedToken = token.copy(userInfo = user.copy(verified = true))
                 tokenStorage.updateToken(updatedToken)
                 ok(AuthResponse(updatedToken.key, updatedToken.userInfo.firstName, updatedToken.userInfo.lastName,
-                  0, updatedToken.userInfo.verified))(AuthToken.authResponseFormat)
+                  0, updatedToken.userInfo.verified, updatedToken.userInfo.picture))(AuthToken.authResponseFormat)
               case _ => badRequest("Can't verify user", DatabaseError)
             }
 
