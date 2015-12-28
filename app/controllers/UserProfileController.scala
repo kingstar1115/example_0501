@@ -64,6 +64,11 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     request.body.file("picture").map { requestFile =>
       val userId = request.token.get.userInfo.id
       val tempFileName = s"temp-${requestFile.filename}"
+      if (!picturesFolder.exists()) {
+        Logger.info("Creating files directory")
+        val isCreated = picturesFolder.mkdir()
+        Logger.info(s"File directory created - $isCreated")
+      }
       val tempFile = requestFile.ref.moveTo(new File(picturesFolder, tempFileName))
       Try(ImageIO.read(tempFile)).filter(image => image != null).flatMap(image => Try {
         val extension = tempFile.getName.split("\\.").last
