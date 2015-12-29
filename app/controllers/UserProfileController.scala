@@ -30,7 +30,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
                                       application: play.Application) extends BaseController {
 
   val fileSeparator = File.separatorChar
-  val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}public${fileSeparator}files")
+  val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}files")
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
     val db = dbConfigProvider.get.db
