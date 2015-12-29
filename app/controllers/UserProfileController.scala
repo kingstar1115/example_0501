@@ -29,8 +29,25 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
                                       dbConfigProvider: DatabaseConfigProvider,
                                       application: play.Application) extends BaseController {
 
+  implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
+    (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
+    (JsPath \ "newPassword").read[String](minLength[String](6) keepAnd maxLength[String](32))
+    )(PasswordChangeDto.apply _)
+  implicit val userProfileDtoWrites = Json.writes[UserProfileDto]
+
   val fileSeparator = File.separatorChar
   val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}files")
+
+  def getProfileInfo = authorized.async { request =>
+    val db = dbConfigProvider.get.db
+    val userId = request.token.get.userInfo.id
+    val userQuery = for {u <- Tables.Users if u.id === userId} yield u
+    db.run(userQuery.result.head).map { user =>
+      val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
+        user.email, user.profilePicture, user.userType, user.verified)
+      ok(dto)
+    }
+  }
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
     val db = dbConfigProvider.get.db
@@ -106,8 +123,12 @@ object UserProfileController {
   case class PasswordChangeDto(oldPassword: String,
                                newPassword: String)
 
-  implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
-    (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
-    (JsPath \ "newPassword").read[String](minLength[String](6) keepAnd maxLength[String](32))
-    )(PasswordChangeDto.apply _)
+  case class UserProfileDto(firstName: String,
+                            lastName: String,
+                            phone: String,
+                            email: Option[String],
+                            picture: Option[String],
+                            userType: Int,
+                            verified: Boolean)
+
 }
