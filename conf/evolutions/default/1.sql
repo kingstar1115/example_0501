@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   user_type       INTEGER      NOT NULL,
   verified        BOOLEAN      NOT NULL DEFAULT FALSE,
   code            VARCHAR(32),
-  profile_picture VARCHAR(100)
+  profile_picture TEXT
 );
 
 CREATE TABLE IF NOT EXISTS locations (

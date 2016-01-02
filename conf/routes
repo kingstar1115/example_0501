@@ -17,8 +17,9 @@ POST        /api/v1/phone/change                     @controllers.PhoneVerificat
 
 # User profile
 POST        /api/v1/profile/change-password          @controllers.UserProfileController.changePassword
-POST        /api/v1/profile/picture                  @controllers.UserProfileController.uploadProfilePicture
+PUT         /api/v1/profile/picture                  @controllers.UserProfileController.uploadProfilePicture
 GET         /api/v1/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(fileName)
+GET         /api/v1/profile                          @controllers.UserProfileController.getProfileInfo
 
 # Web controllers
 # Password recovery

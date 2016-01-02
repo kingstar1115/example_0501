@@ -118,7 +118,7 @@ trait Tables {
    *  @param userType Database column user_type SqlType(int4)
    *  @param verified Database column verified SqlType(bool), Default(false)
    *  @param code Database column code SqlType(varchar), Length(32,true), Default(None)
-   *  @param profilePicture Database column profile_picture SqlType(varchar), Length(100,true), Default(None) */
+   *  @param profilePicture Database column profile_picture SqlType(text), Default(None) */
   case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None)
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
   implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[UsersRow] = GR{
@@ -159,8 +159,8 @@ trait Tables {
     val verified: Rep[Boolean] = column[Boolean]("verified", O.Default(false))
     /** Database column code SqlType(varchar), Length(32,true), Default(None) */
     val code: Rep[Option[String]] = column[Option[String]]("code", O.Length(32,varying=true), O.Default(None))
-    /** Database column profile_picture SqlType(varchar), Length(100,true), Default(None) */
-    val profilePicture: Rep[Option[String]] = column[Option[String]]("profile_picture", O.Length(100,varying=true), O.Default(None))
+    /** Database column profile_picture SqlType(text), Default(None) */
+    val profilePicture: Rep[Option[String]] = column[Option[String]]("profile_picture", O.Default(None))
 
     /** Uniqueness Index over (email) (database name users_email_key) */
     val index1 = index("users_email_key", email, unique=true)

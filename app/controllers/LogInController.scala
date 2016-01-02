@@ -6,6 +6,7 @@ import com.github.t3hnar.bcrypt._
 import commons.enums.{CommonError, FacebookError}
 import controllers.LogInController.{EmailLogInDto, FacebookLogInDto}
 import controllers.SignUpController.EmailDto
+import controllers.base.FacebookCalls.FacebookResponseDto
 import controllers.base._
 import models.Tables
 import models.Tables._

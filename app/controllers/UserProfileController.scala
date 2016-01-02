@@ -29,8 +29,25 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
                                       dbConfigProvider: DatabaseConfigProvider,
                                       application: play.Application) extends BaseController {
 
+  implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
+    (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
+    (JsPath \ "newPassword").read[String](minLength[String](6) keepAnd maxLength[String](32))
+    )(PasswordChangeDto.apply _)
+  implicit val userProfileDtoWrites = Json.writes[UserProfileDto]
+
   val fileSeparator = File.separatorChar
   val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}files")
+
+  def getProfileInfo = authorized.async { request =>
+    val db = dbConfigProvider.get.db
+    val userId = request.token.get.userInfo.id
+    val userQuery = for {u <- Tables.Users if u.id === userId} yield u
+    db.run(userQuery.result.head).map { user =>
+      val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
+        user.email, user.profilePicture, user.userType, user.verified)
+      ok(dto)
+    }
+  }
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
     val db = dbConfigProvider.get.db
@@ -60,9 +77,10 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def uploadProfilePicture = authorized.async(BodyParsers.parse.multipartFormData) { request =>
+  def uploadProfilePicture = authorized.async(BodyParsers.parse.multipartFormData) { implicit request =>
     request.body.file("picture").map { requestFile =>
-      val userId = request.token.get.userInfo.id
+      val token = request.token.get
+      val userId = token.userInfo.id
       val tempFileName = s"temp-${requestFile.filename}"
       if (!picturesFolder.exists()) {
         Logger.info("Creating files directory")
@@ -77,15 +95,17 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         Files.copy(tempFile.toPath, newFile.toPath)
         tempFile.delete
 
+        val newPictureUrl = routes.UserProfileController.getProfilePicture(newFileName).absoluteURL()
         val pictureQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture)
-        val updateQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture).update(Some(newFileName))
+        val updateQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture).update(Some(newPictureUrl))
         val db = dbConfigProvider.get.db
         db.run(pictureQuery.result.head zip updateQuery).map { queryResult =>
           queryResult._1.map { oldFileName =>
             val oldFile = new File(picturesFolder, oldFileName)
             oldFile.delete()
           }
-          ok(newFileName)
+          tokenStorage.updateToken(token.copy(userInfo = token.userInfo.copy(picture = Some(newPictureUrl))))
+          ok(newPictureUrl)
         }
       }) match {
         case Success(result) => result
@@ -106,8 +126,12 @@ object UserProfileController {
   case class PasswordChangeDto(oldPassword: String,
                                newPassword: String)
 
-  implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
-    (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
-    (JsPath \ "newPassword").read[String](minLength[String](6) keepAnd maxLength[String](32))
-    )(PasswordChangeDto.apply _)
+  case class UserProfileDto(firstName: String,
+                            lastName: String,
+                            phone: String,
+                            email: Option[String],
+                            picture: Option[String],
+                            userType: Int,
+                            verified: Boolean)
+
 }
