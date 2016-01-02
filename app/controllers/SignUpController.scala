@@ -5,6 +5,7 @@ import javax.inject.Inject
 import com.github.t3hnar.bcrypt._
 import commons.enums.{AuthyError, DatabaseError, FacebookError}
 import controllers.SignUpController.{EmailDto, EmailSignUpDto, FacebookSighUpDto}
+import controllers.base.FacebookCalls.FacebookResponseDto
 import controllers.base.{BaseController, FacebookCalls}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
@@ -87,14 +88,15 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                       verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
                         case verifyResult if verifyResult.success =>
                           val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
-                            u.facebookId, u.userType, u.salt)) returning Users.map(_.id)) +=(fDto.firstName, fDto.lastName,
-                            fDto.email, dto.phoneCountryCode, dto.phoneNumber, Some(fDto.id), 1, generateSalt)
+                            u.facebookId, u.userType, u.salt, u.profilePicture)) returning Users.map(_.id)) +=(fDto.firstName,
+                            fDto.lastName, fDto.email, dto.phoneCountryCode, dto.phoneNumber, Some(fDto.id), 1,
+                            generateSalt, Option(fDto.picture.data.url))
 
                           db.run(insertQuery.asTry).map {
                             case Success(insertResult) =>
                               val token = getToken(insertResult, (fDto.firstName, fDto.lastName, fDto.email, 1))
                               ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                                token.userInfo.userType, token.userInfo.verified, None))(AuthToken.authResponseFormat)
+                                token.userInfo.userType, token.userInfo.verified, Option(fDto.picture.data.url)))(AuthToken.authResponseFormat)
 
                             case Failure(e) => badRequest(e.getMessage, DatabaseError)
                           }

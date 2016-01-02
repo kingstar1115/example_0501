@@ -77,9 +77,10 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def uploadProfilePicture = authorized.async(BodyParsers.parse.multipartFormData) { request =>
+  def uploadProfilePicture = authorized.async(BodyParsers.parse.multipartFormData) { implicit request =>
     request.body.file("picture").map { requestFile =>
-      val userId = request.token.get.userInfo.id
+      val token = request.token.get
+      val userId = token.userInfo.id
       val tempFileName = s"temp-${requestFile.filename}"
       if (!picturesFolder.exists()) {
         Logger.info("Creating files directory")
@@ -94,15 +95,17 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         Files.copy(tempFile.toPath, newFile.toPath)
         tempFile.delete
 
+        val newPictureUrl = routes.UserProfileController.getProfilePicture(newFileName).absoluteURL()
         val pictureQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture)
-        val updateQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture).update(Some(newFileName))
+        val updateQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture).update(Some(newPictureUrl))
         val db = dbConfigProvider.get.db
         db.run(pictureQuery.result.head zip updateQuery).map { queryResult =>
           queryResult._1.map { oldFileName =>
             val oldFile = new File(picturesFolder, oldFileName)
             oldFile.delete()
           }
-          ok(newFileName)
+          tokenStorage.updateToken(token.copy(userInfo = token.userInfo.copy(picture = Some(newPictureUrl))))
+          ok(newPictureUrl)
         }
       }) match {
         case Success(result) => result
