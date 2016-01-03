@@ -1,13 +1,22 @@
 package controllers.base
 
 
-import commons.enums.{ServerError, ValidationError, ErrorType}
+import commons.enums.{ErrorType, ServerError, ValidationError}
 import play.api.http.MimeTypes
 import play.api.libs.json._
 import play.api.mvc.Results._
 
 
 trait RestResponses {
+
+  implicit def listResultsWrites[X](implicit fmt: Writes[X]): Writes[ListResponse[X]] = new Writes[ListResponse[X]] {
+    def writes(result: ListResponse[X]) = JsObject(Seq(
+      "limit" -> JsNumber(result.limit),
+      "offset" -> JsNumber(result.offset),
+      "total" -> JsNumber(result.total),
+      "items" -> JsArray(result.items.map(Json.toJson(_)))
+    ))
+  }
 
   def ok[X](data: X)(implicit writes: Writes[X]) = {
     Ok(toJson(ApiResponse(data))).as(MimeTypes.JSON)
@@ -46,6 +55,12 @@ trait RestResponses {
   }
 }
 
-case class ApiResponse[X](message: X, code: String = "200")
+case class ApiResponse[X](message: X,
+                          code: String = "200")
+
+case class ListResponse[X](items: Seq[X],
+                           limit: Int,
+                           offset: Int,
+                           total: Int)
 
 

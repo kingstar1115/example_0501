@@ -2,7 +2,7 @@ package controllers
 
 import com.google.inject.Inject
 import controllers.LocationController._
-import controllers.base.BaseController
+import controllers.base.{ListResponse, BaseController}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Json
@@ -53,6 +53,36 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
     db.run(deleteQuery.delete).map {
       case 1 => ok("Success")
       case _ => notFound
+    }
+  }
+
+  def list(offset: Int, limit: Int) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val selectQuery = for {
+      l <- Locations if l.userId === userId
+    } yield l
+    db.run(selectQuery.length.result zip selectQuery.take(limit).drop(offset).result).map { result =>
+      val dtos = result._2.map(location => LocationDto(Some(location.id), location.title, location.address, location.latitude,
+        location.longitude))
+      ok(ListResponse(dtos, limit, offset, result._1))
+    }
+  }
+
+  def update(id: Int) = authorized.async(parse.json) { request =>
+    val userId = request.token.get.userInfo.id
+    val existQuery = for {
+      l <- Locations if l.userId === userId && l.id === id
+    } yield l
+    db.run(existQuery.length.result).flatMap {
+      case 1 =>
+        val onValidJson = (dto: LocationDto) => {
+          val updateQuery = Locations.filter(_.id === id).map(l => (l.title, l.address, l.latitude, l.longitude))
+            .update(dto.title, dto.address, dto.latitude, dto.longitude)
+          db.run(updateQuery).map(r => ok("Updated"))
+        }
+        request.body.validate[LocationDto]
+          .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
+      case _ => wrapInFuture(notFound)
     }
   }
 }
