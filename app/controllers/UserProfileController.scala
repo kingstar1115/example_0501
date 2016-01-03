@@ -10,7 +10,7 @@ import com.github.t3hnar.bcrypt._
 import commons.enums.DatabaseError
 import controllers.UserProfileController._
 import controllers.base.BaseController
-import models.Tables
+import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
@@ -41,7 +41,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   def getProfileInfo = authorized.async { request =>
     val db = dbConfigProvider.get.db
     val userId = request.token.get.userInfo.id
-    val userQuery = for {u <- Tables.Users if u.id === userId} yield u
+    val userQuery = for {u <- Users if u.id === userId} yield u
     db.run(userQuery.result.head).map { user =>
       val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
         user.email, user.profilePicture, user.userType, user.verified)
@@ -56,7 +56,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
       case JsSuccess(dto, p) =>
         val userId = request.token.get.userInfo.id
         val userQuery = for {
-          u <- Tables.Users
+          u <- Users
           if u.id === userId && u.password.isDefined
         } yield u
         db.run(userQuery.result.headOption).flatMap { userOpt =>
@@ -66,7 +66,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
               case false => Future.successful(validationFailed("Wrong old password"))
               case _ =>
                 val newPassword = dto.newPassword.bcrypt(user.salt)
-                val updateQuery = Tables.Users.filter(_.id === user.id).map(_.password).update(Some(newPassword))
+                val updateQuery = Users.filter(_.id === user.id).map(_.password).update(Some(newPassword))
                 db.run(updateQuery).map {
                   case 1 => ok("Success")
                   case _ => badRequest("Can't update password", DatabaseError)
@@ -77,7 +77,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def uploadProfilePicture = authorized.async(BodyParsers.parse.multipartFormData) { implicit request =>
+  def uploadProfilePicture = authorized.async(parse.multipartFormData) { implicit request =>
     request.body.file("picture").map { requestFile =>
       val token = request.token.get
       val userId = token.userInfo.id
@@ -96,13 +96,16 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         tempFile.delete
 
         val newPictureUrl = routes.UserProfileController.getProfilePicture(newFileName).absoluteURL()
-        val pictureQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture)
-        val updateQuery = Tables.Users.filter(_.id === userId).map(_.profilePicture).update(Some(newPictureUrl))
+        val pictureQuery = Users.filter(_.id === userId).map(_.profilePicture)
+        val updateQuery = Users.filter(_.id === userId).map(_.profilePicture).update(Some(newPictureUrl))
         val db = dbConfigProvider.get.db
         db.run(pictureQuery.result.head zip updateQuery).map { queryResult =>
-          queryResult._1.map { oldFileName =>
+          queryResult._1.map { oldPictureUrl =>
+            val oldFileName = oldPictureUrl.split("/").last
             val oldFile = new File(picturesFolder, oldFileName)
-            oldFile.delete()
+            if (oldFile.exists()) {
+              oldFile.delete()
+            }
           }
           tokenStorage.updateToken(token.copy(userInfo = token.userInfo.copy(picture = Some(newPictureUrl))))
           ok(newPictureUrl)
