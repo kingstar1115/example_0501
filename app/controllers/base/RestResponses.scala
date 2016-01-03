@@ -18,8 +18,8 @@ trait RestResponses {
     ))
   }
 
-  def ok[X](data: X)(implicit writes: Writes[X]) = {
-    Ok(toJson(ApiResponse(data))).as(MimeTypes.JSON)
+  def ok[X](data: X, code: String = "200")(implicit writes: Writes[X]) = {
+    Ok(toJson(ApiResponse(data, code))).as(MimeTypes.JSON)
   }
 
   def validationFailed[X](validationErrors: X)(implicit writes: Writes[X]) = {

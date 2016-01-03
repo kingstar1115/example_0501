@@ -114,13 +114,36 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  def emailExists = Action.async(BodyParsers.parse.json[EmailDto]) { request =>
+  def emailNotExists = Action.async(BodyParsers.parse.json[EmailDto]) { request =>
     val existsQuery = for {
       u <- Users if u.email === request.body.email
     } yield u
-    db.run(existsQuery.length.result).map {
-      case 0 => ok(true.toString)
-      case _ => badRequest(false.toString)
+    db.run(existsQuery.length.result).map(getUserNotExistsResponse)
+  }
+
+  def facebookUserNotExists(token: String) = Action.async { request =>
+    val checkUser = (dto: FacebookResponseDto) => {
+      val existsQuery = for {
+        u <- Users
+        if u.facebookId === Option(dto.id) || u.email === dto.email
+      } yield u
+      db.run(existsQuery.length.result).map(getUserNotExistsResponse)
+    }
+    facebookMe(token)
+      .filter(response => response.status == 200)
+      .flatMap { response =>
+        response.json.validate[FacebookResponseDto]
+          .fold(errors => wrapInFuture(badRequest(JsError.toJson(errors), FacebookError)), fbDto => checkUser(fbDto))
+      }
+      .recover {
+        case e: Exception => badRequest(e.getMessage)
+      }
+  }
+
+  private def getUserNotExistsResponse(count: Int) = {
+    count match {
+      case 0 => ok(true.toString, "200")
+      case _ => ok(false.toString, "400")
     }
   }
 
