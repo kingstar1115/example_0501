@@ -33,6 +33,14 @@ trait RestResponses {
     InternalServerError(toJson(ApiResponse(t.getMessage, ServerError.name))).as(MimeTypes.JSON)
   }
 
+  def created(url: String) = {
+    Created(toJson(ApiResponse(url, "201"))).as(MimeTypes.JSON)
+  }
+
+  def notFound = {
+    NotFound(toJson(ApiResponse("Resource not found", "404"))).as(MimeTypes.JSON)
+  }
+
   def toJson[X](response: ApiResponse[X])(implicit writes: Writes[X]) = {
     Json.obj("message" -> Json.toJson[X](response.message), "code" -> JsString(response.code))
   }
