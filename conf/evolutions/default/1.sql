@@ -22,11 +22,10 @@ CREATE TABLE IF NOT EXISTS locations (
   id           SERIAL PRIMARY KEY,
   created_date TIMESTAMP    NOT NULL DEFAULT now(),
   updated_date TIMESTAMP    NOT NULL DEFAULT now(),
-  name         VARCHAR(255) NOT NULL,
-  country      VARCHAR(255) NOT NULL,
-  state        VARCHAR(255),
-  city         VARCHAR(255) NOT NULL,
-  zip_code     VARCHAR(6)   NOT NULL,
+  title        VARCHAR(255) NOT NULL,
+  address      VARCHAR(255) NOT NULL,
+  latitude     NUMERIC      NOT NULL,
+  longitude    NUMERIC      NOT NULL,
   user_id      INT          NOT NULL REFERENCES users (id)
 );
 
