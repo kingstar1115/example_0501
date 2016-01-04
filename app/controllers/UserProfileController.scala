@@ -36,7 +36,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   implicit val userProfileDtoWrites = Json.writes[UserProfileDto]
 
   val fileSeparator = File.separatorChar
-  val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}files")
+  val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}pictures")
 
   def getProfileInfo = authorized.async { request =>
     val db = dbConfigProvider.get.db
