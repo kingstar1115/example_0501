@@ -28,7 +28,7 @@ trait FacebookCalls {
   def facebookMe(token: String) = {
     ws.url(facebookMeUrl)
       .withRequestTimeout(5000)
-      .withQueryString("access_token" -> token, "fields" -> "id,first_name,last_name,email,picture.width(120).height(160)")
+      .withQueryString("access_token" -> token, "fields" -> "id,first_name,last_name,email,picture.width(200).height(200)")
       .get()
   }
 }

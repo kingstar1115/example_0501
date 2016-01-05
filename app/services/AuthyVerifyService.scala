@@ -1,4 +1,4 @@
-package security
+package services
 
 import javax.inject.Inject
 
@@ -8,7 +8,7 @@ import play.api.http.{HeaderNames, MimeTypes}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Writes, _}
 import play.api.libs.ws.WSClient
-import security.AuthyVerifyService._
+import services.AuthyVerifyService._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future

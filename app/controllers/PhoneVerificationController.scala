@@ -10,8 +10,9 @@ import play.api.libs.json.{JsSuccess, JsError, Reads, JsPath}
 import play.api.libs.json.Reads._
 import play.api.libs.functional.syntax._
 import play.api.mvc.BodyParsers
-import security.AuthyVerifyService.AuthyResponseDto
-import security.{AuthToken, AuthResponse, AuthyVerifyService, TokenStorage}
+import services.AuthyVerifyService
+import AuthyVerifyService.AuthyResponseDto
+import security.{AuthToken, AuthResponse, TokenStorage}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
