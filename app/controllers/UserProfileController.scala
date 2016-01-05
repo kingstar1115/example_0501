@@ -18,6 +18,7 @@ import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers}
 import security.TokenStorage
+import services.FileService
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -27,7 +28,8 @@ import scala.util.{Failure, Success, Try}
 
 class UserProfileController @Inject()(val tokenStorage: TokenStorage,
                                       dbConfigProvider: DatabaseConfigProvider,
-                                      application: play.Application) extends BaseController {
+                                      application: play.Application,
+                                      fileService: FileService) extends BaseController {
 
   implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
     (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
@@ -36,7 +38,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   implicit val userProfileDtoWrites = Json.writes[UserProfileDto]
 
   val fileSeparator = File.separatorChar
-  val picturesFolder = new File(s"${application.path().getPath}${fileSeparator}pictures")
+  val picturesFolder = fileService.getFolder("pictures")
 
   def getProfileInfo = authorized.async { request =>
     val db = dbConfigProvider.get.db
@@ -82,18 +84,12 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
       val token = request.token.get
       val userId = token.userInfo.id
       val tempFileName = s"temp-${requestFile.filename}"
-      if (!picturesFolder.exists()) {
-        Logger.info("Creating files directory")
-        val isCreated = picturesFolder.mkdir()
-        Logger.info(s"File directory created - $isCreated")
-      }
       val tempFile = requestFile.ref.moveTo(new File(picturesFolder, tempFileName))
       Try(ImageIO.read(tempFile)).filter(image => image != null).flatMap(image => Try {
-        val extension = tempFile.getName.split("\\.").last
+        val extension = fileService.getFileExtension(tempFile)
         val newFileName = s"${UUID.randomUUID()}.$extension"
         val newFile = new File(picturesFolder, newFileName)
-        Files.copy(tempFile.toPath, newFile.toPath)
-        tempFile.delete
+        fileService.moveFile(tempFile, newFile)
 
         val newPictureUrl = routes.UserProfileController.getProfilePicture(newFileName).absoluteURL()
         val pictureQuery = Users.filter(_.id === userId).map(_.profilePicture)
