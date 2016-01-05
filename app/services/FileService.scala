@@ -14,7 +14,7 @@ class FileService @Inject()(application: play.Application,
 
   def getFolder(name: String) = {
     val folder = new File(applicationHomeFolder, name)
-    if (folder.exists()){
+    if (!folder.exists()){
       folder.mkdir()
       Logger.info(s"Created folder: ${folder.getAbsolutePath}")
     }
