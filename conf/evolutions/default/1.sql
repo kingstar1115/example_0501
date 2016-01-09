@@ -19,14 +19,18 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS locations (
-  id           SERIAL PRIMARY KEY,
-  created_date TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date TIMESTAMP    NOT NULL DEFAULT now(),
-  title        VARCHAR(255) NOT NULL,
-  address      VARCHAR(255) NOT NULL,
-  latitude     NUMERIC      NOT NULL,
-  longitude    NUMERIC      NOT NULL,
-  user_id      INT          NOT NULL REFERENCES users (id)
+  id                SERIAL PRIMARY KEY,
+  created_date      TIMESTAMP    NOT NULL DEFAULT now(),
+  updated_date      TIMESTAMP    NOT NULL DEFAULT now(),
+  title             VARCHAR(255) NOT NULL,
+  address           VARCHAR(255) NOT NULL,
+  formatted_address VARCHAR(255) NOT NULL,
+  latitude          NUMERIC      NOT NULL,
+  longitude         NUMERIC      NOT NULL,
+  notes             TEXT,
+  zip_code          VARCHAR(6)   NOT NULL,
+  appartments       VARCHAR(10)  NOT NULL,
+  user_id           INT          NOT NULL REFERENCES users (id)
 );
 
 # --- !Downs
