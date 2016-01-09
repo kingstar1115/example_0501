@@ -24,20 +24,24 @@ trait Tables {
    *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param title Database column title SqlType(varchar), Length(255,true)
    *  @param address Database column address SqlType(varchar), Length(255,true)
+   *  @param formattedAddress Database column formatted_address SqlType(varchar), Length(255,true)
    *  @param latitude Database column latitude SqlType(numeric)
    *  @param longitude Database column longitude SqlType(numeric)
+   *  @param notes Database column notes SqlType(text), Default(None)
+   *  @param zipCode Database column zip_code SqlType(varchar), Length(6,true)
+   *  @param appartments Database column appartments SqlType(varchar), Length(10,true)
    *  @param userId Database column user_id SqlType(int4) */
-  case class LocationsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, title: String, address: String, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, userId: Int)
+  case class LocationsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, title: String, address: String, formattedAddress: String, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, notes: Option[String] = None, zipCode: String, appartments: String, userId: Int)
   /** GetResult implicit for fetching LocationsRow objects using plain SQL queries */
-  implicit def GetResultLocationsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[scala.math.BigDecimal]): GR[LocationsRow] = GR{
+  implicit def GetResultLocationsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[scala.math.BigDecimal], e4: GR[Option[String]]): GR[LocationsRow] = GR{
     prs => import prs._
-    LocationsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<[Int]))
+    LocationsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<?[String], <<[String], <<[String], <<[Int]))
   }
   /** Table description of table locations. Objects of this class serve as prototypes for rows in queries. */
   class Locations(_tableTag: Tag) extends Table[LocationsRow](_tableTag, "locations") {
-    def * = (id, createdDate, updatedDate, title, address, latitude, longitude, userId) <> (LocationsRow.tupled, LocationsRow.unapply)
+    def * = (id, createdDate, updatedDate, title, address, formattedAddress, latitude, longitude, notes, zipCode, appartments, userId) <> (LocationsRow.tupled, LocationsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(title), Rep.Some(address), Rep.Some(latitude), Rep.Some(longitude), Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> LocationsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(title), Rep.Some(address), Rep.Some(formattedAddress), Rep.Some(latitude), Rep.Some(longitude), notes, Rep.Some(zipCode), Rep.Some(appartments), Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> LocationsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10.get, _11.get, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -49,10 +53,18 @@ trait Tables {
     val title: Rep[String] = column[String]("title", O.Length(255,varying=true))
     /** Database column address SqlType(varchar), Length(255,true) */
     val address: Rep[String] = column[String]("address", O.Length(255,varying=true))
+    /** Database column formatted_address SqlType(varchar), Length(255,true) */
+    val formattedAddress: Rep[String] = column[String]("formatted_address", O.Length(255,varying=true))
     /** Database column latitude SqlType(numeric) */
     val latitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("latitude")
     /** Database column longitude SqlType(numeric) */
     val longitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("longitude")
+    /** Database column notes SqlType(text), Default(None) */
+    val notes: Rep[Option[String]] = column[Option[String]]("notes", O.Default(None))
+    /** Database column zip_code SqlType(varchar), Length(6,true) */
+    val zipCode: Rep[String] = column[String]("zip_code", O.Length(6,varying=true))
+    /** Database column appartments SqlType(varchar), Length(10,true) */
+    val appartments: Rep[String] = column[String]("appartments", O.Length(10,varying=true))
     /** Database column user_id SqlType(int4) */
     val userId: Rep[Int] = column[Int]("user_id")
 
