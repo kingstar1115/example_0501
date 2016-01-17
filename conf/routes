@@ -23,11 +23,15 @@ PUT           /api/v1/profile/picture                  @controllers.UserProfileC
 GET           /api/v1/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(fileName)
 GET           /api/v1/profile                          @controllers.UserProfileController.getProfileInfo
 
+#Locations
 GET           /api/v1/locations/:id                    @controllers.LocationController.get(id: Int)
 POST          /api/v1/locations/new                    @controllers.LocationController.create
 DELETE        /api/v1/locations/:id                    @controllers.LocationController.delete(id: Int)
 GET           /api/v1/locations                        @controllers.LocationController.list(offset: Int = 0, limit: Int = 10)
 PUT           /api/v1/locations/:id                    @controllers.LocationController.update(id: Int)
+
+#Tasks
+POST          /api/v1/tasks/webhook                    @controllers.TasksController.onStatusChange
 
 # Web controllers
 # Password recovery
