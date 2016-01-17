@@ -20,9 +20,9 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
   implicit val locationReads: Reads[LocationDto] = (
       (JsPath \ "id").readNullable[Int] and
       (JsPath \ "title").read[String](maxLength[String](255)) and
-      (JsPath \ "address").read[String](maxLength[String](255)) and
-      (JsPath \ "apartments").read[String](maxLength[String](10)) and
-      (JsPath \ "zipCode").read[String](maxLength[String](6)) and
+      (JsPath \ "address").readNullable[String](maxLength[String](255)) and
+      (JsPath \ "apartments").readNullable[String](maxLength[String](10)) and
+      (JsPath \ "zipCode").readNullable[String](maxLength[String](6)) and
       (JsPath \ "formattedAddress").read[String](maxLength[String](255)) and
       (JsPath \ "latitude").read[BigDecimal] and
       (JsPath \ "longitude").read[BigDecimal] and
@@ -109,9 +109,9 @@ object LocationController {
 
   case class LocationDto(id: Option[Int] = None,
                          title: String,
-                         address: String,
-                         apartments: String,
-                         zipCode: String,
+                         address: Option[String],
+                         apartments: Option[String],
+                         zipCode: Option[String],
                          formattedAddress: String,
                          latitude: BigDecimal,
                          longitude: BigDecimal,
