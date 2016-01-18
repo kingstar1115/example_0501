@@ -23,14 +23,23 @@ CREATE TABLE IF NOT EXISTS locations (
   created_date      TIMESTAMP    NOT NULL DEFAULT now(),
   updated_date      TIMESTAMP    NOT NULL DEFAULT now(),
   title             VARCHAR(255) NOT NULL,
-  address           VARCHAR(255) NOT NULL,
+  address           VARCHAR(255),
   formatted_address VARCHAR(255) NOT NULL,
   latitude          NUMERIC      NOT NULL,
   longitude         NUMERIC      NOT NULL,
   notes             TEXT,
-  zip_code          VARCHAR(6)   NOT NULL,
-  appartments       VARCHAR(10)  NOT NULL,
+  zip_code          VARCHAR(6),
+  appartments       VARCHAR(10),
   user_id           INT          NOT NULL REFERENCES users (id)
+);
+
+CREATE TABLE IF NOT EXISTS tookan_tasks (
+  id           SERIAL PRIMARY KEY,
+  created_date TIMESTAMP   NOT NULL DEFAULT now(),
+  updated_date TIMESTAMP   NOT NULL DEFAULT now(),
+  job_id       VARCHAR(12) NOT NULL,
+  job_status   VARCHAR(2)  NOT NULL,
+  user_id      INT         NOT NULL REFERENCES users (id)
 );
 
 # --- !Downs
