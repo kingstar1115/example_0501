@@ -1,7 +1,6 @@
 package controllers
 
 import java.io.File
-import java.nio.file.Files
 import java.util.UUID
 import javax.imageio.ImageIO
 import javax.inject.Inject
@@ -33,9 +32,15 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
 
   implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
     (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
-    (JsPath \ "newPassword").read[String](minLength[String](6) keepAnd maxLength[String](32))
-    )(PasswordChangeDto.apply _)
+      (JsPath \ "newPassword").read[String](minLength[String](6) keepAnd maxLength[String](32))
+    ) (PasswordChangeDto.apply _)
   implicit val userProfileDtoWrites = Json.writes[UserProfileDto]
+  implicit val userProfileUpdateReads: Reads[UserUpdateDto] = (
+    (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+      (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+      (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
+      (JsPath \ "email").read[String](email)
+    ) (UserUpdateDto.apply _)
 
   val fileSeparator = File.separatorChar
   val picturesFolder = fileService.getFolder("pictures")
@@ -118,6 +123,25 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   def getProfilePicture(fileName: String) = Action { request =>
     Ok.sendFile(new File(picturesFolder, fileName))
   }
+
+  def updateProfile() = authorized.async(parse.json) { request =>
+
+    def updateUserProfile(dto: UserUpdateDto) = {
+      val db = dbConfigProvider.get.db
+      val userId = request.token.get.userInfo.id
+
+      val updateQuery = Users.filter(_.id === userId)
+        .map(user => (user.firstName, user.lastName, user.phone, user.email))
+        .update(dto.firstName, dto.lastName, dto.phone, Option(dto.email))
+      db.run(updateQuery).map {
+        case 1 => ok("Profile updated")
+        case _ => badRequest("Can't update user profile")
+      }
+    }
+
+    request.body.validate[UserUpdateDto].fold(errors => wrapInFuture(jsonValidationFailed(errors)),
+      updateUserProfile)
+  }
 }
 
 object UserProfileController {
@@ -132,5 +156,10 @@ object UserProfileController {
                             picture: Option[String],
                             userType: Int,
                             verified: Boolean)
+
+  case class UserUpdateDto(firstName: String,
+                           lastName: String,
+                           phone: String,
+                           email: String)
 
 }
