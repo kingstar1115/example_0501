@@ -11,6 +11,7 @@ import controllers.UserProfileController._
 import controllers.base.BaseController
 import models.Tables._
 import play.api.Logger
+import play.api.data.validation.ValidationError
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
@@ -38,6 +39,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   implicit val userProfileUpdateReads: Reads[UserUpdateDto] = (
     (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+      (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "email").read[String](email)
     ) (UserUpdateDto.apply _)
@@ -126,21 +128,22 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
 
   def updateProfile() = authorized.async(parse.json) { request =>
 
+    def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) = wrapInFuture(jsonValidationFailed(errors))
+
     def updateUserProfile(dto: UserUpdateDto) = {
       val db = dbConfigProvider.get.db
       val userId = request.token.get.userInfo.id
 
-      val updateQuery = Users.filter(_.id === userId)
-        .map(user => (user.firstName, user.lastName, user.phone, user.email))
-        .update(dto.firstName, dto.lastName, dto.phone, Option(dto.email))
+      val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
+        .map(user => (user.firstName, user.lastName, user.phoneCode, user.phone, user.email))
+        .update(dto.firstName, dto.lastName, dto.phoneCode, dto.phone, Option(dto.email))
       db.run(updateQuery).map {
         case 1 => ok("Profile updated")
         case _ => badRequest("Can't update user profile")
       }
     }
 
-    request.body.validate[UserUpdateDto].fold(errors => wrapInFuture(jsonValidationFailed(errors)),
-      updateUserProfile)
+    request.body.validate[UserUpdateDto].fold(onValidationFailed, updateUserProfile)
   }
 }
 
@@ -159,6 +162,7 @@ object UserProfileController {
 
   case class UserUpdateDto(firstName: String,
                            lastName: String,
+                           phoneCode: String,
                            phone: String,
                            email: String)
 
