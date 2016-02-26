@@ -4,16 +4,18 @@ import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
 import commons.enums.{AuthyError, DatabaseError, FacebookError}
-import controllers.SignUpController.{EmailDto, EmailSignUpDto, FacebookSighUpDto}
+import controllers.SignUpController.{EmailSignUpDto, FBSighUpResponseDto, FacebookSighUpDto, FbTokenDto}
 import controllers.base.FacebookCalls.FacebookResponseDto
 import controllers.base.{BaseController, FacebookCalls}
+import models.Tables
 import models.Tables._
+import play.api.data.validation.ValidationError
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Action, BodyParsers}
+import play.api.mvc.{Action, BodyParsers, Result}
 import security._
 import services.AuthyVerifyService
 import slick.driver.PostgresDriver.api._
@@ -30,126 +32,133 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                  verifyService: AuthyVerifyService)
   extends BaseController() with FacebookCalls {
 
+  implicit val fbSighUpResponseDtoFormat = Json.format[FBSighUpResponseDto]
+
   val db = dbConfigProvider.get.db
 
   def emailSignUp = Action.async(BodyParsers.parse.json) { request =>
-    val parseResult = request.body.validate[EmailSignUpDto]
-    parseResult match {
-      case JsError(errors) => Future.successful(validationFailed(JsError.toJson(errors)))
 
-      case JsSuccess(dto, p) =>
-        val existsQuery = for {
-          user <- Users if user.email === dto.email
-        } yield user
-        db.run(existsQuery.length.result).flatMap {
-          case x if x == 0 =>
-            verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
-              case verifyResult if verifyResult.success =>
-                val user = emailSighUpUser(dto)
-                val insertQuery = Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.salt,
-                  u.password, u.userType)) returning Users.map(_.id)
+    def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) =
+      Future.successful(validationFailed(JsError.toJson(errors)))
 
-                db.run((insertQuery += user).asTry).map {
-                  case Success(insertResult) =>
-                    val token = getToken(insertResult, (user._1, user._2, user._3, 0))
-                    ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                      0, token.userInfo.verified, None))(AuthToken.authResponseFormat)
+    def onValidationPassed(dto: EmailSignUpDto) = {
+      val existsQuery = for {
+        user <- Users if user.email === dto.email || (user.phoneCode === dto.phoneCode && user.phone === dto.phone)
+      } yield user
+      db.run(existsQuery.length.result).filter(_ == 0).flatMap { count =>
+        verifyService.sendVerifyCode(dto.phoneCode.toInt, dto.phone).flatMap {
+          case verifyResult if verifyResult.success =>
+            val user = emailSighUpUser(dto)
+            val insertQuery = Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.salt,
+              u.password, u.userType)) returning Users.map(_.id)
 
-                  case Failure(e) => badRequest(e.getMessage, DatabaseError)
+            db.run((insertQuery += user).asTry).map {
+              case Success(insertResult) =>
+                val token = getToken(insertResult, (user._1, user._2, user._3, 0))
+                ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
+                  0, token.userInfo.verified, None))(AuthToken.authResponseFormat)
+
+              case Failure(e) => badRequest(e.getMessage, DatabaseError)
+            }
+          case other => Future.successful(badRequest(other.message, AuthyError))
+        }
+      }.recover {
+        case _ => validationFailed("User with this email already exists")
+      }
+    }
+
+    request.body.validate[EmailSignUpDto].fold(onValidationFailed, onValidationPassed)
+  }
+
+  def fbAuth = Action.async(BodyParsers.parse.json) { request =>
+
+    def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) =
+      wrapInFuture(badRequest("Token required"))
+
+    def onValidationPassed(dto: FbTokenDto) = {
+      facebookMe(dto.token) flatMap { wsResponse =>
+
+        def onError(errors: Seq[(JsPath, Seq[ValidationError])]) =
+          wrapInFuture(badRequest("Failed to get FB information"))
+
+        def onSuccess(fbDto: FacebookResponseDto) = {
+          val userQuery = for {
+            u <- Users if u.facebookId === fbDto.id
+          } yield u
+
+          def onUserExists(user: Tables.UsersRow) = {
+            val key = getToken(user.id, (user.firstName, user.lastName, user.email, 1)).key
+            val responseDto = AuthResponse(key, user.firstName, user.lastName, 1, user.verified, user.profilePicture)
+            ok(responseDto)(AuthToken.authResponseFormat)
+          }
+
+          def onUserNotExists = {
+            val responseDto = new FBSighUpResponseDto(fbDto.firstName, fbDto.lastName, fbDto.email,
+              fbDto.picture.data.url, fbDto.id)
+            ok(responseDto)
+          }
+
+          db.run(userQuery.result.headOption).map(_.map(onUserExists).getOrElse(onUserNotExists))
+        }
+
+        wsResponse.json.validate[FacebookResponseDto].fold(onError, onSuccess)
+      }
+    }
+
+    request.body.validate[FbTokenDto].fold(onValidationFailed, onValidationPassed)
+  }
+
+  def fbSignUp = Action.async(BodyParsers.parse.json) { request =>
+    def onValidationSuccess(dto: FacebookSighUpDto) = {
+      facebookMe(dto.token).filter(_.status == 200)
+        .map { wsResponse =>
+          def onFBSuccess(fbDto: FacebookResponseDto) = {
+
+            def createUser(count: Int) = {
+              verifyService.sendVerifyCode(dto.phoneCode.toInt, dto.phone)
+                .map {
+                  case response if response.success =>
+                    val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
+                      u.facebookId, u.userType, u.salt, u.profilePicture)) returning Users.map(_.id)) +=(dto.firstName,
+                      dto.lastName, dto.email, dto.phoneCode, dto.phone, Some(fbDto.id), 1,
+                      generateSalt, Option(fbDto.picture.data.url))
+                    db.run(insertQuery).map { userId =>
+                      val key = getToken(userId, (dto.firstName, dto.lastName, dto.email, 1)).key
+                      ok(AuthResponse(key, dto.firstName, dto.lastName, 1, false,
+                        Option(fbDto.picture.data.url)))(AuthToken.authResponseFormat)
+                    }
+
+                  case failed => badRequest(failed.message, AuthyError)
                 }
-              case other => Future.successful(badRequest(other.message, AuthyError))
-            } recover {
-              case e: Exception => serverError(e)
             }
 
-          case _ => Future.successful(validationFailed("User with this email already exists"))
-        }
-    }
-  }
+            val existsQuery = for {
+              u <- Users if u.facebookId === fbDto.id || u.email === dto.email || (u.phoneCode === dto.phoneCode
+              && u.phone === dto.phone)
+            } yield u
 
-  def facebookSignUp = Action.async(BodyParsers.parse.json) { request =>
-    val parseResult = request.body.validate[FacebookSighUpDto]
-    parseResult match {
-      case JsError(errors) => Future.successful(validationFailed(JsError.toJson(errors)))
-
-      case JsSuccess(dto, jsPath) =>
-        facebookMe(dto.token).flatMap { wsResponse =>
-          wsResponse.status match {
-            case 200 =>
-              wsResponse.json.validate[FacebookResponseDto] match {
-                case JsError(e) => Future.successful(badRequest("Invalid token", FacebookError))
-
-                case JsSuccess(fDto, p) =>
-                  val existsQuery = for {
-                    u <- Users if u.facebookId === fDto.id || u.email === fDto.email
-                  } yield u
-
-                  db.run(existsQuery.length.result).flatMap {
-                    case x if x == 0 =>
-                      verifyService.sendVerifyCode(dto.phoneCountryCode.toInt, dto.phoneNumber).flatMap {
-                        case verifyResult if verifyResult.success =>
-                          val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
-                            u.facebookId, u.userType, u.salt, u.profilePicture)) returning Users.map(_.id)) +=(fDto.firstName,
-                            fDto.lastName, fDto.email, dto.phoneCountryCode, dto.phoneNumber, Some(fDto.id), 1,
-                            generateSalt, Option(fDto.picture.data.url))
-
-                          db.run(insertQuery.asTry).map {
-                            case Success(insertResult) =>
-                              val token = getToken(insertResult, (fDto.firstName, fDto.lastName, fDto.email, 1))
-                              ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                                token.userInfo.userType, token.userInfo.verified, Option(fDto.picture.data.url)))(AuthToken.authResponseFormat)
-
-                            case Failure(e) => badRequest(e.getMessage, DatabaseError)
-                          }
-
-                        case other => Future.successful(badRequest(other.message, AuthyError))
-                      }
-
-                    case _ => Future.successful(validationFailed("User with this facebook id already exists"))
-                  }
+            db.run(existsQuery.length.result)
+              .filter(_ == 0)
+              .flatMap(createUser)
+              .recover {
+                case  _ => validationFailed("User with this FB id or Email Or Phone already exists")
               }
-
-            case _ => Future.successful(badRequest(s"Failed to fetch data. Code - ${wsResponse.status}", FacebookError))
           }
+
+          wsResponse.json.validate[FacebookResponseDto].asOpt
+            .map(onFBSuccess)
+            .getOrElse(() => badRequest("Invalid token", FacebookError))
         }
+        .recover {
+          case _ => wrapInFuture(badRequest(s"Failed to fetch FB data", FacebookError))
+        }.mapTo[Result]
     }
-  }
 
-  def emailNotExists = Action.async(BodyParsers.parse.json[EmailDto]) { request =>
-    val existsQuery = for {
-      u <- Users if u.email === request.body.email
-    } yield u
-    db.run(existsQuery.length.result).map(getUserNotExistsResponse)
-  }
-
-  def facebookUserNotExists(token: String) = Action.async { request =>
-    val checkUser = (dto: FacebookResponseDto) => {
-      val existsQuery = for {
-        u <- Users
-        if u.facebookId === Option(dto.id) || u.email === dto.email
-      } yield u
-      db.run(existsQuery.length.result).map(getUserNotExistsResponse)
-    }
-    facebookMe(token)
-      .filter(response => response.status == 200)
-      .flatMap { response =>
-        response.json.validate[FacebookResponseDto]
-          .fold(errors => wrapInFuture(badRequest(JsError.toJson(errors), FacebookError)), fbDto => checkUser(fbDto))
-      }
-      .recover {
-        case e: Exception => badRequest(e.getMessage)
-      }
-  }
-
-  private def getUserNotExistsResponse(count: Int) = {
-    count match {
-      case 0 => ok(true.toString, "200")
-      case _ => ok(false.toString, "400")
-    }
+    request.body.validate[FacebookSighUpDto].fold(jsonValidationFailedFuture, onValidationSuccess)
   }
 
   private def getToken(id: Integer,
-                       user: (String, String, Option[String], Int)) = {
+                       user: (String, String, String, Int)) = {
     val userInfo = UserInfo(id, user._3, user._1, user._2, verified = false, user._4, None)
     val token = tokenProvider.generateToken(userInfo)
     tokenStorage.setToken(token)
@@ -158,8 +167,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   private def emailSighUpUser(dto: EmailSignUpDto) = {
     val salt = generateSalt
     val hashedPassword = dto.password.bcrypt(salt)
-    (dto.firstName, dto.lastName, Option(dto.email), dto.phoneCountryCode, dto.phoneNumber, salt
-      , Option(hashedPassword), 0)
+    (dto.firstName, dto.lastName, dto.email, dto.phoneCode, dto.phone, salt, Option(hashedPassword), 0)
   }
 }
 
@@ -168,31 +176,43 @@ object SignUpController {
 
   case class EmailSignUpDto(firstName: String,
                             lastName: String,
-                            phoneCountryCode: String,
-                            phoneNumber: String,
+                            phoneCode: String,
+                            phone: String,
                             email: String,
                             password: String)
 
-  case class FacebookSighUpDto(phoneCountryCode: String,
-                               phoneNumber: String,
+  case class FacebookSighUpDto(firstName: String,
+                               lastName: String,
+                               phoneCode: String,
+                               phone: String,
+                               email: String,
                                token: String)
 
-  case class EmailDto(email: String)
+  case class FbTokenDto(token: String)
+
+  case class FBSighUpResponseDto(firstName: String,
+                                 lastName: String,
+                                 email: Option[String],
+                                 profilePicture: String,
+                                 fbId: String)
 
   implicit val emailSignUpDtoReads: Reads[EmailSignUpDto] = (
-      (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+    (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "email").read[String](email) and
       (JsPath \ "password").read[String](minLength[String](6) keepAnd maxLength[String](32))
-    )(EmailSignUpDto.apply _)
+    ) (EmailSignUpDto.apply _)
 
   implicit val facebookSighUpDtoReads: Reads[FacebookSighUpDto] = (
+    (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+      (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
       (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
+      (JsPath \ "email").read[String](email) and
       (JsPath \ "token").read[String](minLength[String](10))
-    )(FacebookSighUpDto.apply _)
+    ) (FacebookSighUpDto.apply _)
 
-  implicit val emailDtoReads: Reads[EmailDto] = (__ \ 'email).read[String](email).map(EmailDto)
+  implicit val fbTokenDtoReads: Reads[FbTokenDto] = (__ \ 'token).read[String](email).map(FbTokenDto)
 }

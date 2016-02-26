@@ -1,14 +1,13 @@
 # API controllers
 # Sign up
 POST          /api/v1/sign-up                          @controllers.SignUpController.emailSignUp
-POST          /api/v1/facebook-sign-up                 @controllers.SignUpController.facebookSignUp
-POST          /api/v1/email/is-valid                   @controllers.SignUpController.emailNotExists
-GET           /api/v1/fb-user/not-exists/:token        @controllers.SignUpController.facebookUserNotExists(token: String)
+POST          /api/v1/facebook-auth                    @controllers.SignUpController.fbAuth
+POST          /api/v1/facebook-sign-up                 @controllers.SignUpController.fbSignUp
+
 
 
 # Log in
 POST          /api/v1/log-in                           @controllers.LogInController.logIn
-POST          /api/v1/facebook-log-in                  @controllers.LogInController.facebookLogIn
 GET           /api/v1/log-out                          @controllers.LogInController.logOut
 POST          /api/v1/forget-password                  @controllers.LogInController.forgotPassword
 
