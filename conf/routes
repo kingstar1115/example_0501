@@ -1,8 +1,8 @@
 # API controllers
 # Sign up
 POST          /api/v1/sign-up                          @controllers.SignUpController.emailSignUp
-POST          /api/v1/facebook-auth                    @controllers.SignUpController.fbAuth
-POST          /api/v1/facebook-sign-up                 @controllers.SignUpController.fbSignUp
+POST          /api/v1/fb-auth                          @controllers.SignUpController.fbAuth
+POST          /api/v1/fb-sign-up                       @controllers.SignUpController.fbSignUp
 
 
 
