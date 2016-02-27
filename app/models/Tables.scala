@@ -156,7 +156,7 @@ trait Tables {
    *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param firstName Database column first_name SqlType(varchar), Length(150,true)
    *  @param lastName Database column last_name SqlType(varchar), Length(150,true)
-   *  @param email Database column email SqlType(varchar), Length(255,true), Default(None)
+   *  @param email Database column email SqlType(varchar), Length(255,true)
    *  @param password Database column password SqlType(varchar), Length(255,true), Default(None)
    *  @param salt Database column salt SqlType(varchar), Length(255,true)
    *  @param facebookId Database column facebook_id SqlType(varchar), Length(100,true), Default(None)
@@ -166,17 +166,17 @@ trait Tables {
    *  @param verified Database column verified SqlType(bool), Default(false)
    *  @param code Database column code SqlType(varchar), Length(32,true), Default(None)
    *  @param profilePicture Database column profile_picture SqlType(text), Default(None) */
-  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: Option[String] = None, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None)
+  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: String, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None)
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
   implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[UsersRow] = GR{
     prs => import prs._
-    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<?[String], <<?[String], <<[String], <<?[String], <<[String], <<[String], <<[Int], <<[Boolean], <<?[String], <<?[String]))
+    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<?[String], <<[String], <<?[String], <<[String], <<[String], <<[Int], <<[Boolean], <<?[String], <<?[String]))
   }
   /** Table description of table users. Objects of this class serve as prototypes for rows in queries. */
   class Users(_tableTag: Tag) extends Table[UsersRow](_tableTag, "users") {
     def * = (id, createdDate, updatedDate, firstName, lastName, email, password, salt, facebookId, phoneCode, phone, userType, verified, code, profilePicture) <> (UsersRow.tupled, UsersRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(firstName), Rep.Some(lastName), email, password, Rep.Some(salt), facebookId, Rep.Some(phoneCode), Rep.Some(phone), Rep.Some(userType), Rep.Some(verified), code, profilePicture).shaped.<>({r=>import r._; _1.map(_=> UsersRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7, _8.get, _9, _10.get, _11.get, _12.get, _13.get, _14, _15)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(firstName), Rep.Some(lastName), Rep.Some(email), password, Rep.Some(salt), facebookId, Rep.Some(phoneCode), Rep.Some(phone), Rep.Some(userType), Rep.Some(verified), code, profilePicture).shaped.<>({r=>import r._; _1.map(_=> UsersRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7, _8.get, _9, _10.get, _11.get, _12.get, _13.get, _14, _15)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -188,8 +188,8 @@ trait Tables {
     val firstName: Rep[String] = column[String]("first_name", O.Length(150,varying=true))
     /** Database column last_name SqlType(varchar), Length(150,true) */
     val lastName: Rep[String] = column[String]("last_name", O.Length(150,varying=true))
-    /** Database column email SqlType(varchar), Length(255,true), Default(None) */
-    val email: Rep[Option[String]] = column[Option[String]]("email", O.Length(255,varying=true), O.Default(None))
+    /** Database column email SqlType(varchar), Length(255,true) */
+    val email: Rep[String] = column[String]("email", O.Length(255,varying=true))
     /** Database column password SqlType(varchar), Length(255,true), Default(None) */
     val password: Rep[Option[String]] = column[Option[String]]("password", O.Length(255,varying=true), O.Default(None))
     /** Database column salt SqlType(varchar), Length(255,true) */
