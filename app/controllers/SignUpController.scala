@@ -56,7 +56,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
               case Success(insertResult) =>
                 val token = getToken(insertResult, (user._1, user._2, user._3, 0))
                 ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-                  0, token.userInfo.verified, None))(AuthToken.authResponseFormat)
+                  0, token.userInfo.verified, None, dto.phoneCode.concat(dto.phone)))(AuthToken.authResponseFormat)
 
               case Failure(e) => badRequest(e.getMessage, DatabaseError)
             }
@@ -88,7 +88,8 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
           def onUserExists(user: Tables.UsersRow) = {
             val key = getToken(user.id, (user.firstName, user.lastName, user.email, 1)).key
-            val responseDto = AuthResponse(key, user.firstName, user.lastName, 1, user.verified, user.profilePicture)
+            val responseDto = AuthResponse(key, user.firstName, user.lastName, 1, user.verified, user.profilePicture,
+              user.phoneCode.concat(user.phone))
             ok(responseDto)(AuthToken.authResponseFormat)
           }
 
@@ -124,7 +125,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                       db.run(insertQuery).map { userId =>
                         val key = getToken(userId, (dto.firstName, dto.lastName, dto.email, 1)).key
                         ok(AuthResponse(key, dto.firstName, dto.lastName, 1, false,
-                          Option(fbDto.picture.data.url)))(AuthToken.authResponseFormat)
+                          Option(fbDto.picture.data.url), dto.phoneCode.concat(dto.phone)))(AuthToken.authResponseFormat)
                       }
 
                     case failed => wrapInFuture(badRequest(failed.message, AuthyError))
