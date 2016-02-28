@@ -139,7 +139,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         .update(dto.firstName, dto.lastName, dto.phoneCode, dto.phone, dto.email)
       db.run(updateQuery).map {
         case 1 => ok("Profile updated")
-        case _ => badRequest("Can't update user profile")
+        case _ => badRequest("Can’t update not verified user profile")
       }
     }
 

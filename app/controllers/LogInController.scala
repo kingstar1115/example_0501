@@ -40,12 +40,17 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
       case JsSuccess(dto, jsPath) =>
         val userQuery = for {
           u <- Tables.Users if u.email === dto.email && u.userType === 0
-        } yield (u.id, u.email, u.firstName, u.lastName, u.verified, u.userType, u.password, u.salt, u.profilePicture)
+        } yield u
         db.run(userQuery.result).map { result =>
-          result.headOption.filter(r => dto.password.bcrypt(r._8) == r._7.get)
-            .map { r =>
-              val userInfo = UserInfo(r._1, r._2, r._3, r._4, r._5, r._6, r._9)
-              tokenOkResponse(userInfo)
+          result.headOption.filter(r => dto.password.bcrypt(r.salt) == r.password.get)
+            .map { user =>
+              val userInfo = UserInfo(user.id, user.email, user.firstName, user.lastName,
+                user.verified, user.userType, user.profilePicture)
+              val token = tokenProvider.generateToken(userInfo)
+              tokenStorage.setToken(token)
+
+              ok(AuthResponse(token.key, user.firstName, user.lastName, user.userType, user.verified,
+                user.profilePicture, user.phoneCode.concat(user.phone)))(AuthToken.authResponseFormat)
             }.getOrElse(validationFailed("Wrong email or password"))
         }
     }
@@ -72,13 +77,6 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
             case _ => badRequest("Oops, something went wrong", CommonError)
           }
       }
-  }
-
-  private def tokenOkResponse(userInfo: UserInfo) = {
-    val token = tokenProvider.generateToken(userInfo)
-    tokenStorage.setToken(token)
-    ok(AuthResponse(token.key, userInfo.firstName, userInfo.lastName,
-      userInfo.userType, userInfo.verified, userInfo.picture))(AuthToken.authResponseFormat)
   }
 }
 
