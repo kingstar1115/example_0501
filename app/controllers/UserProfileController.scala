@@ -137,9 +137,17 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
       val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
         .map(user => (user.firstName, user.lastName, user.phoneCode, user.phone, user.email))
         .update(dto.firstName, dto.lastName, dto.phoneCode, dto.phone, dto.email)
-      db.run(updateQuery).map {
-        case 1 => ok("Profile updated")
-        case _ => badRequest("Can’t update not verified user profile")
+      val selectQuery = for {u <- Users if u.id === userId} yield u
+
+      db.run(updateQuery zip selectQuery.result.head).map { resultSet =>
+        resultSet._1 match {
+          case 1 =>
+            val user = resultSet._2
+            val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
+              user.email, user.profilePicture, user.userType, user.verified)
+            ok(dto)
+          case _ => badRequest("Can’t update not verified user profile")
+        }
       }
     }
 

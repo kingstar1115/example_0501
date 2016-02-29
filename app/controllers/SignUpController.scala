@@ -63,7 +63,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
           case other => Future.successful(badRequest(other.message, AuthyError))
         }
       }.recover {
-        case _ => validationFailed("User with this email already exists")
+        case _ => validationFailed("User with this email or phone already exists")
       }
     }
 
