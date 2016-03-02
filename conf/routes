@@ -1,14 +1,13 @@
 # API controllers
 # Sign up
 POST          /api/v1/sign-up                          @controllers.SignUpController.emailSignUp
-POST          /api/v1/facebook-sign-up                 @controllers.SignUpController.facebookSignUp
-POST          /api/v1/email/is-valid                   @controllers.SignUpController.emailNotExists
-GET           /api/v1/fb-user/not-exists/:token        @controllers.SignUpController.facebookUserNotExists(token: String)
+POST          /api/v1/fb-auth                          @controllers.SignUpController.fbAuth
+POST          /api/v1/fb-sign-up                       @controllers.SignUpController.fbSignUp
+
 
 
 # Log in
 POST          /api/v1/log-in                           @controllers.LogInController.logIn
-POST          /api/v1/facebook-log-in                  @controllers.LogInController.facebookLogIn
 GET           /api/v1/log-out                          @controllers.LogInController.logOut
 POST          /api/v1/forget-password                  @controllers.LogInController.forgotPassword
 
@@ -22,6 +21,7 @@ POST          /api/v1/profile/change-password          @controllers.UserProfileC
 PUT           /api/v1/profile/picture                  @controllers.UserProfileController.uploadProfilePicture
 GET           /api/v1/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(fileName)
 GET           /api/v1/profile                          @controllers.UserProfileController.getProfileInfo
+PUT           /api/v1/profile/update                   @controllers.UserProfileController.updateProfile
 
 #Locations
 GET           /api/v1/locations/:id                    @controllers.LocationController.get(id: Int)

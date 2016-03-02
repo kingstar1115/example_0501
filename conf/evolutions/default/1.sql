@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
   updated_date    TIMESTAMP    NOT NULL DEFAULT now(),
   first_name      VARCHAR(150) NOT NULL,
   last_name       VARCHAR(150) NOT NULL,
-  email           VARCHAR(255) UNIQUE,
+  email           VARCHAR(255) UNIQUE NOT NULL,
   password        VARCHAR(255),
   salt            VARCHAR(255) NOT NULL,
   facebook_id     VARCHAR(100) UNIQUE,
