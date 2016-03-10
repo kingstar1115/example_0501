@@ -1,43 +1,65 @@
 package controllers
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 import controllers.TasksController._
 import controllers.base.BaseController
-import play.api.Logger
+import play.api.Configuration
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
 import play.api.mvc.{Action, BodyParsers}
 import security.TokenStorage
-import services.ApnsPushService
+import services.TookanService
+
+import scala.concurrent.ExecutionContext.Implicits.global
 
 
 class TasksController @Inject()(val tokenStorage: TokenStorage,
-                                apnsPushService: ApnsPushService) extends BaseController {
+                                tookanService: TookanService,
+                                config: Configuration) extends BaseController {
 
-  def onStatusChange = Action(BodyParsers.parse.json) { request =>
-    request.body.validate[WebHookDto] match {
-      case JsSuccess(dto, p) =>
-
-      case _ => Logger.debug("Incorrect data from tookan")
+  def createTask = Action.async(BodyParsers.parse.json) { request =>
+    def onValidationSuccess(dto: TaskDto) = {
+      tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress,
+        dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
+        .map {
+          case Left(error) => badRequest(error)
+          case Right(task) => ok(task)
+        }
     }
-    Ok
+
+    request.body.validate[TaskDto]
+      .fold(jsonValidationFailedFuture, onValidationSuccess)
   }
 }
 
 object TasksController {
 
-  case class WebHookDto(userId: Int,
-                        jobId: Int,
-                        jobStatus: Int)
+  case class TaskDto(token: String,
+                     description: String,
+                     pickupName: String,
+                     pickupEmail: Option[String],
+                     pickupPhone: String,
+                     pickupAddress: String,
+                     pickupLatitude: Double,
+                     pickupLongitude: Double,
+                     pickupDateTime: LocalDateTime)
 
-  implicit val webHookDtoReads: Reads[WebHookDto] = (
-    (JsPath \ "user_id").read[Int] and
-    (JsPath \ "job_id").read[Int] and
-    (JsPath \ "jobStatus").read[Int]
-    )(WebHookDto.apply _)
-
+  val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
+  implicit val taskDtoReads: Reads[TaskDto] = (
+    (JsPath \ "token").read[String] and
+      (JsPath \ "description").read[String] and
+      (JsPath \ "name").read[String] and
+      (JsPath \ "email").readNullable[String](email) and
+      (JsPath \ "phone").read[String] and
+      (JsPath \ "address").read[String] and
+      (JsPath \ "latitude").read[Double] and
+      (JsPath \ "longitude").read[Double] and
+      (JsPath \ "dateTime").read[LocalDateTime](dateTimeReads)
+    ) (TaskDto.apply _)
 }
 
 

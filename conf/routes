@@ -31,7 +31,7 @@ GET           /api/v1/locations                        @controllers.LocationCont
 PUT           /api/v1/locations/:id                    @controllers.LocationController.update(id: Int)
 
 #Tasks
-POST          /api/v1/tasks/webhook                    @controllers.TasksController.onStatusChange
+POST          /api/v1/tasks/create                     @controllers.TasksController.createTask
 
 # Web controllers
 # Password recovery
