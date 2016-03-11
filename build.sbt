@@ -6,7 +6,12 @@ version := "1.0-SNAPSHOT"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.7"
+
+resolvers ++= Seq(
+  "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases",
+  "google-sedis-fix" at "http://pk11-scratch.googlecode.com/svn/trunk"
+)
 
 libraryDependencies ++= Seq(cache, ws, "postgresql" % "postgresql" % "9.1-901.jdbc4",
   "com.typesafe.play" %% "play-slick" % "1.1.0",
@@ -14,10 +19,9 @@ libraryDependencies ++= Seq(cache, ws, "postgresql" % "postgresql" % "9.1-901.jd
   "com.typesafe.slick" %% "slick-codegen" % "3.1.0",
   "com.typesafe.play.modules" %% "play-modules-redis" % "2.4.0",
   "com.github.t3hnar" % "scala-bcrypt_2.10" % "2.5",
-  "com.typesafe.play" %% "play-mailer" % "3.0.1")
-
-resolvers ++= Seq("scalaz-bintray" at "http://dl.bintray.com/scalaz/releases",
-  "google-sedis-fix" at "http://pk11-scratch.googlecode.com/svn/trunk")
+  "com.typesafe.play" %% "play-mailer" % "3.0.1",
+  "com.stripe" % "stripe-java" % "1.45.0"
+)
 
 routesGenerator := InjectedRoutesGenerator
 

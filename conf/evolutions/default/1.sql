@@ -2,18 +2,18 @@
 
 CREATE TABLE IF NOT EXISTS users (
   id              SERIAL PRIMARY KEY,
-  created_date    TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date    TIMESTAMP    NOT NULL DEFAULT now(),
-  first_name      VARCHAR(150) NOT NULL,
-  last_name       VARCHAR(150) NOT NULL,
+  created_date    TIMESTAMP           NOT NULL DEFAULT now(),
+  updated_date    TIMESTAMP           NOT NULL DEFAULT now(),
+  first_name      VARCHAR(150)        NOT NULL,
+  last_name       VARCHAR(150)        NOT NULL,
   email           VARCHAR(255) UNIQUE NOT NULL,
   password        VARCHAR(255),
-  salt            VARCHAR(255) NOT NULL,
+  salt            VARCHAR(255)        NOT NULL,
   facebook_id     VARCHAR(100) UNIQUE,
-  phone_code      VARCHAR(4)   NOT NULL,
-  phone           VARCHAR(16)  NOT NULL,
-  user_type       INTEGER      NOT NULL,
-  verified        BOOLEAN      NOT NULL DEFAULT FALSE,
+  phone_code      VARCHAR(4)          NOT NULL,
+  phone           VARCHAR(16)         NOT NULL,
+  user_type       INTEGER             NOT NULL,
+  verified        BOOLEAN             NOT NULL DEFAULT FALSE,
   code            VARCHAR(32),
   profile_picture TEXT
 );
@@ -33,16 +33,19 @@ CREATE TABLE IF NOT EXISTS locations (
   user_id           INT          NOT NULL REFERENCES users (id)
 );
 
-CREATE TABLE IF NOT EXISTS tookan_tasks (
+CREATE TABLE IF NOT EXISTS jobs (
   id           SERIAL PRIMARY KEY,
-  created_date TIMESTAMP   NOT NULL DEFAULT now(),
-  updated_date TIMESTAMP   NOT NULL DEFAULT now(),
-  job_id       VARCHAR(12) NOT NULL,
-  job_status   VARCHAR(2)  NOT NULL,
-  user_id      INT         NOT NULL REFERENCES users (id)
+  created_date TIMESTAMP    NOT NULL DEFAULT now(),
+  updated_date TIMESTAMP    NOT NULL DEFAULT now(),
+  job_id       BIGINT       NOT NULL,
+  job_status   INT          NOT NULL DEFAULT 6,
+  job_token    VARCHAR(255) NOT NULL,
+  description  VARCHAR(255) NOT NULL,
+  user_id      INT          NOT NULL REFERENCES users (id)
 );
 
 # --- !Downs
 
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
+DROP TABLE IF EXISTS jobs;

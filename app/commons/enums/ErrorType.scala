@@ -18,3 +18,5 @@ case object AuthyError extends ErrorType("AuthyError")
 
 case object CommonError extends ErrorType("CommonError")
 
+case object StripeError extends ErrorType("StripeError")
+

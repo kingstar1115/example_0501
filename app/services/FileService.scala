@@ -35,3 +35,7 @@ class FileService @Inject()(application: play.Application,
       .getOrElse(application.path().getPath)
   }
 }
+
+object FileService {
+  val CERT_FOLDER = "cert"
+}
