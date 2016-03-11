@@ -6,7 +6,7 @@ import play.api.mvc.{Result, Controller}
 
 import scala.concurrent.Future
 
-abstract class BaseController() extends Controller with ApiActions {
+abstract class BaseController extends Controller with ApiActions {
 
   def jsonValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) = validationFailed(JsError.toJson(errors))
 
