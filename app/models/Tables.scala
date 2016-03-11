@@ -14,9 +14,53 @@ trait Tables {
   import slick.jdbc.{GetResult => GR}
 
   /** DDL for all tables. Call .create to execute. */
-  lazy val schema: profile.SchemaDescription = Locations.schema ++ PlayEvolutions.schema ++ TookanTasks.schema ++ Users.schema
+  lazy val schema: profile.SchemaDescription = Jobs.schema ++ Locations.schema ++ PlayEvolutions.schema ++ Users.schema
   @deprecated("Use .schema instead of .ddl", "3.0")
   def ddl = schema
+
+  /** Entity class storing rows of table Jobs
+   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
+   *  @param createdDate Database column created_date SqlType(timestamp)
+   *  @param updatedDate Database column updated_date SqlType(timestamp)
+   *  @param jobId Database column job_id SqlType(int8)
+   *  @param jobStatus Database column job_status SqlType(int4), Default(6)
+   *  @param jobToken Database column job_token SqlType(varchar), Length(255,true)
+   *  @param description Database column description SqlType(varchar), Length(255,true)
+   *  @param userId Database column user_id SqlType(int4) */
+  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, userId: Int)
+  /** GetResult implicit for fetching JobsRow objects using plain SQL queries */
+  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String]): GR[JobsRow] = GR{
+    prs => import prs._
+    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[Int]))
+  }
+  /** Table description of table jobs. Objects of this class serve as prototypes for rows in queries. */
+  class Jobs(_tableTag: Tag) extends Table[JobsRow](_tableTag, "jobs") {
+    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, userId) <> (JobsRow.tupled, JobsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+
+    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
+    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column created_date SqlType(timestamp) */
+    val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
+    /** Database column updated_date SqlType(timestamp) */
+    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
+    /** Database column job_id SqlType(int8) */
+    val jobId: Rep[Long] = column[Long]("job_id")
+    /** Database column job_status SqlType(int4), Default(6) */
+    val jobStatus: Rep[Int] = column[Int]("job_status", O.Default(6))
+    /** Database column job_token SqlType(varchar), Length(255,true) */
+    val jobToken: Rep[String] = column[String]("job_token", O.Length(255,varying=true))
+    /** Database column description SqlType(varchar), Length(255,true) */
+    val description: Rep[String] = column[String]("description", O.Length(255,varying=true))
+    /** Database column user_id SqlType(int4) */
+    val userId: Rep[Int] = column[Int]("user_id")
+
+    /** Foreign key referencing Users (database name jobs_user_id_fkey) */
+    lazy val usersFk = foreignKey("jobs_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+  }
+  /** Collection-like TableQuery object for table Jobs */
+  lazy val Jobs = new TableQuery(tag => new Jobs(tag))
 
   /** Entity class storing rows of table Locations
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -111,44 +155,6 @@ trait Tables {
   }
   /** Collection-like TableQuery object for table PlayEvolutions */
   lazy val PlayEvolutions = new TableQuery(tag => new PlayEvolutions(tag))
-
-  /** Entity class storing rows of table TookanTasks
-   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
-   *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param updatedDate Database column updated_date SqlType(timestamp)
-   *  @param jobId Database column job_id SqlType(varchar), Length(12,true)
-   *  @param jobStatus Database column job_status SqlType(varchar), Length(2,true)
-   *  @param userId Database column user_id SqlType(int4) */
-  case class TookanTasksRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: String, jobStatus: String, userId: Int)
-  /** GetResult implicit for fetching TookanTasksRow objects using plain SQL queries */
-  implicit def GetResultTookanTasksRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String]): GR[TookanTasksRow] = GR{
-    prs => import prs._
-    TookanTasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<[Int]))
-  }
-  /** Table description of table tookan_tasks. Objects of this class serve as prototypes for rows in queries. */
-  class TookanTasks(_tableTag: Tag) extends Table[TookanTasksRow](_tableTag, "tookan_tasks") {
-    def * = (id, createdDate, updatedDate, jobId, jobStatus, userId) <> (TookanTasksRow.tupled, TookanTasksRow.unapply)
-    /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> TookanTasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
-
-    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
-    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
-    /** Database column created_date SqlType(timestamp) */
-    val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column updated_date SqlType(timestamp) */
-    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
-    /** Database column job_id SqlType(varchar), Length(12,true) */
-    val jobId: Rep[String] = column[String]("job_id", O.Length(12,varying=true))
-    /** Database column job_status SqlType(varchar), Length(2,true) */
-    val jobStatus: Rep[String] = column[String]("job_status", O.Length(2,varying=true))
-    /** Database column user_id SqlType(int4) */
-    val userId: Rep[Int] = column[Int]("user_id")
-
-    /** Foreign key referencing Users (database name tookan_tasks_user_id_fkey) */
-    lazy val usersFk = foreignKey("tookan_tasks_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
-  }
-  /** Collection-like TableQuery object for table TookanTasks */
-  lazy val TookanTasks = new TableQuery(tag => new TookanTasks(tag))
 
   /** Entity class storing rows of table Users
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey

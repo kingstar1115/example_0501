@@ -31,7 +31,7 @@ class TookanService @Inject()(ws: WSClient,
                         pickupDateTime: LocalDateTime,
                         latitude: Option[Double],
                         longitude: Option[Double],
-                        customerEmail: Option[String]): Future[Either[TookanError, NewTaskDto]] = {
+                        customerEmail: Option[String]): Future[Either[TookanResponse, AppointmentResponse]] = {
     val task = AppointmentTask.default(customerName,
       customerPhone,
       customerAddress,
@@ -43,28 +43,37 @@ class TookanService @Inject()(ws: WSClient,
     createAppointment(task)
   }
 
-  def createAppointment(task: AppointmentTask): Future[Either[TookanError, NewTaskDto]] = {
-    val body = Json.toJson(task)
+  def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
     buildRequest(CREATE_TASK)
-      .post(body)
-      .map(response => response.convert[NewTaskDto])
+      .post(Json.toJson(task))
+      .map(response => response.convert[AppointmentResponse])
   }
 
-  def buildRequest(path: String) = {
+  def deleteTask(taskId: Long) = {
+    buildRequest(DELETE_TASK)
+      .post(Json.toJson(DeleteTaskDto.default(taskId)))
+      .map(response => response.getResponse)
+  }
+
+  private def buildRequest(path: String) = {
     ws.url(buildUrl(path))
       .withRequestTimeout(10000L)
       .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.JSON))
   }
 
-  def buildUrl(path: String) = BASE_URL.concat("/").concat(path)
+  private def buildUrl(path: String) = BASE_URL.concat("/").concat(path)
 
   implicit class WSResponseEx(wsResponse: WSResponse) {
 
-    def convert[T](implicit reads: Reads[T]): Either[TookanError, T] = {
-      val body = wsResponse.json
-      (body \ "status").as[Int] match {
-        case 200 => Right((body \ "data").as[T])
-        case other => Left(TookanError((body \ "message").as[String], other))
+    val jsonBody = wsResponse.json
+
+    def getResponse: TookanResponse = jsonBody.as[TookanResponse]
+
+    def convert[T](implicit reads: Reads[T]): Either[TookanResponse, T] = {
+      val response = getResponse
+      response.status match {
+        case 200 => Right((jsonBody \ "data").as[T])
+        case _ => Left(response)
       }
     }
   }
@@ -74,15 +83,16 @@ class TookanService @Inject()(ws: WSClient,
 object TookanService {
 
   val CREATE_TASK = "create_task"
+  val DELETE_TASK = "delete_job"
 
   case class Config(key: String,
                     teamId: Int)
 
-  case class TookanError(message: String,
-                         status: Int)
+  case class TookanResponse(message: String,
+                            status: Int)
 
-  object TookanError {
-    implicit val tookanErrorFormat = Json.format[TookanError]
+  object TookanResponse {
+    implicit val tookanResponseFormat = Json.format[TookanResponse]
   }
 
   case class Metadata(label: String,
@@ -172,19 +182,29 @@ object TookanService {
           "ref_images" -> Json.toJson(task.refImages)))
   }
 
-  case class NewTaskDto(jobId: Int,
-                        customerName: String,
-                        customerAddress: String,
-                        jobToken: String)
+  case class AppointmentResponse(jobId: Long,
+                                 customerName: String,
+                                 customerAddress: String,
+                                 jobToken: String)
 
-  object NewTaskDto {
-    implicit val taskDtoReads: Reads[NewTaskDto] = (
-      (JsPath \ "job_id").read[Int] and
+  object AppointmentResponse {
+    implicit val taskDtoReads: Reads[AppointmentResponse] = (
+      (JsPath \ "job_id").read[Long] and
         (JsPath \ "customer_name").read[String] and
         (JsPath \ "customer_address").read[String] and
         (JsPath \ "job_token").read[String]
-      ) (NewTaskDto.apply _)
-    implicit val taskDtoWrites: Writes[NewTaskDto] = Json.writes[NewTaskDto]
+      ) (AppointmentResponse.apply _)
+    implicit val taskDtoWrites: Writes[AppointmentResponse] = Json.writes[AppointmentResponse]
+  }
+
+  case class DeleteTaskDto(accessToken: String,
+                           jobId: Long)
+
+  object DeleteTaskDto {
+
+    def default(jobId: Long)(implicit config: Config) = new DeleteTaskDto(config.key, jobId)
+
+    implicit val deleteTaskWrites: Format[DeleteTaskDto] = Json.format[DeleteTaskDto]
   }
 
   implicit class BooleanEx(value: Boolean) {
