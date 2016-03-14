@@ -65,9 +65,9 @@ object TasksController {
 
   def calculatePrice(index: Int, hasInteriorCleaning: Boolean) = {
     val price = index match {
-      case 0 => 3000
-      case 1 => 3500
-      case 2 => 4000
+      case 0 => 2000
+      case 1 => 2500
+      case 2 => 3000
       case _ => 0
     }
     if (hasInteriorCleaning) price + 500 else price
