@@ -1,8 +1,6 @@
 package actors
 
 import java.sql.Timestamp
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
 import actors.TasksActor.RefreshTaskData
 import akka.actor.{Actor, Props}
