@@ -14,9 +14,47 @@ trait Tables {
   import slick.jdbc.{GetResult => GR}
 
   /** DDL for all tables. Call .create to execute. */
-  lazy val schema: profile.SchemaDescription = Jobs.schema ++ Locations.schema ++ PlayEvolutions.schema ++ Users.schema
+  lazy val schema: profile.SchemaDescription = Agents.schema ++ Jobs.schema ++ Locations.schema ++ PlayEvolutions.schema ++ Users.schema
   @deprecated("Use .schema instead of .ddl", "3.0")
   def ddl = schema
+
+  /** Entity class storing rows of table Agents
+   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
+   *  @param createdDate Database column created_date SqlType(timestamp)
+   *  @param updatedDate Database column updated_date SqlType(timestamp)
+   *  @param fleetId Database column fleet_id SqlType(int8)
+   *  @param name Database column name SqlType(varchar), Length(255,true)
+   *  @param fleetImage Database column fleet_image SqlType(text) */
+  case class AgentsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, fleetId: Long, name: String, fleetImage: String)
+  /** GetResult implicit for fetching AgentsRow objects using plain SQL queries */
+  implicit def GetResultAgentsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String]): GR[AgentsRow] = GR{
+    prs => import prs._
+    AgentsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[String], <<[String]))
+  }
+  /** Table description of table agents. Objects of this class serve as prototypes for rows in queries. */
+  class Agents(_tableTag: Tag) extends Table[AgentsRow](_tableTag, "agents") {
+    def * = (id, createdDate, updatedDate, fleetId, name, fleetImage) <> (AgentsRow.tupled, AgentsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(fleetId), Rep.Some(name), Rep.Some(fleetImage)).shaped.<>({r=>import r._; _1.map(_=> AgentsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+
+    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
+    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column created_date SqlType(timestamp) */
+    val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
+    /** Database column updated_date SqlType(timestamp) */
+    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
+    /** Database column fleet_id SqlType(int8) */
+    val fleetId: Rep[Long] = column[Long]("fleet_id")
+    /** Database column name SqlType(varchar), Length(255,true) */
+    val name: Rep[String] = column[String]("name", O.Length(255,varying=true))
+    /** Database column fleet_image SqlType(text) */
+    val fleetImage: Rep[String] = column[String]("fleet_image")
+
+    /** Uniqueness Index over (fleetId) (database name agents_fleet_id_key) */
+    val index1 = index("agents_fleet_id_key", fleetId, unique=true)
+  }
+  /** Collection-like TableQuery object for table Agents */
+  lazy val Agents = new TableQuery(tag => new Agents(tag))
 
   /** Entity class storing rows of table Jobs
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -26,18 +64,21 @@ trait Tables {
    *  @param jobStatus Database column job_status SqlType(int4), Default(6)
    *  @param jobToken Database column job_token SqlType(varchar), Length(255,true)
    *  @param description Database column description SqlType(varchar), Length(255,true)
-   *  @param userId Database column user_id SqlType(int4) */
-  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, userId: Int)
+   *  @param scheduledTime Database column scheduled_time SqlType(timestamp)
+   *  @param images Database column images SqlType(text), Default(None)
+   *  @param userId Database column user_id SqlType(int4)
+   *  @param agentId Database column agent_id SqlType(int4), Default(None) */
+  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, scheduledTime: java.sql.Timestamp, images: Option[String] = None, userId: Int, agentId: Option[Int] = None)
   /** GetResult implicit for fetching JobsRow objects using plain SQL queries */
-  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String]): GR[JobsRow] = GR{
+  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String], e4: GR[Option[String]], e5: GR[Option[Int]]): GR[JobsRow] = GR{
     prs => import prs._
-    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[Int]))
+    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<?[String], <<[Int], <<?[Int]))
   }
   /** Table description of table jobs. Objects of this class serve as prototypes for rows in queries. */
   class Jobs(_tableTag: Tag) extends Table[JobsRow](_tableTag, "jobs") {
-    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, userId) <> (JobsRow.tupled, JobsRow.unapply)
+    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, scheduledTime, images, userId, agentId) <> (JobsRow.tupled, JobsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(scheduledTime), images, Rep.Some(userId), agentId).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10.get, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -53,11 +94,22 @@ trait Tables {
     val jobToken: Rep[String] = column[String]("job_token", O.Length(255,varying=true))
     /** Database column description SqlType(varchar), Length(255,true) */
     val description: Rep[String] = column[String]("description", O.Length(255,varying=true))
+    /** Database column scheduled_time SqlType(timestamp) */
+    val scheduledTime: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("scheduled_time")
+    /** Database column images SqlType(text), Default(None) */
+    val images: Rep[Option[String]] = column[Option[String]]("images", O.Default(None))
     /** Database column user_id SqlType(int4) */
     val userId: Rep[Int] = column[Int]("user_id")
+    /** Database column agent_id SqlType(int4), Default(None) */
+    val agentId: Rep[Option[Int]] = column[Option[Int]]("agent_id", O.Default(None))
 
+    /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
+    lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing Users (database name jobs_user_id_fkey) */
     lazy val usersFk = foreignKey("jobs_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+
+    /** Uniqueness Index over (jobId) (database name jobs_job_id_key) */
+    val index1 = index("jobs_job_id_key", jobId, unique=true)
   }
   /** Collection-like TableQuery object for table Jobs */
   lazy val Jobs = new TableQuery(tag => new Jobs(tag))
