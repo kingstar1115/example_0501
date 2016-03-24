@@ -1,32 +1,41 @@
 package controllers
 
+import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
+import actors.TasksActor
+import actors.TasksActor.RefreshTaskData
+import akka.actor.ActorSystem
 import controllers.TasksController._
-import controllers.base.BaseController
+import controllers.base.{BaseController, ListResponse}
 import models.Tables._
-import play.api.Configuration
 import play.api.data.validation.ValidationError
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
-import play.api.mvc.BodyParsers
+import play.api.mvc.{Action, BodyParsers}
+import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.TookanService.AppointmentResponse
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Try
 
 
 class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 dbConfigProvider: DatabaseConfigProvider,
                                 tookanService: TookanService,
                                 stripeService: StripeService,
-                                config: Configuration) extends BaseController {
+                                config: Configuration,
+                                system: ActorSystem) extends BaseController {
+
+  implicit val agentDtoFormat = Json.format[AgentDto]
+  implicit val jobDtoFormat = Json.format[JobDto]
 
   val db = dbConfigProvider.get.db
 
@@ -40,11 +49,16 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
               tookanService.deleteTask(tookanTask.jobId)
                 .map(response => badRequest(error.message, error.errorType))
             case Right(charge) =>
-              val insertQuery = (Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId))
-                returning Jobs.map(_.id)
-                += ((tookanTask.jobId, tookanTask.jobToken, dto.description, request.token.get.userInfo.id)))
+              val insertQuery = (
+                Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime))
+                  returning Jobs.map(_.id)
+                  += ((tookanTask.jobId, tookanTask.jobToken, dto.description, request.token.get.userInfo.id, Timestamp.valueOf(dto.pickupDateTime)))
+                )
               db.run(insertQuery)
-                .map(id => ok(tookanTask))
+                .map { id =>
+                  updateTask(tookanTask.jobId)
+                  ok(tookanTask)
+                }
           }
       }
 
@@ -59,6 +73,43 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     request.body.validate[TaskDto]
       .fold(jsonValidationFailedFuture, onValidationSuccess)
   }
+
+  def tasksHistory(offset: Int, limit: Int) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val listQuery = for {
+      (job, agent) <- Jobs joinLeft Agents on (_.agentId === _.id)
+      if job.userId === userId
+    } yield (job, agent)
+    db.run(listQuery.length.result zip listQuery.take(limit).drop(offset).result)
+      .map { result =>
+        val jobs = result._2.map { row =>
+          val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
+          val images = row._1.images.map(_.split(";").toList).getOrElse(List.empty[String])
+          JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images)
+        }.toList
+        ok(ListResponse(jobs, limit, offset, result._1))
+      }
+  }
+
+  def onTaskUpdate = Action(BodyParsers.parse.json) { request =>
+    Logger.info(request.body.toString)
+    (request.body \\ "job_id").headOption
+      .map { value =>
+        val jobId = value match {
+          case s: JsString => Try(Option(s.value.toLong)).getOrElse(None)
+          case n: JsNumber => Try(Option(n.as[Long])).getOrElse(None)
+          case _ => None
+        }
+        jobId.map { id =>
+          updateTask(id)
+          ok("Updated")
+        }.getOrElse(badRequest("Can't parse job id"))
+      }.getOrElse(badRequest("Can't parse job id"))
+  }
+
+  private def updateTask(jobId: Long) = {
+    system.actorOf(TasksActor.props(tookanService, dbConfigProvider)) ! RefreshTaskData(jobId)
+  }
 }
 
 object TasksController {
@@ -72,6 +123,14 @@ object TasksController {
     }
     if (hasInteriorCleaning) price + 500 else price
   }
+
+  case class AgentDto(name: String,
+                      picture: String)
+
+  case class JobDto(jobId: Long,
+                    scheduledDateTime: LocalDateTime,
+                    agent: Option[AgentDto],
+                    images: List[String])
 
   case class TaskDto(token: String,
                      description: String,
