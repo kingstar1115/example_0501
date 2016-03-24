@@ -33,15 +33,27 @@ CREATE TABLE IF NOT EXISTS locations (
   user_id           INT          NOT NULL REFERENCES users (id)
 );
 
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE IF NOT EXISTS agents (
   id           SERIAL PRIMARY KEY,
   created_date TIMESTAMP    NOT NULL DEFAULT now(),
   updated_date TIMESTAMP    NOT NULL DEFAULT now(),
-  job_id       BIGINT       NOT NULL,
-  job_status   INT          NOT NULL DEFAULT 6,
-  job_token    VARCHAR(255) NOT NULL,
-  description  VARCHAR(255) NOT NULL,
-  user_id      INT          NOT NULL REFERENCES users (id)
+  fleet_id     BIGINT       NOT NULL UNIQUE,
+  name         VARCHAR(255) NOT NULL,
+  fleet_image  TEXT         NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id             SERIAL PRIMARY KEY,
+  created_date   TIMESTAMP    NOT NULL DEFAULT now(),
+  updated_date   TIMESTAMP    NOT NULL DEFAULT now(),
+  job_id         BIGINT       NOT NULL UNIQUE,
+  job_status     INT          NOT NULL DEFAULT 6,
+  job_token      VARCHAR(255) NOT NULL,
+  description    VARCHAR(255) NOT NULL,
+  scheduled_time TIMESTAMP    NOT NULL,
+  images         TEXT,
+  user_id        INT          NOT NULL REFERENCES users (id),
+  agent_id       INT REFERENCES agents (id)
 );
 
 # --- !Downs
@@ -49,3 +61,4 @@ CREATE TABLE IF NOT EXISTS jobs (
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
 DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS agents;

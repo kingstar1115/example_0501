@@ -1,11 +1,15 @@
 package controllers
 
+import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
+import actors.TasksActor
+import actors.TasksActor.RefreshTaskData
+import akka.actor.ActorSystem
 import controllers.TasksController._
-import controllers.base.BaseController
+import controllers.base.{BaseController, ListResponse}
 import models.Tables._
 import play.api.Configuration
 import play.api.data.validation.ValidationError
@@ -26,7 +30,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 dbConfigProvider: DatabaseConfigProvider,
                                 tookanService: TookanService,
                                 stripeService: StripeService,
-                                config: Configuration) extends BaseController {
+                                config: Configuration,
+                                system: ActorSystem) extends BaseController {
+
+  implicit val jobDtoFormat = Json.format[JobDto]
 
   val db = dbConfigProvider.get.db
 
@@ -40,11 +47,16 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
               tookanService.deleteTask(tookanTask.jobId)
                 .map(response => badRequest(error.message, error.errorType))
             case Right(charge) =>
-              val insertQuery = (Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId))
-                returning Jobs.map(_.id)
-                += ((tookanTask.jobId, tookanTask.jobToken, dto.description, request.token.get.userInfo.id)))
+              val insertQuery = (
+                Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime))
+                  returning Jobs.map(_.id)
+                  += ((tookanTask.jobId, tookanTask.jobToken, dto.description, request.token.get.userInfo.id, Timestamp.valueOf(dto.pickupDateTime)))
+                )
               db.run(insertQuery)
-                .map(id => ok(tookanTask))
+                .map { id =>
+                  system.actorOf(TasksActor.props(tookanService, dbConfigProvider)) ! RefreshTaskData(tookanTask.jobId)
+                  ok(tookanTask)
+                }
           }
       }
 
@@ -59,6 +71,18 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     request.body.validate[TaskDto]
       .fold(jsonValidationFailedFuture, onValidationSuccess)
   }
+
+  def list(offset: Int, limit: Int) = authorized.async(BodyParsers.parse.json) { request =>
+    val userId = request.token.get.userInfo.id
+    val listQuery = for {
+      jobs <- Jobs if jobs.userId === userId
+    } yield jobs
+    db.run(listQuery.length.result zip listQuery.take(limit).drop(offset).result)
+      .map { result =>
+        val dtos = result._2.map(_.toDto)
+        ok(ListResponse(dtos, limit, offset, result._1))
+      }
+  }
 }
 
 object TasksController {
@@ -72,6 +96,12 @@ object TasksController {
     }
     if (hasInteriorCleaning) price + 500 else price
   }
+
+  implicit class JobExt(job: JobsRow) {
+    def toDto = JobDto(job.jobId)
+  }
+
+  case class JobDto(jobId: Long)
 
   case class TaskDto(token: String,
                      description: String,

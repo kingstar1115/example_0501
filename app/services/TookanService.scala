@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 
 import play.api.Configuration
 import play.api.libs.functional.syntax._
+import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.api.libs.ws.{WSClient, WSResponse}
 import play.mvc.Http.{HeaderNames, MimeTypes}
@@ -20,7 +21,8 @@ class TookanService @Inject()(ws: WSClient,
 
   implicit val config = Config(
     configuration.getString("tookan.key").get,
-    configuration.getInt("tookan.teamId").get)
+    configuration.getInt("tookan.teamId").get,
+    configuration.getInt("tookan.userId").get)
 
   val BASE_URL = configuration.getString("tookan.url").get
 
@@ -44,15 +46,38 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
+    val json = Json.toJson(task)
     buildRequest(CREATE_TASK)
-      .post(Json.toJson(task))
+      .post(json)
       .map(response => response.convert[AppointmentResponse])
   }
 
-  def deleteTask(taskId: Long) = {
+  def deleteTask(jobId: Long) = {
     buildRequest(DELETE_TASK)
-      .post(Json.toJson(DeleteTaskDto.default(taskId)))
+      .post(Json.toJson(DeleteTaskDto.default(jobId)))
       .map(response => response.getResponse)
+  }
+
+  def getTask(jobId: Long): Future[Either[TookanResponse, AppointmentDetails]] = {
+    buildRequest(TASK_DETAILS)
+      .post(Json.obj(
+        "access_token" -> config.key,
+        "user_id" -> config.userId,
+        "job_id" -> jobId.toString))
+      .map { response =>
+        response.asList[AppointmentDetails] match {
+          case Right(list) =>
+            Right(list.head)
+          case Left(e) =>
+            Left(e)
+        }
+      }
+  }
+
+  def listAgents: Future[Either[TookanResponse, List[Agent]]] = {
+    buildRequest(LIST_AGENTS)
+      .post(Json.obj("access_token" -> config.key))
+      .map(response => response.asList[Agent])
   }
 
   private def buildRequest(path: String) = {
@@ -67,12 +92,20 @@ class TookanService @Inject()(ws: WSClient,
 
     val jsonBody = wsResponse.json
 
-    def getResponse: TookanResponse = jsonBody.as[TookanResponse]
+    def getResponse: TookanResponse = jsonBody.as[TookanResponse](TookanResponse.tookanResponseFormat)
 
     def convert[T](implicit reads: Reads[T]): Either[TookanResponse, T] = {
       val response = getResponse
       response.status match {
         case 200 => Right((jsonBody \ "data").as[T])
+        case _ => Left(response)
+      }
+    }
+
+    def asList[T](implicit reads: Reads[T]): Either[TookanResponse, List[T]] = {
+      val response = getResponse
+      response.status match {
+        case 200 => Right((jsonBody \ "data").as[List[T]])
         case _ => Left(response)
       }
     }
@@ -84,9 +117,12 @@ object TookanService {
 
   val CREATE_TASK = "create_task"
   val DELETE_TASK = "delete_job"
+  val TASK_DETAILS = "view_task_profile"
+  val LIST_AGENTS = "view_all_fleets_location"
 
   case class Config(key: String,
-                    teamId: Int)
+                    teamId: Int,
+                    userId: Int)
 
   case class TookanResponse(message: String,
                             status: Int)
@@ -180,6 +216,7 @@ object TookanService {
           "auto_assignment" -> task.autoAssignment.convert,
           "fleet_id" -> task.fleetId,
           "ref_images" -> Json.toJson(task.refImages)))
+
   }
 
   case class AppointmentResponse(jobId: Long,
@@ -205,6 +242,49 @@ object TookanService {
     def default(jobId: Long)(implicit config: Config) = new DeleteTaskDto(config.key, jobId)
 
     implicit val deleteTaskWrites: Format[DeleteTaskDto] = Json.format[DeleteTaskDto]
+  }
+
+  case class Fields(images: List[String])
+
+  object Fields {
+    implicit val fbTokenDtoReads: Reads[Fields] = (__ \ 'ref_images).read[List[String]].map(Fields.apply)
+  }
+
+  case class AppointmentDetails(jobId: Long,
+                                fleetId: Option[Long],
+                                jobStatus: Int,
+                                pickupDatetime: String,
+                                fields: Fields) {
+
+    def getDate = {
+      val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a")
+      LocalDateTime.parse(pickupDatetime.toUpperCase, formatter)
+    }
+  }
+
+
+  object AppointmentDetails {
+
+    implicit val appointmentDetailsReads: Reads[AppointmentDetails] = (
+      (JsPath \ "job_id").read[Long] and
+        (JsPath \ "fleet_id").readNullable[Long] and
+        (JsPath \ "job_status").read[Int] and
+        (JsPath \ "job_pickup_datetime").read[String] and
+        (JsPath \ "fields").read[Fields]
+      ) (AppointmentDetails.apply _)
+  }
+
+  case class Agent(fleetId: Long,
+                   image: String,
+                   name: String)
+
+  object Agent {
+
+    implicit val agentReads: Reads[Agent] = (
+      (JsPath \ "fleet_id").read[Long] and
+        (JsPath \ "fleet_image").read[String] and
+        (JsPath \ "username").read[String]
+      ) (Agent.apply _)
   }
 
   implicit class BooleanEx(value: Boolean) {
