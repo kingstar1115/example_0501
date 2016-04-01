@@ -14,7 +14,7 @@ trait Tables {
   import slick.jdbc.{GetResult => GR}
 
   /** DDL for all tables. Call .create to execute. */
-  lazy val schema: profile.SchemaDescription = Agents.schema ++ Jobs.schema ++ Locations.schema ++ PlayEvolutions.schema ++ Users.schema
+  lazy val schema: profile.SchemaDescription = Array(Agents.schema, Jobs.schema, Locations.schema, PlayEvolutions.schema, Users.schema, Vehicles.schema).reduceLeft(_ ++ _)
   @deprecated("Use .schema instead of .ddl", "3.0")
   def ddl = schema
 
@@ -274,4 +274,60 @@ trait Tables {
   }
   /** Collection-like TableQuery object for table Users */
   lazy val Users = new TableQuery(tag => new Users(tag))
+
+  /** Entity class storing rows of table Vehicles
+   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
+   *  @param createdDate Database column created_date SqlType(timestamp)
+   *  @param updatedDate Database column updated_date SqlType(timestamp)
+   *  @param makerId Database column maker_id SqlType(int4)
+   *  @param makerNiceName Database column maker_nice_name SqlType(varchar), Length(150,true)
+   *  @param modelId Database column model_id SqlType(varchar), Length(255,true)
+   *  @param modelNiceName Database column model_nice_name SqlType(varchar), Length(255,true)
+   *  @param yearId Database column year_id SqlType(int4)
+   *  @param year Database column year SqlType(int4)
+   *  @param color Database column color SqlType(varchar), Length(255,true), Default(None)
+   *  @param licPlate Database column lic_plate SqlType(varchar), Length(255,true), Default(None)
+   *  @param userId Database column user_id SqlType(int4) */
+  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, makerId: Int, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: Option[String] = None, licPlate: Option[String] = None, userId: Int)
+  /** GetResult implicit for fetching VehiclesRow objects using plain SQL queries */
+  implicit def GetResultVehiclesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]]): GR[VehiclesRow] = GR{
+    prs => import prs._
+    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Int], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<?[String], <<?[String], <<[Int]))
+  }
+  /** Table description of table vehicles. Objects of this class serve as prototypes for rows in queries. */
+  class Vehicles(_tableTag: Tag) extends Table[VehiclesRow](_tableTag, "vehicles") {
+    def * = (id, createdDate, updatedDate, makerId, makerNiceName, modelId, modelNiceName, yearId, year, color, licPlate, userId) <> (VehiclesRow.tupled, VehiclesRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), color, licPlate, Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+
+    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
+    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column created_date SqlType(timestamp) */
+    val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
+    /** Database column updated_date SqlType(timestamp) */
+    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
+    /** Database column maker_id SqlType(int4) */
+    val makerId: Rep[Int] = column[Int]("maker_id")
+    /** Database column maker_nice_name SqlType(varchar), Length(150,true) */
+    val makerNiceName: Rep[String] = column[String]("maker_nice_name", O.Length(150,varying=true))
+    /** Database column model_id SqlType(varchar), Length(255,true) */
+    val modelId: Rep[String] = column[String]("model_id", O.Length(255,varying=true))
+    /** Database column model_nice_name SqlType(varchar), Length(255,true) */
+    val modelNiceName: Rep[String] = column[String]("model_nice_name", O.Length(255,varying=true))
+    /** Database column year_id SqlType(int4) */
+    val yearId: Rep[Int] = column[Int]("year_id")
+    /** Database column year SqlType(int4) */
+    val year: Rep[Int] = column[Int]("year")
+    /** Database column color SqlType(varchar), Length(255,true), Default(None) */
+    val color: Rep[Option[String]] = column[Option[String]]("color", O.Length(255,varying=true), O.Default(None))
+    /** Database column lic_plate SqlType(varchar), Length(255,true), Default(None) */
+    val licPlate: Rep[Option[String]] = column[Option[String]]("lic_plate", O.Length(255,varying=true), O.Default(None))
+    /** Database column user_id SqlType(int4) */
+    val userId: Rep[Int] = column[Int]("user_id")
+
+    /** Foreign key referencing Users (database name vehicles_user_id_fkey) */
+    lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+  }
+  /** Collection-like TableQuery object for table Vehicles */
+  lazy val Vehicles = new TableQuery(tag => new Vehicles(tag))
 }

@@ -35,6 +35,14 @@ POST          /api/v1/tasks/create                     @controllers.TasksControl
 GET           /api/v1/tasks/history                    @controllers.TasksController.tasksHistory(offset: Int = 0, limit: Int = 10)
 POST          /api/v1/tasks/refresh                    @controllers.TasksController.onTaskUpdate
 
+#Vehicles
+GET           /api/v1/vehicles/makers                  @controllers.VehiclesController.getVehiclesMakers
+GET           /api/v1/vehicles/:id                     @controllers.VehiclesController.get(id: Int)
+POST          /api/v1/vehicles/new                     @controllers.VehiclesController.create
+DELETE        /api/v1/vehicles/:id                     @controllers.VehiclesController.delete(id: Int)
+GET           /api/v1/vehicles                         @controllers.VehiclesController.list(offset: Int = 0, limit: Int = 10)
+PUT           /api/v1/vehicles/:id                     @controllers.VehiclesController.update(id: Int)
+
 # Web controllers
 # Password recovery
 GET           /password-recover/success                @controllers.PasswordRecoveryController.successPage

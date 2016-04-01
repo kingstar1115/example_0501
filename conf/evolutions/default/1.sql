@@ -56,7 +56,22 @@ CREATE TABLE IF NOT EXISTS jobs (
   agent_id       INT REFERENCES agents (id)
 );
 
-# --- !Downs
+CREATE TABLE IF NOT EXISTS vehicles (
+  id              SERIAL PRIMARY KEY,
+  created_date    TIMESTAMP    NOT NULL DEFAULT now(),
+  updated_date    TIMESTAMP    NOT NULL DEFAULT now(),
+  maker_id        INT          NOT NULL,
+  maker_nice_name VARCHAR(150) NOT NULL,
+  model_id        VARCHAR(255) NOT NULL,
+  model_nice_name VARCHAR(255) NOT NULL,
+  year_id         INT          NOT NULL,
+  year            INT          NOT NULL,
+  color           VARCHAR(255),
+  lic_plate       VARCHAR(255),
+  user_id         INT          NOT NULL REFERENCES users (id)
+)
+
+  # --- !Downs
 
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;
