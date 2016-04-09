@@ -4,7 +4,7 @@ import javax.inject.Inject
 
 import commons.enums.ServerError
 import controllers.VehiclesController._
-import controllers.base.{BaseController, ListResponse}
+import controllers.base.{BaseController, CRUDOperations}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Json
@@ -17,7 +17,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,
                                    edmundsService: EdmundsService,
-                                   dbConfigProvider: DatabaseConfigProvider) extends BaseController {
+                                   val dbConfigProvider: DatabaseConfigProvider)
+  extends BaseController
+    with CRUDOperations[VehiclesRow, VehicleDto] {
 
   val db = dbConfigProvider.get.db
 
@@ -29,7 +31,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       }
   }
 
-  def create = authorized.async(BodyParsers.parse.json) {implicit request =>
+  def create = authorized.async(BodyParsers.parse.json) { implicit request =>
 
     def onValidJson(dto: VehicleDto) = {
       val userId = request.token.get.userInfo.id
@@ -46,38 +48,6 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
   }
 
-  def get(id: Int) = authorized.async { request =>
-    val userId = request.token.get.userInfo.id
-    val selectQuery = for {
-      l <- Vehicles if l.userId === userId
-    } yield l
-    db.run(selectQuery.result.headOption).map { locationOpt =>
-      locationOpt.map(location => ok(location.toDto)).getOrElse(notFound)
-    }
-  }
-
-  def delete(id: Int) = authorized.async { request =>
-    val userId = request.token.get.userInfo.id
-    val deleteQuery = for {
-      l <- Vehicles if l.userId === userId && l.id === id
-    } yield l
-    db.run(deleteQuery.delete).map {
-      case 1 => ok("Success")
-      case _ => notFound
-    }
-  }
-
-  def list(offset: Int, limit: Int) = authorized.async { request =>
-    val userId = request.token.get.userInfo.id
-    val selectQuery = for {
-      l <- Vehicles if l.userId === userId
-    } yield l
-    db.run(selectQuery.length.result zip selectQuery.take(limit).drop(offset).result).map { result =>
-      val dtos = result._2.map(_.toDto)
-      ok(ListResponse(dtos, limit, offset, result._1))
-    }
-  }
-
   def update(id: Int) = authorized.async(parse.json) { request =>
     val userId = request.token.get.userInfo.id
     val existQuery = for {
@@ -87,7 +57,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       case 1 =>
         val onValidJson = (dto: VehicleDto) => {
           val updateQuery = Vehicles.filter(_.id === id).map(v => (v.makerId, v.makerNiceName, v.modelId,
-            v.modelNiceName, v.year, v.yearId, v.color, v.licPlate ))
+            v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
             .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId, dto.color, dto.licPlate)
           db.run(updateQuery).map(r => ok("Updated"))
         }
@@ -96,6 +66,13 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       case _ => wrapInFuture(notFound)
     }
   }
+
+  override def toDto(vehicle: _root_.models.Tables.VehiclesRow): VehicleDto = {
+    new VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
+      vehicle.modelNiceName, vehicle.yearId, vehicle.year, vehicle.color, vehicle.licPlate)
+  }
+
+  override val table = Vehicles
 }
 
 object VehiclesController {
@@ -111,15 +88,6 @@ object VehiclesController {
                         licPlate: Option[String])
 
   implicit val vehicleDtoFormat = Json.format[VehicleDto]
-
-  implicit class VehicleExt(vehicle: VehiclesRow) {
-
-    def toDto = {
-      new VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
-        vehicle.modelNiceName, vehicle.yearId, vehicle.year, vehicle.color, vehicle.licPlate)
-    }
-  }
-
 }
 
 
