@@ -80,7 +80,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       (job, agent) <- Jobs joinLeft Agents on (_.agentId === _.id)
       if job.userId === userId
     } yield (job, agent)
-    db.run(listQuery.length.result zip listQuery.take(limit).drop(offset).result)
+    db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
       .map { result =>
         val jobs = result._2.map { row =>
           val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)

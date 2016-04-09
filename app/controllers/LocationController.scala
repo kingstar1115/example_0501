@@ -2,7 +2,7 @@ package controllers
 
 import com.google.inject.Inject
 import controllers.LocationController._
-import controllers.base.{BaseController, ListResponse}
+import controllers.base.{BaseController, CRUDOperations}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
@@ -14,20 +14,9 @@ import slick.driver.PostgresDriver.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class LocationController @Inject()(val tokenStorage: TokenStorage,
-                                   dbConfigProvider: DatabaseConfigProvider) extends BaseController {
-
-  implicit val locationWrites = Json.writes[LocationDto]
-  implicit val locationReads: Reads[LocationDto] = (
-      (JsPath \ "id").readNullable[Int] and
-      (JsPath \ "title").read[String](maxLength[String](255)) and
-      (JsPath \ "address").readNullable[String](maxLength[String](255)) and
-      (JsPath \ "apartments").readNullable[String](maxLength[String](10)) and
-      (JsPath \ "zipCode").readNullable[String](maxLength[String](6)) and
-      (JsPath \ "formattedAddress").read[String](maxLength[String](255)) and
-      (JsPath \ "latitude").read[BigDecimal] and
-      (JsPath \ "longitude").read[BigDecimal] and
-      (JsPath \ "notes").readNullable[String]
-    )(LocationDto.apply _)
+                                   val dbConfigProvider: DatabaseConfigProvider)
+  extends BaseController
+    with CRUDOperations[LocationsRow, LocationDto] {
 
   val db = dbConfigProvider.get.db
 
@@ -44,38 +33,6 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
     }
     request.body.validate[LocationDto]
       .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
-  }
-
-  def get(id: Int) = authorized.async { request =>
-    val userId = request.token.get.userInfo.id
-    val selectQuery = for {
-      l <- Locations if l.userId === userId
-    } yield l
-    db.run(selectQuery.result.headOption).map { locationOpt =>
-      locationOpt.map(location => ok(location.toDto)).getOrElse(notFound)
-    }
-  }
-
-  def delete(id: Int) = authorized.async { request =>
-    val userId = request.token.get.userInfo.id
-    val deleteQuery = for {
-      l <- Locations if l.userId === userId && l.id === id
-    } yield l
-    db.run(deleteQuery.delete).map {
-      case 1 => ok("Success")
-      case _ => notFound
-    }
-  }
-
-  def list(offset: Int, limit: Int) = authorized.async { request =>
-    val userId = request.token.get.userInfo.id
-    val selectQuery = for {
-      l <- Locations if l.userId === userId
-    } yield l
-    db.run(selectQuery.length.result zip selectQuery.take(limit).drop(offset).result).map { result =>
-      val dtos = result._2.map(_.toDto)
-      ok(ListResponse(dtos, limit, offset, result._1))
-    }
   }
 
   def update(id: Int) = authorized.async(parse.json) { request =>
@@ -95,17 +52,16 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
       case _ => wrapInFuture(notFound)
     }
   }
+
+  override def toDto(location: _root_.models.Tables.LocationsRow): LocationDto = {
+    new LocationDto(Some(location.id), location.title, location.address, location.appartments,
+      location.zipCode, location.formattedAddress, location.latitude, location.longitude, location.notes)
+  }
+
+  override val table = Locations
 }
 
 object LocationController {
-
-  implicit class LocationExt(location: LocationsRow) {
-
-    def toDto = {
-      new LocationDto(Some(location.id), location.title, location.address, location.appartments,
-        location.zipCode, location.formattedAddress, location.latitude, location.longitude, location.notes)
-    }
-  }
 
   case class LocationDto(id: Option[Int] = None,
                          title: String,
@@ -117,4 +73,16 @@ object LocationController {
                          longitude: BigDecimal,
                          notes: Option[String])
 
+  implicit val locationWrites = Json.writes[LocationDto]
+  implicit val locationReads: Reads[LocationDto] = (
+    (JsPath \ "id").readNullable[Int] and
+      (JsPath \ "title").read[String](maxLength[String](255)) and
+      (JsPath \ "address").readNullable[String](maxLength[String](255)) and
+      (JsPath \ "apartments").readNullable[String](maxLength[String](10)) and
+      (JsPath \ "zipCode").readNullable[String](maxLength[String](6)) and
+      (JsPath \ "formattedAddress").read[String](maxLength[String](255)) and
+      (JsPath \ "latitude").read[BigDecimal] and
+      (JsPath \ "longitude").read[BigDecimal] and
+      (JsPath \ "notes").readNullable[String]
+    ) (LocationDto.apply _)
 }
