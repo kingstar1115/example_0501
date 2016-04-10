@@ -67,18 +67,19 @@ trait Tables {
    *  @param scheduledTime Database column scheduled_time SqlType(timestamp)
    *  @param images Database column images SqlType(text), Default(None)
    *  @param userId Database column user_id SqlType(int4)
-   *  @param agentId Database column agent_id SqlType(int4), Default(None) */
-  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, scheduledTime: java.sql.Timestamp, images: Option[String] = None, userId: Int, agentId: Option[Int] = None)
+   *  @param agentId Database column agent_id SqlType(int4), Default(None)
+   *  @param vehicleId Database column vehicle_id SqlType(int4) */
+  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, scheduledTime: java.sql.Timestamp, images: Option[String] = None, userId: Int, agentId: Option[Int] = None, vehicleId: Int)
   /** GetResult implicit for fetching JobsRow objects using plain SQL queries */
   implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String], e4: GR[Option[String]], e5: GR[Option[Int]]): GR[JobsRow] = GR{
     prs => import prs._
-    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<?[String], <<[Int], <<?[Int]))
+    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<?[String], <<[Int], <<?[Int], <<[Int]))
   }
   /** Table description of table jobs. Objects of this class serve as prototypes for rows in queries. */
   class Jobs(_tableTag: Tag) extends Table[JobsRow](_tableTag, "jobs") {
-    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, scheduledTime, images, userId, agentId) <> (JobsRow.tupled, JobsRow.unapply)
+    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, scheduledTime, images, userId, agentId, vehicleId) <> (JobsRow.tupled, JobsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(scheduledTime), images, Rep.Some(userId), agentId).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10.get, _11)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(scheduledTime), images, Rep.Some(userId), agentId, Rep.Some(vehicleId)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10.get, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -102,11 +103,15 @@ trait Tables {
     val userId: Rep[Int] = column[Int]("user_id")
     /** Database column agent_id SqlType(int4), Default(None) */
     val agentId: Rep[Option[Int]] = column[Option[Int]]("agent_id", O.Default(None))
+    /** Database column vehicle_id SqlType(int4) */
+    val vehicleId: Rep[Int] = column[Int]("vehicle_id")
 
     /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
     lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing Users (database name jobs_user_id_fkey) */
     lazy val usersFk = foreignKey("jobs_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+    /** Foreign key referencing Vehicles (database name jobs_vehicle_id_fkey) */
+    lazy val vehiclesFk = foreignKey("jobs_vehicle_id_fkey", vehicleId, Vehicles)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
 
     /** Uniqueness Index over (jobId) (database name jobs_job_id_key) */
     val index1 = index("jobs_job_id_key", jobId, unique=true)
