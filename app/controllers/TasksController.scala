@@ -9,6 +9,7 @@ import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
 import controllers.TasksController._
+import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
 import models.Tables._
 import play.api.data.validation.ValidationError
@@ -42,6 +43,15 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def createTask = authorized.async(BodyParsers.parse.json) { request =>
     def onValidationSuccess(dto: TaskDto) = {
 
+      val userId = request.token.get.userInfo.id
+
+      def checkVehicle = {
+        val vehicleQuery = for {
+          v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
+        } yield v
+        db.run(vehicleQuery.length.result)
+      }
+
       def processPayment(tookanTask: AppointmentResponse) = {
         stripeService.charge(calculatePrice(dto.cleaningType, dto.hasInteriorCleaning), dto.token, tookanTask.jobId)
           .flatMap {
@@ -50,9 +60,9 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                 .map(response => badRequest(error.message, error.errorType))
             case Right(charge) =>
               val insertQuery = (
-                Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime))
+                Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
                   returning Jobs.map(_.id)
-                  += ((tookanTask.jobId, tookanTask.jobToken, dto.description, request.token.get.userInfo.id, Timestamp.valueOf(dto.pickupDateTime)))
+                  += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId))
                 )
               db.run(insertQuery)
                 .map { id =>
@@ -66,7 +76,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
         .flatMap {
           case Left(error) => wrapInFuture(badRequest(error))
-          case Right(task) => processPayment(task)
+          case Right(task) => checkVehicle.flatMap {
+            case 1 => processPayment(task)
+            case _ => wrapInFuture(badRequest("Invalid vehicle id"))
+          }
         }
     }
 
@@ -77,15 +90,17 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def tasksHistory(offset: Int, limit: Int) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val listQuery = for {
-      (job, agent) <- Jobs joinLeft Agents on (_.agentId === _.id)
+      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.userId === userId
-    } yield (job, agent)
+    } yield (job, agent, vehicle)
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
       .map { result =>
         val jobs = result._2.map { row =>
           val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
           val images = row._1.images.map(_.split(";").toList).getOrElse(List.empty[String])
-          JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images)
+          val vehicle = new VehicleDto(Some(row._3.id), row._3.makerId, row._3.makerNiceName, row._3.modelId,
+            row._3.modelNiceName, row._3.yearId, row._3.year, row._3.color, row._3.licPlate)
+          JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images, vehicle)
         }.toList
         ok(ListResponse(jobs, limit, offset, result._1))
       }
@@ -130,7 +145,8 @@ object TasksController {
   case class JobDto(jobId: Long,
                     scheduledDateTime: LocalDateTime,
                     agent: Option[AgentDto],
-                    images: List[String])
+                    images: List[String],
+                    vehicle: VehicleDto)
 
   case class TaskDto(token: String,
                      description: String,
@@ -142,7 +158,8 @@ object TasksController {
                      pickupLongitude: Double,
                      pickupDateTime: LocalDateTime,
                      cleaningType: Int,
-                     hasInteriorCleaning: Boolean)
+                     hasInteriorCleaning: Boolean,
+                     vehicleId: Int)
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
   implicit val taskDtoReads: Reads[TaskDto] = (
@@ -157,7 +174,8 @@ object TasksController {
       (JsPath \ "dateTime").read[LocalDateTime](dateTimeReads) and
       (JsPath \ "cleaningType").read[Int]
         .filter(ValidationError("Value must be in range from 0 to 2"))(v => v >= 0 && v <= 2) and
-      (JsPath \ "hasInteriorCleaning").read[Boolean]
+      (JsPath \ "hasInteriorCleaning").read[Boolean] and
+      (JsPath \ "vehicleId").read[Int]
     ) (TaskDto.apply _)
 }
 

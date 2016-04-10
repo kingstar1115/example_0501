@@ -7,10 +7,6 @@ import play.api.libs.json.{Json, JsPath, Reads}
 import play.api.libs.ws.WSClient
 import controllers.base.FacebookCalls._
 
-/**
-
-  */
-
 trait FacebookCalls {
 
   val ws: WSClient
