@@ -22,6 +22,7 @@ class TasksActor(tookanService: TookanService,
   }
 
   private def updateTaskData(jobId: Long) = {
+    Logger.info(s"Updating job with id: $jobId")
     val db = dbConfigProvider.get.db
 
     tookanService.getTask(jobId).map {
@@ -36,10 +37,10 @@ class TasksActor(tookanService: TookanService,
             val taskUpdateQuery = Jobs.filter(_.jobId === jobId)
               .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime))
               .update((task.jobStatus, agentId, images, Timestamp.valueOf(task.getDate)))
-            db.run(taskUpdateQuery)
+            db.run(taskUpdateQuery).map(_ => Logger.info(s"Job with id: $jobId updated!"))
           }
 
-      case _ =>
+      case _ => Logger.info(s"Can't find job with id: $jobId")
     }
   }
 
