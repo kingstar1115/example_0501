@@ -12,6 +12,7 @@ import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
 import models.Tables._
+import play.api.data.{Form, Forms}
 import play.api.data.validation.ValidationError
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
@@ -106,20 +107,12 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       }
   }
 
-  def onTaskUpdate = Action(BodyParsers.parse.json) { request =>
+  def onTaskUpdate = Action { implicit request =>
     Logger.info(request.body.toString)
-    (request.body \\ "job_id").headOption
-      .map { value =>
-        val jobId = value match {
-          case s: JsString => Try(Option(s.value.toLong)).getOrElse(None)
-          case n: JsNumber => Try(Option(n.as[Long])).getOrElse(None)
-          case _ => None
-        }
-        jobId.map { id =>
-          updateTask(id)
-          ok("Updated")
-        }.getOrElse(badRequest("Can't parse job id"))
-      }.getOrElse(badRequest("Can't parse job id"))
+    val form = Form(Forms.single("job_id" -> Forms.number))
+    val formData = form.bindFromRequest()
+    updateTask(formData.get)
+    ok("Ok")
   }
 
   private def updateTask(jobId: Long) = {
