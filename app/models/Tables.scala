@@ -66,20 +66,21 @@ trait Tables {
    *  @param description Database column description SqlType(varchar), Length(255,true)
    *  @param scheduledTime Database column scheduled_time SqlType(timestamp)
    *  @param images Database column images SqlType(text), Default(None)
+   *  @param completed Database column completed SqlType(bool), Default(false)
    *  @param userId Database column user_id SqlType(int4)
    *  @param agentId Database column agent_id SqlType(int4), Default(None)
    *  @param vehicleId Database column vehicle_id SqlType(int4) */
-  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, scheduledTime: java.sql.Timestamp, images: Option[String] = None, userId: Int, agentId: Option[Int] = None, vehicleId: Int)
+  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, jobToken: String, description: String, scheduledTime: java.sql.Timestamp, images: Option[String] = None, completed: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int)
   /** GetResult implicit for fetching JobsRow objects using plain SQL queries */
-  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String], e4: GR[Option[String]], e5: GR[Option[Int]]): GR[JobsRow] = GR{
+  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String], e4: GR[Option[String]], e5: GR[Boolean], e6: GR[Option[Int]]): GR[JobsRow] = GR{
     prs => import prs._
-    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<?[String], <<[Int], <<?[Int], <<[Int]))
+    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[String], <<[String], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int]))
   }
   /** Table description of table jobs. Objects of this class serve as prototypes for rows in queries. */
   class Jobs(_tableTag: Tag) extends Table[JobsRow](_tableTag, "jobs") {
-    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, scheduledTime, images, userId, agentId, vehicleId) <> (JobsRow.tupled, JobsRow.unapply)
+    def * = (id, createdDate, updatedDate, jobId, jobStatus, jobToken, description, scheduledTime, images, completed, userId, agentId, vehicleId) <> (JobsRow.tupled, JobsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(scheduledTime), images, Rep.Some(userId), agentId, Rep.Some(vehicleId)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10.get, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(jobToken), Rep.Some(description), Rep.Some(scheduledTime), images, Rep.Some(completed), Rep.Some(userId), agentId, Rep.Some(vehicleId)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9, _10.get, _11.get, _12, _13.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -99,6 +100,8 @@ trait Tables {
     val scheduledTime: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("scheduled_time")
     /** Database column images SqlType(text), Default(None) */
     val images: Rep[Option[String]] = column[Option[String]]("images", O.Default(None))
+    /** Database column completed SqlType(bool), Default(false) */
+    val completed: Rep[Boolean] = column[Boolean]("completed", O.Default(false))
     /** Database column user_id SqlType(int4) */
     val userId: Rep[Int] = column[Int]("user_id")
     /** Database column agent_id SqlType(int4), Default(None) */

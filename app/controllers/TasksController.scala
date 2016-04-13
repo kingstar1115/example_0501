@@ -3,6 +3,7 @@ package controllers
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.NoSuchElementException
 import javax.inject.Inject
 
 import actors.TasksActor
@@ -12,8 +13,8 @@ import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
 import models.Tables._
-import play.api.data.{Form, Forms}
 import play.api.data.validation.ValidationError
+import play.api.data.{Form, Forms}
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
@@ -26,7 +27,7 @@ import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
+import scala.concurrent.Future
 
 
 class TasksController @Inject()(val tokenStorage: TokenStorage,
@@ -38,6 +39,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   implicit val agentDtoFormat = Json.format[AgentDto]
   implicit val jobDtoFormat = Json.format[JobDto]
+  implicit val tipDtoFormat = Json.format[TipDto]
+  implicit val completeTaskDtoFormat = Json.format[CompleteTaskDto]
 
   val db = dbConfigProvider.get.db
 
@@ -73,18 +76,60 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           }
       }
 
-      tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress,
-        dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
-        .flatMap {
-          case Left(error) => wrapInFuture(badRequest(error))
-          case Right(task) => checkVehicle.flatMap {
-            case 1 => processPayment(task)
-            case _ => wrapInFuture(badRequest("Invalid vehicle id"))
+      def createTaskInternal = {
+        tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress,
+          dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
+          .flatMap {
+            case Left(error) => wrapInFuture(badRequest(error))
+            case Right(task) => checkVehicle.flatMap {
+              case 1 => processPayment(task)
+              case _ => wrapInFuture(badRequest("Invalid vehicle id"))
+            }
           }
-        }
+      }
+
+      val countQuery = for {
+        job <- Jobs if job.userId === userId && job.completed === true
+      } yield job
+
+      val resultFuture = for {
+        count <- db.run(countQuery.length.result) if count == 0
+        result <- createTaskInternal
+      } yield result
+      resultFuture.recover {
+        case e:NoSuchElementException => badRequest("You can have only one active order")
+      }
     }
 
     request.body.validate[TaskDto]
+      .fold(jsonValidationFailedFuture, onValidationSuccess)
+  }
+
+  def completeTask = authorized.async(BodyParsers.parse.json) { request =>
+    def onValidationSuccess(dto: CompleteTaskDto) = {
+      val userId = request.token.get.userInfo.id
+      val updateQuery = for {
+        job <- Jobs if job.jobId === dto.jobId && job.completed === false && job.userId === userId
+      } yield job.completed
+      db.run(updateQuery.update(true)).flatMap {
+        case 1 =>
+          Logger.info(s"Job with JobId: ${dto.jobId} updated!")
+          dto.tip.map(tip => stripeService.charge(tip.amount, tip.token, dto.jobId))
+            .map(_.map {
+              case Right(charge) =>
+                Logger.info(s"Tip charged. Charge id: ${charge.getId}")
+                NoContent
+              case Left(error) =>
+                Logger.info(s"Failed to charge tip: ${error.message}")
+                NoContent
+            })
+            .getOrElse(Future.successful(NoContent))
+        case _ =>
+          Logger.info(s"Failed to update job with JobId: ${dto.jobId}")
+          wrapInFuture(badRequest(s"Failed to update job with JobId: ${dto.jobId}"))
+      }
+    }
+    request.body.validate[CompleteTaskDto]
       .fold(jsonValidationFailedFuture, onValidationSuccess)
   }
 
@@ -156,20 +201,27 @@ object TasksController {
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
   implicit val taskDtoReads: Reads[TaskDto] = (
-    (JsPath \ "token").read[String] and
-      (JsPath \ "description").read[String] and
-      (JsPath \ "name").read[String] and
-      (JsPath \ "email").readNullable[String](email) and
-      (JsPath \ "phone").read[String] and
-      (JsPath \ "address").read[String] and
-      (JsPath \ "latitude").read[Double] and
-      (JsPath \ "longitude").read[Double] and
-      (JsPath \ "dateTime").read[LocalDateTime](dateTimeReads) and
-      (JsPath \ "cleaningType").read[Int]
+    (__ \ "token").read[String] and
+      (__ \ "description").read[String] and
+      (__ \ "name").read[String] and
+      (__ \ "email").readNullable[String](email) and
+      (__ \ "phone").read[String] and
+      (__ \ "address").read[String] and
+      (__ \ "latitude").read[Double] and
+      (__ \ "longitude").read[Double] and
+      (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
+      (__ \ "cleaningType").read[Int]
         .filter(ValidationError("Value must be in range from 0 to 2"))(v => v >= 0 && v <= 2) and
-      (JsPath \ "hasInteriorCleaning").read[Boolean] and
-      (JsPath \ "vehicleId").read[Int]
+      (__ \ "hasInteriorCleaning").read[Boolean] and
+      (__ \ "vehicleId").read[Int]
     ) (TaskDto.apply _)
+
+  case class TipDto(amount: Int,
+                    token: String)
+
+  case class CompleteTaskDto(jobId: Long,
+                             tip: Option[TipDto])
+
 }
 
 
