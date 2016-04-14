@@ -185,7 +185,7 @@ object TookanService {
         false,
         false,
         1,
-        false,
+        true,
         config.teamId,
         false,
         None,

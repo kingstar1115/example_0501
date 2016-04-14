@@ -34,6 +34,7 @@ PUT           /api/v1/locations/:id                    @controllers.LocationCont
 POST          /api/v1/tasks/create                     @controllers.TasksController.createTask
 GET           /api/v1/tasks/history                    @controllers.TasksController.tasksHistory(offset: Int = 0, limit: Int = 10)
 POST          /api/v1/tasks/refresh                    @controllers.TasksController.onTaskUpdate
+POST          /api/v1/tasks/complete                   @controllers.TasksController.completeTask
 
 #Vehicles
 GET           /api/v1/vehicles/makers                  @controllers.VehiclesController.getVehiclesMakers

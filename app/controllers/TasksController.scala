@@ -77,19 +77,21 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       }
 
       def createTaskInternal = {
-        tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress,
-          dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
-          .flatMap {
-            case Left(error) => wrapInFuture(badRequest(error))
-            case Right(task) => checkVehicle.flatMap {
-              case 1 => processPayment(task)
-              case _ => wrapInFuture(badRequest("Invalid vehicle id"))
-            }
-          }
+        checkVehicle.flatMap {
+          case 1 =>
+            tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress,
+              dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
+              .flatMap {
+                case Left(error) => wrapInFuture(badRequest(error))
+                case Right(task) => processPayment(task)
+              }
+          case _ => wrapInFuture(badRequest("Invalid vehicle id"))
+        }
+
       }
 
       val countQuery = for {
-        job <- Jobs if job.userId === userId && job.completed === true
+        job <- Jobs if job.userId === userId && job.completed === true && job.submitted === false
       } yield job
 
       val resultFuture = for {
@@ -109,8 +111,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     def onValidationSuccess(dto: CompleteTaskDto) = {
       val userId = request.token.get.userInfo.id
       val updateQuery = for {
-        job <- Jobs if job.jobId === dto.jobId && job.completed === false && job.userId === userId
-      } yield job.completed
+        job <- Jobs if job.jobId === dto.jobId && job.completed === true && job.submitted === false && job.userId === userId
+      } yield job.submitted
       db.run(updateQuery.update(true)).flatMap {
         case 1 =>
           Logger.info(s"Job with JobId: ${dto.jobId} updated!")
@@ -153,7 +155,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def onTaskUpdate = Action { implicit request =>
-    Logger.info(request.body.toString)
+    Logger.info("Task update web hook")
     val form = Form(Forms.single("job_id" -> Forms.number))
     val formData = form.bindFromRequest()
     updateTask(formData.get)

@@ -2,13 +2,14 @@ package actors
 
 import java.sql.Timestamp
 
-import actors.TasksActor.RefreshTaskData
+import actors.TasksActor._
 import akka.actor.{Actor, Props}
+import commons.enums.TaskStatuses.Successful
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import services.TookanService
-import services.TookanService.Agent
+import services.TookanService.{Agent, AppointmentDetails}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -39,9 +40,10 @@ class TasksActor(tookanService: TookanService,
             } yield job
             db.run(taskSelectQuery.result.head).map { taskRow =>
               Logger.info(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
+              val completed = taskRow.isTaskCompleted(task)
               val taskUpdateQuery = Jobs.filter(_.jobId === jobId)
-                .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime))
-                .update((task.jobStatus, agentId, images, Timestamp.valueOf(task.getDate)))
+                .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.completed))
+                .update((task.jobStatus, agentId, images, Timestamp.valueOf(task.getDate), completed))
               db.run(taskUpdateQuery)
             }
           }
@@ -91,6 +93,7 @@ class TasksActor(tookanService: TookanService,
 
     fleetId.map(loadAgent).getOrElse(Future.successful(None))
   }
+
 }
 
 object TasksActor {
@@ -99,5 +102,11 @@ object TasksActor {
     Props(classOf[TasksActor], tookanService, dbConfigProvider)
 
   case class RefreshTaskData(jobId: Long)
+
+  private implicit class JobsRowExt(job: JobsRow) {
+    def isTaskCompleted(dto: AppointmentDetails) = {
+      if (!job.completed) job.completed && dto.jobStatus == Successful.code else true
+    }
+  }
 
 }

@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   scheduled_time TIMESTAMP    NOT NULL,
   images         TEXT,
   completed      BOOLEAN      NOT NULL DEFAULT FALSE,
+  submitted      BOOLEAN      NOT NULL DEFAULT FALSE,
   user_id        INT          NOT NULL REFERENCES users (id),
   agent_id       INT REFERENCES agents (id),
   vehicle_id     INT          NOT NULL REFERENCES vehicles (id)
