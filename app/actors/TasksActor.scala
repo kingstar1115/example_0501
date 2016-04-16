@@ -103,7 +103,7 @@ object TasksActor {
 
   case class RefreshTaskData(jobId: Long)
 
-  private implicit class JobsRowExt(job: JobsRow) {
+  implicit class JobsRowExt(job: JobsRow) {
     def isTaskCompleted(dto: AppointmentDetails) = {
       if (!job.completed) job.completed && dto.jobStatus == Successful.code else true
     }

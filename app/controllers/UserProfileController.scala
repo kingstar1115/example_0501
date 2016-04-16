@@ -52,11 +52,9 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     val userId = request.token.get.userInfo.id
 
     val userQuery = for {u <- Users if u.id === userId} yield u
-    val jobQuery = getJobIdQuery(userId)
-    db.run(userQuery.result.head zip jobQuery.result.headOption).map { resultSet =>
-      val user = resultSet._1
+    db.run(userQuery.result.head).map { user =>
       val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
-        user.email, user.profilePicture, user.userType, user.verified, resultSet._2)
+        user.email, user.profilePicture, user.userType, user.verified)
       ok(dto)
     }
   }
@@ -141,14 +139,13 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         .map(user => (user.firstName, user.lastName, user.phoneCode, user.phone, user.email))
         .update(dto.firstName, dto.lastName, dto.phoneCode, dto.phone, dto.email)
       val selectQuery = for {u <- Users if u.id === userId} yield u
-      val jobQuery = getJobIdQuery(userId)
 
-      db.run(updateQuery zip selectQuery.result.head zip jobQuery.result.headOption).map { resultSet =>
-        resultSet._1._1 match {
+      db.run(updateQuery zip selectQuery.result.head).map { resultSet =>
+        resultSet._1 match {
           case 1 =>
-            val user = resultSet._1._2
+            val user = resultSet._2
             val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
-              user.email, user.profilePicture, user.userType, user.verified, resultSet._2)
+              user.email, user.profilePicture, user.userType, user.verified)
             ok(dto)
           case _ => badRequest("Can’t update not verified user profile")
         }
@@ -156,12 +153,6 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
 
     request.body.validate[UserUpdateDto].fold(onValidationFailed, updateUserProfile)
-  }
-
-  private def getJobIdQuery(userId: Int) = {
-    for {
-      job <- Jobs if job.userId === userId && job.completed === true && job.submitted === false
-    } yield job.jobId
   }
 }
 
@@ -176,8 +167,7 @@ object UserProfileController {
                             email: String,
                             picture: Option[String],
                             userType: Int,
-                            verified: Boolean,
-                            completedJob: Option[Long])
+                            verified: Boolean)
 
   case class UserUpdateDto(firstName: String,
                            lastName: String,

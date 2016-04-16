@@ -87,7 +87,6 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
               }
           case _ => wrapInFuture(badRequest("Invalid vehicle id"))
         }
-
       }
 
       val countQuery = for {
@@ -99,12 +98,20 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         result <- createTaskInternal
       } yield result
       resultFuture.recover {
-        case e:NoSuchElementException => badRequest("You can have only one active order")
+        case e: NoSuchElementException => badRequest("You can have only one active order")
       }
     }
 
     request.body.validate[TaskDto]
       .fold(jsonValidationFailedFuture, onValidationSuccess)
+  }
+
+  def getPendingTask = authorized.async { request =>
+    val taskQuery = for {
+      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
+      if job.completed === true && job.submitted === false && job.userId === request.token.get.userInfo.id
+    } yield (job, agent, vehicle)
+    db.run(taskQuery.result.headOption).map(jobOption => ok(jobOption.map(mapToDto)))
   }
 
   def completeTask = authorized.async(BodyParsers.parse.json) { request =>
@@ -143,23 +150,24 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     } yield (job, agent, vehicle)
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
       .map { result =>
-        val jobs = result._2.map { row =>
-          val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
-          val images = row._1.images.map(_.split(";").toList).getOrElse(List.empty[String])
-          val vehicle = new VehicleDto(Some(row._3.id), row._3.makerId, row._3.makerNiceName, row._3.modelId,
-            row._3.modelNiceName, row._3.yearId, row._3.year, row._3.color, row._3.licPlate)
-          JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images, vehicle)
-        }.toList
+        val jobs = result._2.map(mapToDto).toList
         ok(ListResponse(jobs, limit, offset, result._1))
       }
   }
 
   def onTaskUpdate = Action { implicit request =>
     Logger.info("Task update web hook")
-    val form = Form(Forms.single("job_id" -> Forms.number))
-    val formData = form.bindFromRequest()
+    val formData = Form(Forms.single("job_id" -> Forms.number)).bindFromRequest()
     updateTask(formData.get)
     ok("Ok")
+  }
+
+  def mapToDto(row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
+    val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
+    val images = row._1.images.map(_.split(";").toList).getOrElse(List.empty[String])
+    val vehicle = new VehicleDto(Some(row._3.id), row._3.makerId, row._3.makerNiceName, row._3.modelId,
+      row._3.modelNiceName, row._3.yearId, row._3.year, row._3.color, row._3.licPlate)
+    JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images, vehicle)
   }
 
   private def updateTask(jobId: Long) = {
