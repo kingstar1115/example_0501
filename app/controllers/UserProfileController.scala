@@ -50,6 +50,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   def getProfileInfo = authorized.async { request =>
     val db = dbConfigProvider.get.db
     val userId = request.token.get.userInfo.id
+
     val userQuery = for {u <- Users if u.id === userId} yield u
     db.run(userQuery.result.head).map { user =>
       val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
