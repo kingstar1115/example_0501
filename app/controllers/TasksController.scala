@@ -21,7 +21,7 @@ import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
 import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
-import security.TokenStorage
+import security.{AuthToken, TokenStorage}
 import services.TookanService.AppointmentResponse
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
@@ -47,7 +47,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def createTask = authorized.async(BodyParsers.parse.json) { request =>
     def onValidationSuccess(dto: TaskDto) = {
 
-      val userId = request.token.get.userInfo.id
+      val token = request.token.get
+      val userId = token.userInfo.id
 
       def checkVehicle = {
         val vehicleQuery = for {
@@ -79,8 +80,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       def createTaskInternal = {
         checkVehicle.flatMap {
           case 1 =>
-            tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress,
-              dto.description, dto.pickupDateTime, Some(dto.pickupLongitude), Some(dto.pickupLatitude), None)
+            tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
+              dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email))
               .flatMap {
                 case Left(error) => wrapInFuture(badRequest(error))
                 case Right(task) => processPayment(task)
@@ -90,7 +91,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       }
 
       val countQuery = for {
-        job <- Jobs if job.userId === userId && job.completed === true && job.submitted === false
+        job <- Jobs if job.userId === userId && job.completed =!= true && job.submitted =!= true
       } yield job
 
       val resultFuture = for {

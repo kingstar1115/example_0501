@@ -46,11 +46,8 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
-    val json = Json.toJson(task)
-    Logger.info("---------------------------------")
-    Logger.info(s"New task json: ${json.toString}")
     buildRequest(CREATE_TASK)
-      .post(json)
+      .post(Json.toJson(task))
       .map(response => response.convert[AppointmentResponse])
   }
 
