@@ -4,7 +4,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.{Inject, Singleton}
 
-import play.api.Configuration
+import play.api.{Configuration, Logger}
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -46,9 +46,8 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
-    val json = Json.toJson(task)
     buildRequest(CREATE_TASK)
-      .post(json)
+      .post(Json.toJson(task))
       .map(response => response.convert[AppointmentResponse])
   }
 
