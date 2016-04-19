@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   model_nice_name VARCHAR(255) NOT NULL,
   year_id         INT          NOT NULL,
   year            INT          NOT NULL,
-  color           VARCHAR(255),
+  color           VARCHAR(255) NOT NULL DEFAULT 'None',
   lic_plate       VARCHAR(255),
   user_id         INT          NOT NULL REFERENCES users (id)
 );
