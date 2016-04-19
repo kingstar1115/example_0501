@@ -4,7 +4,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.{Inject, Singleton}
 
-import play.api.{Configuration, Logger}
+import models.Tables.VehiclesRow
+import play.api.Configuration
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -22,7 +23,8 @@ class TookanService @Inject()(ws: WSClient,
   implicit val config = Config(
     configuration.getString("tookan.key").get,
     configuration.getInt("tookan.teamId").get,
-    configuration.getInt("tookan.userId").get)
+    configuration.getInt("tookan.userId").get,
+    configuration.getString("tookan.template").get)
 
   val BASE_URL = configuration.getString("tookan.url").get
 
@@ -33,7 +35,8 @@ class TookanService @Inject()(ws: WSClient,
                         pickupDateTime: LocalDateTime,
                         latitude: Option[Double],
                         longitude: Option[Double],
-                        customerEmail: Option[String]): Future[Either[TookanResponse, AppointmentResponse]] = {
+                        customerEmail: Option[String],
+                        metadata: Seq[Metadata] = Seq.empty[Metadata]): Future[Either[TookanResponse, AppointmentResponse]] = {
     val task = AppointmentTask.default(customerName,
       customerPhone,
       customerAddress,
@@ -41,7 +44,8 @@ class TookanService @Inject()(ws: WSClient,
       pickupDateTime,
       latitude,
       longitude,
-      customerEmail)
+      customerEmail,
+      metadata)
     createAppointment(task)
   }
 
@@ -121,7 +125,8 @@ object TookanService {
 
   case class Config(key: String,
                     teamId: Int,
-                    userId: Int)
+                    userId: Int,
+                    template: String)
 
   case class TookanResponse(message: String,
                             status: Int)
@@ -135,6 +140,16 @@ object TookanService {
 
   object Metadata {
     implicit val metadataFormat = Json.format[Metadata]
+
+    def getVehicleMetadata(vehicle: VehiclesRow) = {
+      val metadata = Seq(
+        Metadata("Maker", vehicle.makerNiceName),
+        Metadata("Model", vehicle.modelNiceName),
+        Metadata("Year", vehicle.year.toString),
+        Metadata("Color", vehicle.color)
+      )
+      vehicle.licPlate.map(licPlate => metadata ++ Seq(Metadata("Lic Plate", licPlate))).getOrElse(metadata)
+    }
   }
 
   case class AppointmentTask(customerEmail: Option[String],
@@ -156,7 +171,8 @@ object TookanService {
                              autoAssignment: Boolean,
                              fleetId: Option[String],
                              refImages: Seq[String],
-                             apiKey: Option[String])
+                             apiKey: Option[String],
+                             customFieldTemplate: Option[String])
 
   object AppointmentTask {
 
@@ -169,7 +185,8 @@ object TookanService {
                 pickupDateTime: LocalDateTime,
                 latitude: Option[Double],
                 longitude: Option[Double],
-                customerEmail: Option[String])(implicit config: Config) =
+                customerEmail: Option[String],
+                metadata: Seq[Metadata] = Seq.empty[Metadata])(implicit config: Config) =
       AppointmentTask(customerEmail,
         customerName,
         customerPhone,
@@ -180,7 +197,7 @@ object TookanService {
         pickupDateTime,
         pickupDateTime.plusHours(1L),
         PST,
-        Seq.empty[Metadata],
+        metadata,
         false,
         false,
         1,
@@ -189,7 +206,8 @@ object TookanService {
         false,
         None,
         Seq.empty[String],
-        Some(config.key))
+        Option(config.key),
+        Option(config.template))
 
     val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm")
 
@@ -214,7 +232,8 @@ object TookanService {
           "team_id" -> task.teamId,
           "auto_assignment" -> task.autoAssignment.convert,
           "fleet_id" -> task.fleetId,
-          "ref_images" -> Json.toJson(task.refImages)))
+          "ref_images" -> Json.toJson(task.refImages),
+          "custom_field_template" -> task.customFieldTemplate))
 
   }
 

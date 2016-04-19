@@ -37,7 +37,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       val userId = request.token.get.userInfo.id
       val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
         v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) +=(dto.makerId, dto.makerName,
-        dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color, dto.licPlate, userId)
+        dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate, userId)
       db.run(createQuery).map { vehiclesId =>
         val resourceUrl = routes.VehiclesController.get(vehiclesId).absoluteURL()
         created(resourceUrl)
@@ -58,7 +58,8 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
         val onValidJson = (dto: VehicleDto) => {
           val updateQuery = Vehicles.filter(_.id === id).map(v => (v.makerId, v.makerNiceName, v.modelId,
             v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
-            .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId, dto.color, dto.licPlate)
+            .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
+              dto.color.getOrElse("None"), dto.licPlate)
           db.run(updateQuery).map(r => ok("Updated"))
         }
         request.body.validate[VehicleDto]
@@ -69,7 +70,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   override def toDto(vehicle: _root_.models.Tables.VehiclesRow): VehicleDto = {
     new VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
-      vehicle.modelNiceName, vehicle.yearId, vehicle.year, vehicle.color, vehicle.licPlate)
+      vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
   }
 
   override val table = Vehicles

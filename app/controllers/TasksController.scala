@@ -3,7 +3,6 @@ package controllers
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.NoSuchElementException
 import javax.inject.Inject
 
 import actors.TasksActor
@@ -21,7 +20,7 @@ import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
 import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
-import security.{AuthToken, TokenStorage}
+import security.TokenStorage
 import services.TookanService.AppointmentResponse
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
@@ -50,13 +49,6 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val token = request.token.get
       val userId = token.userInfo.id
 
-      def checkVehicle = {
-        val vehicleQuery = for {
-          v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
-        } yield v
-        db.run(vehicleQuery.length.result)
-      }
-
       def processPayment(tookanTask: AppointmentResponse) = {
         stripeService.charge(calculatePrice(dto.cleaningType, dto.hasInteriorCleaning), dto.token, tookanTask.jobId)
           .flatMap {
@@ -78,10 +70,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       }
 
       def createTaskInternal = {
-        checkVehicle.flatMap {
-          case 1 =>
+        val vehicleQuery = for {
+          v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
+        } yield v
+        db.run(vehicleQuery.result.headOption).flatMap {
+          case Some(vehicle) =>
             tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
-              dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email))
+              dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email),
+              TookanService.Metadata.getVehicleMetadata(vehicle))
               .flatMap {
                 case Left(error) => wrapInFuture(badRequest(error))
                 case Right(task) => processPayment(task)
@@ -89,18 +85,18 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           case _ => wrapInFuture(badRequest("Invalid vehicle id"))
         }
       }
-
-      val countQuery = for {
-        job <- Jobs if job.userId === userId && job.completed =!= true && job.submitted =!= true
-      } yield job
-
-      val resultFuture = for {
-        count <- db.run(countQuery.length.result) if count == 0
-        result <- createTaskInternal
-      } yield result
-      resultFuture.recover {
-        case e: NoSuchElementException => badRequest("You can have only one active order")
-      }
+      createTaskInternal
+      //      val countQuery = for {
+      //        job <- Jobs if job.userId === userId && job.completed =!= true && job.submitted =!= true
+      //      } yield job
+      //
+      //      val resultFuture = for {
+      //        count <- db.run(countQuery.length.result) if count == 0
+      //        result <- createTaskInternal
+      //      } yield result
+      //      resultFuture.recover {
+      //        case e: NoSuchElementException => badRequest("You can have only one active order")
+      //      }
     }
 
     request.body.validate[TaskDto]
@@ -167,7 +163,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
     val images = row._1.images.map(_.split(";").toList).getOrElse(List.empty[String])
     val vehicle = new VehicleDto(Some(row._3.id), row._3.makerId, row._3.makerNiceName, row._3.modelId,
-      row._3.modelNiceName, row._3.yearId, row._3.year, row._3.color, row._3.licPlate)
+      row._3.modelNiceName, row._3.yearId, row._3.year, Option(row._3.color), row._3.licPlate)
     JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images, vehicle)
   }
 
