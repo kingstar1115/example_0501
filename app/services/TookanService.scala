@@ -244,10 +244,10 @@ object TookanService {
 
   object AppointmentResponse {
     implicit val taskDtoReads: Reads[AppointmentResponse] = (
-      (JsPath \ "job_id").read[Long] and
-        (JsPath \ "customer_name").read[String] and
-        (JsPath \ "customer_address").read[String] and
-        (JsPath \ "job_token").read[String]
+      (__ \ "job_id").read[Long] and
+        (__ \ "customer_name").read[String] and
+        (__ \ "customer_address").read[String] and
+        (__ \ "job_token").read[String]
       ) (AppointmentResponse.apply _)
     implicit val taskDtoWrites: Writes[AppointmentResponse] = Json.writes[AppointmentResponse]
   }
@@ -268,11 +268,27 @@ object TookanService {
     implicit val fbTokenDtoReads: Reads[Fields] = (__ \ 'ref_images).read[List[String]].map(Fields.apply)
   }
 
+  case class TaskAction(actionType: String,
+                        description: String) {
+
+    def isImageAction = actionType.equals("image_added")
+  }
+
+  object TaskAction {
+
+    implicit val taskActionReads: Reads[TaskAction] = (
+      (__ \ "type").read[String] and
+        (__ \ "description").read[String]
+      ) (TaskAction.apply _)
+  }
+
+
   case class AppointmentDetails(jobId: Long,
                                 fleetId: Option[Long],
                                 jobStatus: Int,
                                 pickupDatetime: String,
-                                fields: Fields) {
+                                fields: Fields,
+                                taskHistory: Seq[TaskAction]) {
 
     def getDate = {
       val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a")
@@ -284,11 +300,12 @@ object TookanService {
   object AppointmentDetails {
 
     implicit val appointmentDetailsReads: Reads[AppointmentDetails] = (
-      (JsPath \ "job_id").read[Long] and
-        (JsPath \ "fleet_id").readNullable[Long] and
-        (JsPath \ "job_status").read[Int] and
-        (JsPath \ "job_pickup_datetime").read[String] and
-        (JsPath \ "fields").read[Fields]
+      (__ \ "job_id").read[Long] and
+        (__ \ "fleet_id").readNullable[Long] and
+        (__ \ "job_status").read[Int] and
+        (__ \ "job_pickup_datetime").read[String] and
+        (__ \ "fields").read[Fields] and
+        (__ \ "task_history").read[Seq[TaskAction]]
       ) (AppointmentDetails.apply _)
   }
 
@@ -299,9 +316,9 @@ object TookanService {
   object Agent {
 
     implicit val agentReads: Reads[Agent] = (
-      (JsPath \ "fleet_id").read[Long] and
-        (JsPath \ "fleet_image").read[String] and
-        (JsPath \ "username").read[String]
+      (__ \ "fleet_id").read[Long] and
+        (__ \ "fleet_image").read[String] and
+        (__ \ "username").read[String]
       ) (Agent.apply _)
   }
 
