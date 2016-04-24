@@ -18,11 +18,11 @@ import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
-import play.api.mvc.{Action, BodyParsers}
+import play.api.mvc.{Action, BodyParsers, Result}
 import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.TookanService.AppointmentResponse
-import services.{StripeService, TookanService}
+import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -44,63 +44,54 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def createTask = authorized.async(BodyParsers.parse.json) { request =>
-    def onValidationSuccess(dto: TaskDto) = {
-
+    processRequest[TaskDto](request.body) { dto =>
       val token = request.token.get
       val userId = token.userInfo.id
 
-      def processPayment(tookanTask: AppointmentResponse) = {
-        stripeService.charge(calculatePrice(dto.cleaningType, dto.hasInteriorCleaning), dto.token, tookanTask.jobId)
+      def processPayment(tookanTask: AppointmentResponse, customerId: String) = {
+        stripeService.charge(calculatePrice(dto.cleaningType, dto.hasInteriorCleaning),
+          StripeService.PaymentSource(customerId, dto.token), tookanTask.jobId).flatMap {
+          case Left(error) =>
+            tookanService.deleteTask(tookanTask.jobId)
+              .map(response => badRequest(error.message, error.errorType))
+          case Right(charge) =>
+            val insertQuery = (
+              Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
+                returning Jobs.map(_.id)
+                += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId))
+              )
+            db.run(insertQuery)
+              .map { id =>
+                updateTask(tookanTask.jobId)
+                ok(tookanTask)
+              }
+        }
+      }
+
+      def createTaskInternal(vehicle: VehiclesRow, user: UsersRow) = {
+        tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
+          dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email),
+          TookanService.Metadata.getVehicleMetadata(vehicle))
           .flatMap {
-            case Left(error) =>
-              tookanService.deleteTask(tookanTask.jobId)
-                .map(response => badRequest(error.message, error.errorType))
-            case Right(charge) =>
-              val insertQuery = (
-                Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
-                  returning Jobs.map(_.id)
-                  += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId))
-                )
-              db.run(insertQuery)
-                .map { id =>
-                  updateTask(tookanTask.jobId)
-                  ok(tookanTask)
-                }
+            case Left(error) => wrapInFuture(badRequest(error))
+            case Right(task) => processPayment(task, user.stripeId.get)
           }
       }
 
-      def createTaskInternal = {
-        val vehicleQuery = for {
-          v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
-        } yield v
-        db.run(vehicleQuery.result.headOption).flatMap {
-          case Some(vehicle) =>
-            tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
-              dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email),
-              TookanService.Metadata.getVehicleMetadata(vehicle))
-              .flatMap {
-                case Left(error) => wrapInFuture(badRequest(error))
-                case Right(task) => processPayment(task)
-              }
-          case _ => wrapInFuture(badRequest("Invalid vehicle id"))
-        }
+      val vehicleQuery = for {
+        v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
+      } yield v
+      val userQuery = for {
+        user <- Users if user.id === userId && user.stripeId.isDefined
+      } yield user
+      db.run(vehicleQuery.result.headOption zip userQuery.result.headOption).flatMap { resultRow =>
+        val maybeEventualResult: Option[Future[Result]] = for {
+          vehicle <- resultRow._1
+          user <- resultRow._2
+        } yield createTaskInternal(vehicle, user)
+        maybeEventualResult.getOrElse(Future(badRequest("Invalid vehicle id or user doesn't set payment sources")))
       }
-      createTaskInternal
-      //      val countQuery = for {
-      //        job <- Jobs if job.userId === userId && job.completed =!= true && job.submitted =!= true
-      //      } yield job
-      //
-      //      val resultFuture = for {
-      //        count <- db.run(countQuery.length.result) if count == 0
-      //        result <- createTaskInternal
-      //      } yield result
-      //      resultFuture.recover {
-      //        case e: NoSuchElementException => badRequest("You can have only one active order")
-      //      }
     }
-
-    request.body.validate[TaskDto]
-      .fold(jsonValidationFailedFuture, onValidationSuccess)
   }
 
   def getPendingTask = authorized.async { request =>
@@ -112,31 +103,35 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def completeTask = authorized.async(BodyParsers.parse.json) { request =>
-    def onValidationSuccess(dto: CompleteTaskDto) = {
+    processRequest[CompleteTaskDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val updateQuery = for {
         job <- Jobs if job.jobId === dto.jobId && job.completed === true && job.submitted === false && job.userId === userId
       } yield job.submitted
-      db.run(updateQuery.update(true)).flatMap {
-        case 1 =>
-          Logger.info(s"Job with JobId: ${dto.jobId} updated!")
-          dto.tip.map(tip => stripeService.charge(tip.amount, tip.token, dto.jobId))
-            .map(_.map {
-              case Right(charge) =>
-                Logger.info(s"Tip charged. Charge id: ${charge.getId}")
-                NoContent
-              case Left(error) =>
-                Logger.info(s"Failed to charge tip: ${error.message}")
-                NoContent
-            })
-            .getOrElse(Future.successful(NoContent))
-        case _ =>
-          Logger.info(s"Failed to update job with JobId: ${dto.jobId}")
-          wrapInFuture(badRequest(s"Failed to update job with JobId: ${dto.jobId}"))
+      val userQuery = for {
+        user <- Users if user.id === userId && user.stripeId.isDefined
+      } yield user
+      db.run(updateQuery.update(true) zip userQuery.result.head).flatMap { resultRow =>
+        resultRow._1 match {
+          case 1 =>
+            Logger.info(s"Job with JobId: ${dto.jobId} updated!")
+            dto.tip.map(tip => stripeService.charge(tip.amount,
+              StripeService.PaymentSource(resultRow._2.stripeId.get, tip.token), dto.jobId))
+              .map(_.map {
+                case Right(charge) =>
+                  Logger.info(s"Tip charged. Charge id: ${charge.getId}")
+                  NoContent
+                case Left(error) =>
+                  Logger.info(s"Failed to charge tip: ${error.message}")
+                  NoContent
+              })
+              .getOrElse(Future.successful(NoContent))
+          case _ =>
+            Logger.info(s"Failed to update job with JobId: ${dto.jobId}")
+            wrapInFuture(badRequest(s"Failed to update job with JobId: ${dto.jobId}"))
+        }
       }
     }
-    request.body.validate[CompleteTaskDto]
-      .fold(jsonValidationFailedFuture, onValidationSuccess)
   }
 
   def tasksHistory(offset: Int, limit: Int) = authorized.async { request =>
@@ -193,7 +188,7 @@ object TasksController {
                     images: List[String],
                     vehicle: VehicleDto)
 
-  case class TaskDto(token: String,
+  case class TaskDto(token: Option[String],
                      description: String,
                      pickupName: String,
                      pickupEmail: Option[String],
@@ -208,7 +203,7 @@ object TasksController {
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
   implicit val taskDtoReads: Reads[TaskDto] = (
-    (__ \ "token").read[String] and
+    (__ \ "token").readNullable[String] and
       (__ \ "description").read[String] and
       (__ \ "name").read[String] and
       (__ \ "email").readNullable[String](email) and
@@ -224,7 +219,7 @@ object TasksController {
     ) (TaskDto.apply _)
 
   case class TipDto(amount: Int,
-                    token: String)
+                    token: Option[String])
 
   case class CompleteTaskDto(jobId: Long,
                              tip: Option[TipDto])
