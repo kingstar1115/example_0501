@@ -151,7 +151,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         }
     }
 
-    request.body.validate[FacebookSighUpDto].fold(jsonValidationFailedFuture, onValidationSuccess)
+    request.body.validate[FacebookSighUpDto].fold(jsonValidationFailedF, onValidationSuccess)
   }
 
   private def getToken(id: Integer,

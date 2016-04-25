@@ -21,18 +21,14 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def create = authorized.async(parse.json) { implicit request =>
-    val onValidJson = (dto: LocationDto) => {
+    processRequest[LocationDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Locations.map(l => (l.userId, l.title, l.formattedAddress, l.latitude,
         l.longitude, l.address, l.appartments, l.zipCode, l.notes)) returning Locations.map(_.id) +=(userId, dto.title,
         dto.formattedAddress, dto.latitude, dto.longitude, dto.address, dto.apartments, dto.zipCode, dto.notes)
-      db.run(createQuery).map { locationId =>
-        val resourceUrl = routes.LocationController.get(locationId).absoluteURL()
-        created(resourceUrl)
-      }
+
+      db.run(createQuery).map(locationId => created(routes.LocationController.get(locationId).absoluteURL()))
     }
-    request.body.validate[LocationDto]
-      .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
   }
 
   def update(id: Int) = authorized.async(parse.json) { request =>
@@ -42,13 +38,11 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
     } yield l
     db.run(existQuery.length.result).flatMap {
       case 1 =>
-        val onValidJson = (dto: LocationDto) => {
+        processRequest[LocationDto](request.body) { dto =>
           val updateQuery = Locations.filter(_.id === id).map(l => (l.title, l.address, l.latitude, l.longitude))
             .update(dto.title, dto.address, dto.latitude, dto.longitude)
           db.run(updateQuery).map(r => ok("Updated"))
         }
-        request.body.validate[LocationDto]
-          .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
       case _ => wrapInFuture(notFound)
     }
   }
