@@ -14,7 +14,6 @@ import services.StripeService
 import services.StripeService.ErrorResponse
 import slick.driver.PostgresDriver.api._
 
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -58,20 +57,18 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def removePaymentCard() = authorized.async(parse.json) { request =>
-    processRequest[PaymentSource](request.body) { dto =>
-      val userId = request.token.get.userInfo.id
-      val userQuery = for {
-        user <- Users if user.id === userId && user.stripeId.isDefined
-      } yield user
+  def removePaymentCard(id: String) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val userQuery = for {
+      user <- Users if user.id === userId && user.stripeId.isDefined
+    } yield user
 
-      db.run(userQuery.result.headOption).flatMap { userOpt =>
-        userOpt.map { user =>
-          processStripe(stripeService.getCustomer(user.stripeId.get)) { customer =>
-            processStripe(stripeService.deleteCard(customer, dto.source))(_ => Future(NoContent))
-          }
-        }.getOrElse(Future.successful(badRequest("Payment system doesn't attached")))
-      }
+    db.run(userQuery.result.headOption).flatMap { userOpt =>
+      userOpt.map { user =>
+        processStripe(stripeService.getCustomer(user.stripeId.get)) { customer =>
+          processStripe(stripeService.deleteCard(customer, id))(_ => Future(NoContent))
+        }
+      }.getOrElse(Future.successful(badRequest("Payment system doesn't attached")))
     }
   }
 
@@ -84,12 +81,12 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     db.run(userQuery.result.headOption).flatMap { userOpt =>
       userOpt.map { user =>
         processStripe(stripeService.getCustomer(user.stripeId.get)) { customer =>
-          processStripe(stripeService.getCards(customer, 0, 100)) { cardsResponse =>
-            val cards = cardsResponse.getData.asScala.toList.map(_.toDto)
-            Future(ok(ListResponse(cards, 0, 100, cards.size)))
+          processStripe(stripeService.getCards(customer, 100)) { cards =>
+            val dtos = cards.map(_.toDto)
+            Future(ok(ListResponse(dtos, 0, 100, dtos.size)))
           }
         }
-      }.getOrElse(Future.successful(badRequest("Payment system doesn't attached")))
+      }.getOrElse(Future.successful(ok(ListResponse(List.empty[CardDto], 0, 0, 0))))
     }
   }
 

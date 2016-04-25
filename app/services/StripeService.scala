@@ -13,6 +13,7 @@ import services.StripeService._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
 @Singleton
 class StripeService @Inject()(configuration: Configuration) {
@@ -23,10 +24,13 @@ class StripeService @Inject()(configuration: Configuration) {
     Future {
       Try(r) match {
         case Success(data) => Right(data)
-        case Failure(e) => e match {
-          case e: StripeException => Left(ErrorResponse(e.getMessage, StripeError))
-          case e: Exception => Left(ErrorResponse(e.getMessage, ServerError))
-        }
+        case Failure(e) =>
+          e match {
+            case e: StripeException =>
+              Left(ErrorResponse(e.getMessage, StripeError))
+            case e: Exception =>
+              Left(ErrorResponse(e.getMessage, ServerError))
+          }
       }
     }
   }
@@ -54,12 +58,16 @@ class StripeService @Inject()(configuration: Configuration) {
     process(customer.getSources.retrieve(cardId).asInstanceOf[Card])
   }
 
-  def getCards(customer: Customer, limit: Int, offset: Int) = {
+  def getCards(customer: Customer, limit: Int): Future[Either[ErrorResponse, List[Card]]] = {
     val params = new util.HashMap[String, Object]() {
-      put("limit", Integer.valueOf(limit.toString))
-      put("starting_after", Integer.valueOf(offset.toString))
+      put("limit", limit:java.lang.Integer)
+      put("object", "card")
     }
-    process(customer.getCards.list(params))
+    process(customer.getSources.list(params)
+      .getData.asScala.toList
+      .filter(_.isInstanceOf[Card])
+      .map(_.asInstanceOf[Card])
+    )
   }
 
   def deleteCard(customer: Customer, cardId: String): Future[Either[ErrorResponse, DeletedExternalAccount]] = {
@@ -78,6 +86,7 @@ class StripeService @Inject()(configuration: Configuration) {
     }
     paymentSource.sourceId match {
       case Some(source) => params.put("source", source)
+      case _ =>
     }
     process(Charge.create(params))
   }

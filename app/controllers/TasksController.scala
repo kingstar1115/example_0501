@@ -50,7 +50,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
       def processPayment(tookanTask: AppointmentResponse, customerId: String) = {
         stripeService.charge(calculatePrice(dto.cleaningType, dto.hasInteriorCleaning),
-          StripeService.PaymentSource(customerId, dto.token), tookanTask.jobId).flatMap {
+          StripeService.PaymentSource(customerId, dto.cardId), tookanTask.jobId).flatMap {
           case Left(error) =>
             tookanService.deleteTask(tookanTask.jobId)
               .map(response => badRequest(error.message, error.errorType))
@@ -116,7 +116,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           case 1 =>
             Logger.info(s"Job with JobId: ${dto.jobId} updated!")
             dto.tip.map(tip => stripeService.charge(tip.amount,
-              StripeService.PaymentSource(resultRow._2.stripeId.get, tip.token), dto.jobId))
+              StripeService.PaymentSource(resultRow._2.stripeId.get, tip.cardId), dto.jobId))
               .map(_.map {
                 case Right(charge) =>
                   Logger.info(s"Tip charged. Charge id: ${charge.getId}")
@@ -188,7 +188,7 @@ object TasksController {
                     images: List[String],
                     vehicle: VehicleDto)
 
-  case class TaskDto(token: Option[String],
+  case class TaskDto(cardId: Option[String],
                      description: String,
                      pickupName: String,
                      pickupEmail: Option[String],
@@ -203,7 +203,7 @@ object TasksController {
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
   implicit val taskDtoReads: Reads[TaskDto] = (
-    (__ \ "token").readNullable[String] and
+    (__ \ "cardId").readNullable[String] and
       (__ \ "description").read[String] and
       (__ \ "name").read[String] and
       (__ \ "email").readNullable[String](email) and
@@ -219,7 +219,7 @@ object TasksController {
     ) (TaskDto.apply _)
 
   case class TipDto(amount: Int,
-                    token: Option[String])
+                    cardId: Option[String])
 
   case class CompleteTaskDto(jobId: Long,
                              tip: Option[TipDto])

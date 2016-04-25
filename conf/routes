@@ -45,6 +45,11 @@ DELETE        /api/v1/vehicles/:id                     @controllers.VehiclesCont
 GET           /api/v1/vehicles                         @controllers.VehiclesController.list(offset: Int = 0, limit: Int = 10)
 PUT           /api/v1/vehicles/:id                     @controllers.VehiclesController.update(id: Int)
 
+#Payment Cards
+POST          /api/v1/cards/new                        @controllers.PaymentCardsController.addPaymentCard
+GET           /api/v1/cards                            @controllers.PaymentCardsController.listPaymentCards
+DELETE        /api/v1/:id                              @controllers.PaymentCardsController.removePaymentCard(id: String)
+
 # Web controllers
 # Password recovery
 GET           /password-recover/success                @controllers.PasswordRecoveryController.successPage
