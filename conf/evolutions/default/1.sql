@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
   user_type       INTEGER             NOT NULL,
   verified        BOOLEAN             NOT NULL DEFAULT FALSE,
   code            VARCHAR(32),
-  profile_picture TEXT
+  profile_picture TEXT,
+  stripe_id       VARCHAR(32)
 );
 
 CREATE TABLE IF NOT EXISTS locations (
@@ -74,7 +75,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   vehicle_id     INT          NOT NULL REFERENCES vehicles (id)
 );
 
-# --- !Downs
+  # --- !Downs
 
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS locations CASCADE;

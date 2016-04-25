@@ -32,20 +32,14 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def create = authorized.async(BodyParsers.parse.json) { implicit request =>
-
-    def onValidJson(dto: VehicleDto) = {
+    processRequest[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
         v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) +=(dto.makerId, dto.makerName,
         dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate, userId)
-      db.run(createQuery).map { vehiclesId =>
-        val resourceUrl = routes.VehiclesController.get(vehiclesId).absoluteURL()
-        created(resourceUrl)
-      }
-    }
 
-    request.body.validate[VehicleDto](vehicleDtoFormat)
-      .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
+      db.run(createQuery).map(vehiclesId => created(routes.VehiclesController.get(vehiclesId).absoluteURL()))
+    }(vehicleDtoFormat)
   }
 
   def update(id: Int) = authorized.async(parse.json) { request =>
@@ -55,15 +49,13 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
     } yield l
     db.run(existQuery.length.result).flatMap {
       case 1 =>
-        val onValidJson = (dto: VehicleDto) => {
+        processRequest[VehicleDto](request.body) { dto =>
           val updateQuery = Vehicles.filter(_.id === id).map(v => (v.makerId, v.makerNiceName, v.modelId,
             v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
             .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
               dto.color.getOrElse("None"), dto.licPlate)
           db.run(updateQuery).map(r => ok("Updated"))
-        }
-        request.body.validate[VehicleDto]
-          .fold((errors) => wrapInFuture(jsonValidationFailed(errors)), (dto) => onValidJson(dto))
+        }(vehicleDtoFormat)
       case _ => wrapInFuture(notFound)
     }
   }
