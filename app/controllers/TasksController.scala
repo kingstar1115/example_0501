@@ -71,7 +71,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       def createTaskInternal(vehicle: VehiclesRow, user: UsersRow) = {
         tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
           dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email),
-          TookanService.Metadata.getVehicleMetadata(vehicle))
+          TookanService.Metadata.getVehicleMetadata(vehicle, dto.hasInteriorCleaning))
           .flatMap {
             case Left(error) => wrapInFuture(badRequest(error))
             case Right(task) => processPayment(task, user.stripeId.get)
@@ -156,7 +156,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def mapToDto(row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
     val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
-    val images = row._1.images.map(_.split(";").toList).getOrElse(List.empty[String])
+    val images = row._1.images.map(_.trim.split(";").toList).getOrElse(List.empty[String])
     val vehicle = new VehicleDto(Some(row._3.id), row._3.makerId, row._3.makerNiceName, row._3.modelId,
       row._3.modelNiceName, row._3.yearId, row._3.year, Option(row._3.color), row._3.licPlate)
     JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images, vehicle)
