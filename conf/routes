@@ -48,7 +48,7 @@ PUT           /api/v1/vehicles/:id                     @controllers.VehiclesCont
 #Payment Cards
 POST          /api/v1/cards/new                        @controllers.PaymentCardsController.addPaymentCard
 GET           /api/v1/cards                            @controllers.PaymentCardsController.listPaymentCards
-DELETE        /api/v1/:id                              @controllers.PaymentCardsController.removePaymentCard(id: String)
+DELETE        /api/v1/cards/:id                        @controllers.PaymentCardsController.removePaymentCard(id: String)
 
 # Web controllers
 # Password recovery
