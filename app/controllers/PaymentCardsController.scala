@@ -33,7 +33,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
 
       def addPaymentSource(stripeId: String) = {
         processStripe(stripeService.getCustomer(stripeId)) { customer =>
-          processStripe(stripeService.createCard(customer, dto.source))(_ => Future(NoContent))
+          processStripe(stripeService.createCard(customer, dto.source))(_ => Future(success))
         }
       }
 
@@ -42,7 +42,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
           val userUpdateQuery = for {
             user <- Users if user.id === userId
           } yield user.stripeId
-          db.run(userUpdateQuery.update(Option(customer.getId))).map(_ => NoContent)
+          db.run(userUpdateQuery.update(Option(customer.getId))).map(_ => success)
         }
       }
 
@@ -66,7 +66,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     db.run(userQuery.result.headOption).flatMap { userOpt =>
       userOpt.map { user =>
         processStripe(stripeService.getCustomer(user.stripeId.get)) { customer =>
-          processStripe(stripeService.deleteCard(customer, id))(_ => Future(NoContent))
+          processStripe(stripeService.deleteCard(customer, id))(_ => Future(success))
         }
       }.getOrElse(Future.successful(badRequest("Payment system doesn't attached")))
     }
