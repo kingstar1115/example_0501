@@ -8,6 +8,7 @@ import javax.inject.Inject
 import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
+import commons.enums.TaskStatuses.Successful
 import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
@@ -97,7 +98,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def getPendingTask = authorized.async { request =>
     val taskQuery = for {
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
-      if job.completed === true && job.submitted === false && job.userId === request.token.get.userInfo.id
+      if job.jobStatus === Successful.code && job.submitted === false && job.userId === request.token.get.userInfo.id
     } yield (job, agent, vehicle)
     db.run(taskQuery.result.headOption).map(jobOption => ok(jobOption.map(mapToDto)))
   }
@@ -106,7 +107,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     processRequest[CompleteTaskDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val updateQuery = for {
-        job <- Jobs if job.jobId === dto.jobId && job.completed === true && job.submitted === false && job.userId === userId
+        job <- Jobs if job.jobId === dto.jobId && job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
       } yield job.submitted
       val userQuery = for {
         user <- Users if user.id === userId && user.stripeId.isDefined
@@ -118,14 +119,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             dto.tip.map(tip => stripeService.charge(tip.amount,
               StripeService.PaymentSource(resultRow._2.stripeId.get, tip.cardId), dto.jobId))
               .map(_.map {
-                case Right(charge) =>
-                  Logger.info(s"Tip charged. Charge id: ${charge.getId}")
-                  NoContent
-                case Left(error) =>
-                  Logger.info(s"Failed to charge tip: ${error.message}")
-                  NoContent
+                case Right(charge) => Logger.info(s"Tip charged. Charge id: ${charge.getId}");success
+                case Left(error) => Logger.info(s"Failed to charge tip: ${error.message}");success
               })
-              .getOrElse(Future.successful(NoContent))
+              .getOrElse(Future.successful(success))
           case _ =>
             Logger.info(s"Failed to update job with JobId: ${dto.jobId}")
             wrapInFuture(badRequest(s"Failed to update job with JobId: ${dto.jobId}"))
@@ -149,17 +146,20 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def onTaskUpdate = Action { implicit request =>
     Logger.info("Task update web hook")
-    val formData = Form(Forms.single("job_id" -> Forms.number)).bindFromRequest()
-    updateTask(formData.get)
-    ok("Ok")
+    updateTask(Form(Forms.single("job_id" -> Forms.number)).bindFromRequest().get)
+    NoContent
   }
 
   def mapToDto(row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
+    val job = row._1
+    val car = row._3
+
     val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
-    val images = row._1.images.map(_.trim.split(";").toList).getOrElse(List.empty[String])
-    val vehicle = new VehicleDto(Some(row._3.id), row._3.makerId, row._3.makerNiceName, row._3.modelId,
-      row._3.modelNiceName, row._3.yearId, row._3.year, Option(row._3.color), row._3.licPlate)
-    JobDto(row._1.jobId, row._1.scheduledTime.toLocalDateTime, agent, images, vehicle)
+    val images = job.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
+    val vehicle = new VehicleDto(Some(car.id), car.makerId, car.makerNiceName, car.modelId,
+      car.modelNiceName, car.yearId, car.year, Option(car.color), car.licPlate)
+
+    JobDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, images, vehicle, job.jobStatus, job.submitted)
   }
 
   private def updateTask(jobId: Long) = {
@@ -186,7 +186,9 @@ object TasksController {
                     scheduledDateTime: LocalDateTime,
                     agent: Option[AgentDto],
                     images: List[String],
-                    vehicle: VehicleDto)
+                    vehicle: VehicleDto,
+                    status: Int,
+                    submitted: Boolean)
 
   case class TaskDto(cardId: Option[String],
                      description: String,

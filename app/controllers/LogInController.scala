@@ -33,26 +33,22 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   val db = dbConfigProvider.get.db
 
   def logIn = Action.async(BodyParsers.parse.json) { request =>
-    val parseResult = request.body.validate[EmailLogInDto]
-    parseResult match {
-      case JsError(errors) => Future.successful(validationFailed(JsError.toJson(errors)))
+    processRequest[EmailLogInDto](request.body) { dto =>
+      val userQuery = for {
+        u <- Tables.Users if u.email === dto.email && u.userType === 0
+      } yield u
+      db.run(userQuery.result).map { result =>
+        result.headOption.filter(r => dto.password.bcrypt(r.salt) == r.password.get)
+          .map { user =>
+            val userInfo = UserInfo(user.id, user.email, user.firstName, user.lastName,
+              user.verified, user.userType, user.profilePicture)
+            val token = tokenProvider.generateToken(userInfo)
+            tokenStorage.setToken(token)
 
-      case JsSuccess(dto, jsPath) =>
-        val userQuery = for {
-          u <- Tables.Users if u.email === dto.email && u.userType === 0
-        } yield u
-        db.run(userQuery.result).map { result =>
-          result.headOption.filter(r => dto.password.bcrypt(r.salt) == r.password.get)
-            .map { user =>
-              val userInfo = UserInfo(user.id, user.email, user.firstName, user.lastName,
-                user.verified, user.userType, user.profilePicture)
-              val token = tokenProvider.generateToken(userInfo)
-              tokenStorage.setToken(token)
-
-              ok(AuthResponse(token.key, user.firstName, user.lastName, user.userType, user.verified,
-                user.profilePicture, user.phoneCode.concat(user.phone)))(AuthToken.authResponseFormat)
-            }.getOrElse(validationFailed("Wrong email or password"))
-        }
+            ok(AuthResponse(token.key, user.firstName, user.lastName, user.userType, user.verified,
+              user.profilePicture, user.phoneCode.concat(user.phone)))(AuthToken.authResponseFormat)
+          }.getOrElse(validationFailed("Wrong email or password"))
+      }
     }
   }
 
@@ -61,22 +57,23 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     ok("Success log out")
   }
 
-  def forgotPassword = Action.async(BodyParsers.parse.json[FbTokenDto]) { implicit request =>
-    val dto = request.body
-    val userQuery = for {u <- Users if u.email === dto.token} yield u
-    db.run(userQuery.result.headOption)
-      .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
-      .flatMap {
-        case Left(error) => Future.successful(error)
-        case Right(user) =>
-          val code = tokenProvider.generateKey
-          val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
-          mailService.sendPasswordForgetEmail(user.email, recoverURL)
-          db.run(Users.map(_.code).update(Option(code))).map {
-            case 1 => ok("Instruction send to specified email")
-            case _ => badRequest("Oops, something went wrong", CommonError)
-          }
-      }
+  def forgotPassword = Action.async(BodyParsers.parse.json) { implicit request =>
+    processRequest[FbTokenDto](request.body) { dto =>
+      val userQuery = for {u <- Users if u.email === dto.token} yield u
+      db.run(userQuery.result.headOption)
+        .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
+        .flatMap {
+          case Left(error) => Future.successful(error)
+          case Right(user) =>
+            val code = tokenProvider.generateKey
+            val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
+            mailService.sendPasswordForgetEmail(user.email, recoverURL)
+            db.run(Users.map(_.code).update(Option(code))).map {
+              case 1 => ok("Instruction send to specified email")
+              case _ => badRequest("Oops, something went wrong", CommonError)
+            }
+        }
+    }
   }
 }
 
@@ -87,9 +84,9 @@ object LogInController {
   case class FacebookLogInDto(token: String)
 
   implicit val emailLogInDtoReads: Reads[EmailLogInDto] = (
-      (JsPath \ "email").read[String](email) and
+    (JsPath \ "email").read[String](email) and
       (JsPath \ "password").read[String](minLength[String](6) keepAnd maxLength[String](32))
-    )(EmailLogInDto.apply _)
+    ) (EmailLogInDto.apply _)
 
   implicit val facebookLogInDtoReads: Reads[FacebookLogInDto] = (JsPath \ "token").read[String].map(FacebookLogInDto.apply)
 
