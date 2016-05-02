@@ -60,30 +60,29 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
-    val db = dbConfigProvider.get.db
-    request.body.validate[PasswordChangeDto] match {
-      case JsError(errors) => Future.successful(validationFailed(JsError.toJson(errors)))
-      case JsSuccess(dto, p) =>
-        val userId = request.token.get.userInfo.id
-        val userQuery = for {
-          u <- Users
-          if u.id === userId && u.password.isDefined
-        } yield u
-        db.run(userQuery.result.headOption).flatMap { userOpt =>
-          userOpt.map { user =>
-            val oldPassword = dto.oldPassword.bcrypt(user.salt)
-            oldPassword == user.password.get match {
-              case false => Future.successful(validationFailed("Wrong old password"))
-              case _ =>
-                val newPassword = dto.newPassword.bcrypt(user.salt)
-                val updateQuery = Users.filter(_.id === user.id).map(_.password).update(Some(newPassword))
-                db.run(updateQuery).map {
-                  case 1 => ok("Success")
-                  case _ => badRequest("Can't update password", DatabaseError)
-                }
-            }
-          }.getOrElse(Future.successful(badRequest("Can't find user")))
-        }
+    processRequest[PasswordChangeDto](request.body) { dto =>
+      val db = dbConfigProvider.get.db
+      val userId = request.token.get.userInfo.id
+      val userQuery = for {
+        u <- Users
+        if u.id === userId && u.password.isDefined
+      } yield u
+
+      db.run(userQuery.result.headOption).flatMap { userOpt =>
+        userOpt.map { user =>
+          val oldPassword = dto.oldPassword.bcrypt(user.salt)
+          oldPassword == user.password.get match {
+            case false => Future.successful(validationFailed("Wrong old password"))
+            case _ =>
+              val newPassword = dto.newPassword.bcrypt(user.salt)
+              val updateQuery = Users.filter(_.id === user.id).map(_.password).update(Some(newPassword))
+              db.run(updateQuery).map {
+                case 1 => ok("Success")
+                case _ => badRequest("Can't update password", DatabaseError)
+              }
+          }
+        }.getOrElse(Future.successful(badRequest("Can't find user")))
+      }
     }
   }
 
@@ -128,10 +127,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def updateProfile() = authorized.async(parse.json) { request =>
-
-    def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) = wrapInFuture(jsonValidationFailed(errors))
-
-    def updateUserProfile(dto: UserUpdateDto) = {
+    processRequest[UserUpdateDto](request.body) { dto =>
       val db = dbConfigProvider.get.db
       val userId = request.token.get.userInfo.id
 
@@ -151,8 +147,6 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         }
       }
     }
-
-    request.body.validate[UserUpdateDto].fold(onValidationFailed, updateUserProfile)
   }
 }
 
