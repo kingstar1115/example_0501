@@ -18,6 +18,8 @@ trait RestResponses {
     ))
   }
 
+  def success = ok("Successfully")
+
   def ok[X](data: X, code: String = "200")(implicit writes: Writes[X]) = {
     Ok(toJson(ApiResponse(data, code))).as(MimeTypes.JSON)
   }
