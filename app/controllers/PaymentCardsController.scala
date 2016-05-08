@@ -117,5 +117,4 @@ object PaymentCardsController {
                      expYear: Int,
                      last4: String,
                      funding: String)
-
 }
