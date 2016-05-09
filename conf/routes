@@ -22,6 +22,7 @@ PUT           /api/v1/profile/picture                  @controllers.UserProfileC
 GET           /api/v1/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(fileName)
 GET           /api/v1/profile                          @controllers.UserProfileController.getProfileInfo
 PUT           /api/v1/profile/update                   @controllers.UserProfileController.updateProfile
+PUT           /api/v1/profile/default-payment-method   @controllers.UserProfileController.updateDefaultPaymentMethod
 
 #Locations
 GET           /api/v1/locations/:id                    @controllers.LocationController.get(id: Int)

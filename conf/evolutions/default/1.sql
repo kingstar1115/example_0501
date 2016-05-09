@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS users (
   verified        BOOLEAN             NOT NULL DEFAULT FALSE,
   code            VARCHAR(32),
   profile_picture TEXT,
-  stripe_id       VARCHAR(32)
+  stripe_id       VARCHAR(32),
+  payment_method  VARCHAR(32)
 );
 
 CREATE TABLE IF NOT EXISTS locations (
@@ -75,9 +76,8 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
   # --- !Downs
-
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS locations CASCADE;
-DROP TABLE IF EXISTS vehicles;
 DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS vehicles;
 DROP TABLE IF EXISTS agents;
+DROP TABLE IF EXISTS locations;
+DROP TABLE IF EXISTS users;

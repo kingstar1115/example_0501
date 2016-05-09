@@ -19,7 +19,7 @@ import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
-import play.api.mvc.{Action, BodyParsers, Result}
+import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.TookanService.AppointmentResponse
@@ -50,22 +50,33 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userId = token.userInfo.id
 
       def processPayment(tookanTask: AppointmentResponse, customerId: String) = {
-        stripeService.charge(calculatePrice(dto.cleaningType, dto.hasInteriorCleaning),
-          StripeService.PaymentSource(customerId, dto.cardId), tookanTask.jobId).flatMap {
-          case Left(error) =>
-            tookanService.deleteTask(tookanTask.jobId)
-              .map(response => badRequest(error.message, error.errorType))
-          case Right(charge) =>
-            val insertQuery = (
-              Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
-                returning Jobs.map(_.id)
-                += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId))
-              )
-            db.run(insertQuery)
-              .map { id =>
-                updateTask(tookanTask.jobId)
-                ok(tookanTask)
-              }
+        def saveTask() = {
+          val insertQuery = (
+            Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
+              returning Jobs.map(_.id)
+              += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId))
+            )
+          db.run(insertQuery).map { id =>
+            updateTask(tookanTask.jobId)
+            ok(tookanTask)
+          }
+        }
+
+        val price = calculatePrice(dto.cleaningType, dto.hasInteriorCleaning, dto.promotion)
+        price match {
+          case x if x > 50 =>
+            Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
+            val paymentSource = StripeService.PaymentSource(customerId, dto.cardId)
+            stripeService.charge(price, paymentSource, tookanTask.jobId).flatMap {
+              case Left(error) =>
+                tookanService.deleteTask(tookanTask.jobId)
+                  .map(response => badRequest(error.message, error.errorType))
+              case Right(charge) =>
+                saveTask();
+            }
+          case _ =>
+            Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
+            saveTask()
         }
       }
 
@@ -86,11 +97,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         user <- Users if user.id === userId && user.stripeId.isDefined
       } yield user
       db.run(vehicleQuery.result.headOption zip userQuery.result.headOption).flatMap { resultRow =>
-        val maybeEventualResult: Option[Future[Result]] = for {
+        val taskCreateResultOpt = for {
           vehicle <- resultRow._1
           user <- resultRow._2
         } yield createTaskInternal(vehicle, user)
-        maybeEventualResult.getOrElse(Future(badRequest("Invalid vehicle id or user doesn't set payment sources")))
+        taskCreateResultOpt.getOrElse(Future(badRequest("Invalid vehicle id or user doesn't set payment sources")))
       }
     }
   }
@@ -119,8 +130,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             dto.tip.map(tip => stripeService.charge(tip.amount,
               StripeService.PaymentSource(resultRow._2.stripeId.get, tip.cardId), dto.jobId))
               .map(_.map {
-                case Right(charge) => Logger.info(s"Tip charged. Charge id: ${charge.getId}");success
-                case Left(error) => Logger.info(s"Failed to charge tip: ${error.message}");success
+                case Right(charge) => Logger.info(s"Tip charged. Charge id: ${charge.getId}"); success
+                case Left(error) => Logger.info(s"Failed to charge tip: ${error.message}"); success
               })
               .getOrElse(Future.successful(success))
           case _ =>
@@ -169,14 +180,22 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
 object TasksController {
 
-  def calculatePrice(index: Int, hasInteriorCleaning: Boolean) = {
-    val price = index match {
-      case 0 => 2000
-      case 1 => 2500
-      case 2 => 3000
-      case _ => 0
+  def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
+    def calculateCarWashingPrice() = {
+      index match {
+        case 0 => 2000
+        case 1 => 2500
+        case 2 => 3000
+        case _ => 0
+      }
     }
-    if (hasInteriorCleaning) price + 500 else price
+
+    val priceBeforeDiscount = if (hasInteriorCleaning) calculateCarWashingPrice() + 500 else calculateCarWashingPrice()
+    discount.map { discountAmount =>
+      Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
+      val discountedPrice = priceBeforeDiscount - discountAmount
+      if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
+    }.getOrElse(priceBeforeDiscount)
   }
 
   case class AgentDto(name: String,
@@ -201,7 +220,8 @@ object TasksController {
                      pickupDateTime: LocalDateTime,
                      cleaningType: Int,
                      hasInteriorCleaning: Boolean,
-                     vehicleId: Int)
+                     vehicleId: Int,
+                     promotion: Option[Int])
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
   implicit val taskDtoReads: Reads[TaskDto] = (
@@ -217,7 +237,9 @@ object TasksController {
       (__ \ "cleaningType").read[Int]
         .filter(ValidationError("Value must be in range from 0 to 2"))(v => v >= 0 && v <= 2) and
       (__ \ "hasInteriorCleaning").read[Boolean] and
-      (__ \ "vehicleId").read[Int]
+      (__ \ "vehicleId").read[Int] and
+      (__ \ "promotion").readNullable[Int]
+        .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
     ) (TaskDto.apply _)
 
   case class TipDto(amount: Int,
