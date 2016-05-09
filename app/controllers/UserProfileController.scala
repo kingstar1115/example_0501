@@ -1,12 +1,12 @@
 package controllers
 
 import java.io.File
-import java.util.UUID
+import java.util.{NoSuchElementException, UUID}
 import javax.imageio.ImageIO
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
-import commons.enums.DatabaseError
+import commons.enums.{DatabaseError, PaymentMethods}
 import controllers.UserProfileController._
 import controllers.base.BaseController
 import models.Tables._
@@ -19,7 +19,9 @@ import play.api.libs.json._
 import play.api.mvc.{Action, BodyParsers}
 import security.TokenStorage
 import services.FileService
+import slick.dbio.Effect.Write
 import slick.driver.PostgresDriver.api._
+import slick.profile.FixedSqlAction
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -43,25 +45,25 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "email").read[String](email)
     ) (UserUpdateDto.apply _)
+  implicit val paymentSourceReads = (__ \ 'method).read[String].map(PaymentMethod.apply)
 
   val fileSeparator = File.separatorChar
   val picturesFolder = fileService.getFolder("pictures")
+  val db = dbConfigProvider.get.db
 
   def getProfileInfo = authorized.async { request =>
-    val db = dbConfigProvider.get.db
     val userId = request.token.get.userInfo.id
 
     val userQuery = for {u <- Users if u.id === userId} yield u
     db.run(userQuery.result.head).map { user =>
       val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
-        user.email, user.profilePicture, user.userType, user.verified)
+        user.email, user.profilePicture, user.userType, user.verified, user.paymentMethod)
       ok(dto)
     }
   }
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
     processRequest[PasswordChangeDto](request.body) { dto =>
-      val db = dbConfigProvider.get.db
       val userId = request.token.get.userInfo.id
       val userQuery = for {
         u <- Users
@@ -101,7 +103,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         val newPictureUrl = routes.UserProfileController.getProfilePicture(newFileName).absoluteURL()
         val pictureQuery = Users.filter(_.id === userId).map(_.profilePicture)
         val updateQuery = Users.filter(_.id === userId).map(_.profilePicture).update(Some(newPictureUrl))
-        val db = dbConfigProvider.get.db
+
         db.run(pictureQuery.result.head zip updateQuery).map { queryResult =>
           queryResult._1.map { oldPictureUrl =>
             val oldFileName = oldPictureUrl.split("/").last
@@ -128,25 +130,45 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
 
   def updateProfile() = authorized.async(parse.json) { request =>
     processRequest[UserUpdateDto](request.body) { dto =>
-      val db = dbConfigProvider.get.db
       val userId = request.token.get.userInfo.id
-
       val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
         .map(user => (user.firstName, user.lastName, user.phoneCode, user.phone, user.email))
         .update(dto.firstName, dto.lastName, dto.phoneCode, dto.phone, dto.email)
-      val selectQuery = for {u <- Users if u.id === userId} yield u
 
-      db.run(updateQuery zip selectQuery.result.head).map { resultSet =>
-        resultSet._1 match {
-          case 1 =>
-            val user = resultSet._2
-            val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
-              user.email, user.profilePicture, user.userType, user.verified)
-            ok(dto)
-          case _ => badRequest("Can’t update not verified user profile")
-        }
-      }
+      db.run(updateQuery zip getUserSelectQuery(userId).result.head)
+        .map(processProfileUpdate(_, "Can’t update not verified user profile"))
     }
+  }
+
+  def updateDefaultPaymentMethod() = authorized.async(parse.json) { request =>
+    processRequest[PaymentMethod](request.body) { dto =>
+      Try(PaymentMethods.withName(dto.name))
+        .map { method =>
+          val userId = request.token.get.userInfo.id
+          val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
+            .map(_.paymentMethod)
+            .update(Option(method.toString))
+
+          db.run(updateQuery zip getUserSelectQuery(userId).result.head)
+            .map(processProfileUpdate(_, "Can’t update user default payment method"))
+        }
+        .getOrElse(Future(badRequest("Invalid payment method")))
+    }
+  }
+
+  def processProfileUpdate(updateResult: (Int, UsersRow), errorMessage: String) = {
+    updateResult._1 match {
+      case 1 =>
+        val user = updateResult._2
+        val dto = UserProfileDto(user.firstName, user.lastName, user.phoneCode.concat(user.phone),
+          user.email, user.profilePicture, user.userType, user.verified, user.paymentMethod)
+        ok(dto)
+      case _ => badRequest(errorMessage)
+    }
+  }
+
+  def getUserSelectQuery(id: Int) = {
+    for {u <- Users if u.id === id} yield u
   }
 }
 
@@ -161,12 +183,15 @@ object UserProfileController {
                             email: String,
                             picture: Option[String],
                             userType: Int,
-                            verified: Boolean)
+                            verified: Boolean,
+                            paymentMethod: Option[String])
 
   case class UserUpdateDto(firstName: String,
                            lastName: String,
                            phoneCode: String,
                            phone: String,
                            email: String)
+
+  case class PaymentMethod(name: String)
 
 }

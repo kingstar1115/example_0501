@@ -64,7 +64,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
         val price = calculatePrice(dto.cleaningType, dto.hasInteriorCleaning, dto.promotion)
         price match {
-          case x if x > 0 =>
+          case x if x > 50 =>
             Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
             val paymentSource = StripeService.PaymentSource(customerId, dto.cardId)
             stripeService.charge(price, paymentSource, tookanTask.jobId).flatMap {
@@ -239,6 +239,7 @@ object TasksController {
       (__ \ "hasInteriorCleaning").read[Boolean] and
       (__ \ "vehicleId").read[Int] and
       (__ \ "promotion").readNullable[Int]
+        .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
     ) (TaskDto.apply _)
 
   case class TipDto(amount: Int,
