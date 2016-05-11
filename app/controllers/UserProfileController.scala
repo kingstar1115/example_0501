@@ -16,9 +16,10 @@ import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
-import play.api.mvc.{Action, BodyParsers}
+import play.api.mvc.{Action, BodyParsers, Result}
 import security.TokenStorage
-import services.FileService
+import services.StripeService.ErrorResponse
+import services.{FileService, StripeService}
 import slick.dbio.Effect.Write
 import slick.driver.PostgresDriver.api._
 import slick.profile.FixedSqlAction
@@ -31,7 +32,8 @@ import scala.util.{Failure, Success, Try}
 class UserProfileController @Inject()(val tokenStorage: TokenStorage,
                                       dbConfigProvider: DatabaseConfigProvider,
                                       application: play.Application,
-                                      fileService: FileService) extends BaseController {
+                                      fileService: FileService,
+                                      stripeService: StripeService) extends BaseController {
 
   implicit val passwordChangeDtoReads: Reads[PasswordChangeDto] = (
     (JsPath \ "oldPassword").read[String](minLength[String](6) keepAnd maxLength[String](32)) and
@@ -142,17 +144,27 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
 
   def updateDefaultPaymentMethod() = authorized.async(parse.json) { request =>
     processRequest[PaymentMethod](request.body) { dto =>
-      Try(PaymentMethods.withName(dto.name))
-        .map { method =>
-          val userId = request.token.get.userInfo.id
-          val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
-            .map(_.paymentMethod)
-            .update(Option(method.toString))
-
-          db.run(updateQuery zip getUserSelectQuery(userId).result.head)
-            .map(processProfileUpdate(_, "Can’t update user default payment method"))
+      val userId = request.token.get.userInfo.id
+      val paymentMethodOpt = Try(PaymentMethods.withName(dto.name))
+        .map(paymentMethod => Future(Option(paymentMethod.toString)))
+        .getOrElse {
+          val userSelectQuery = for {
+            user <- Users if user.id === userId && user.stripeId.isDefined
+          } yield user
+          db.run(userSelectQuery.result.headOption).flatMap(_.map { user =>
+            processStripe(stripeService.getCustomer(user.stripeId.get)) { customer =>
+              processStripe(stripeService.getCard(customer, dto.name))(card => Future(Option(card.getId)))
+            }
+          }.getOrElse(Future(None)))
         }
-        .getOrElse(Future(badRequest("Invalid payment method")))
+      paymentMethodOpt.flatMap(_.map { paymentMethod =>
+        val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
+          .map(_.paymentMethod)
+          .update(Option(paymentMethod))
+
+        db.run(updateQuery zip getUserSelectQuery(userId).result.head)
+          .map(processProfileUpdate(_, "Can’t update user default payment method"))
+      }.getOrElse(Future(badRequest("Invalid payment method"))))
     }
   }
 
@@ -169,6 +181,13 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
 
   def getUserSelectQuery(id: Int) = {
     for {u <- Users if u.id === id} yield u
+  }
+
+  def processStripe[T](result: Future[Either[ErrorResponse, T]])(f: T => Future[Option[String]]) = {
+    result.flatMap {
+      case Left(error) => Future(None)
+      case Right(data) => f(data)
+    }
   }
 }
 
