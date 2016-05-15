@@ -60,7 +60,7 @@ class StripeService @Inject()(configuration: Configuration) {
 
   def getCards(customer: Customer, limit: Int): Future[Either[ErrorResponse, List[Card]]] = {
     val params = new util.HashMap[String, Object]() {
-      put("limit", limit:java.lang.Integer)
+      put("limit", limit: java.lang.Integer)
       put("object", "card")
     }
     process(customer.getSources.list(params)
@@ -75,6 +75,22 @@ class StripeService @Inject()(configuration: Configuration) {
   }
 
   def charge(amount: Int, paymentSource: PaymentSource, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, jobId) { parameters =>
+      parameters.put("customer", paymentSource.customerId)
+      paymentSource.sourceId match {
+        case Some(source) => parameters.put("source", source)
+        case _ =>
+      }
+    }
+  }
+
+  def charge(amount: Int, source: String, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, jobId) { parameters =>
+      parameters.put("source", source)
+    }
+  }
+
+  private def chargeInternal(amount: Int, jobId: Long)(addParameters: util.HashMap[String, Object] => Unit) = {
     val metadata = new util.HashMap[String, String]() {
       put("jobId", jobId.toString)
     }
@@ -82,12 +98,8 @@ class StripeService @Inject()(configuration: Configuration) {
       put("amount", new Integer(amount))
       put("currency", "usd")
       put("metadata", metadata)
-      put("customer", paymentSource.customerId)
     }
-    paymentSource.sourceId match {
-      case Some(source) => params.put("source", source)
-      case _ =>
-    }
+    addParameters(params)
     process(Charge.create(params))
   }
 }
