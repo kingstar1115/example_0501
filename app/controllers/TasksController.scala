@@ -49,7 +49,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val token = request.token.get
       val userId = token.userInfo.id
 
-      def processPayment(tookanTask: AppointmentResponse, customerId: String) = {
+      def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
         def saveTask() = {
           val insertQuery = (
             Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
@@ -62,18 +62,28 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           }
         }
 
+        def pay(price: Int) = {
+          dto.token
+            .map(token => Option(stripeService.charge(price, token, tookanTask.jobId)))
+            .getOrElse {
+              user.stripeId.map { stripeId =>
+                val paymentSource = StripeService.PaymentSource(stripeId, dto.cardId)
+                stripeService.charge(price, paymentSource, tookanTask.jobId)
+              }
+            }
+        }
+
         val price = calculatePrice(dto.cleaningType, dto.hasInteriorCleaning, dto.promotion)
         price match {
           case x if x > 50 =>
             Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
-            val paymentSource = StripeService.PaymentSource(customerId, dto.cardId)
-            stripeService.charge(price, paymentSource, tookanTask.jobId).flatMap {
+            pay(price).map(_.flatMap {
               case Left(error) =>
                 tookanService.deleteTask(tookanTask.jobId)
                   .map(response => badRequest(error.message, error.errorType))
               case Right(charge) =>
                 saveTask();
-            }
+            }).getOrElse(Future(badRequest("User doesn't set payment sources")))
           case _ =>
             Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
             saveTask()
@@ -85,8 +95,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email),
           TookanService.Metadata.getVehicleMetadata(vehicle, dto.hasInteriorCleaning))
           .flatMap {
-            case Left(error) => wrapInFuture(badRequest(error))
-            case Right(task) => processPayment(task, user.stripeId.get)
+            case Left(error) =>
+              wrapInFuture(badRequest(error))
+            case Right(task) =>
+              processPayment(task, user)
           }
       }
 
@@ -101,7 +113,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           vehicle <- resultRow._1
           user <- resultRow._2
         } yield createTaskInternal(vehicle, user)
-        taskCreateResultOpt.getOrElse(Future(badRequest("Invalid vehicle id or user doesn't set payment sources")))
+        taskCreateResultOpt.getOrElse(Future(badRequest("Invalid vehicle id or user not found")))
       }
     }
   }
@@ -111,11 +123,12 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.jobStatus === Successful.code && job.submitted === false && job.userId === request.token.get.userInfo.id
     } yield (job, agent, vehicle)
-    db.run(taskQuery.result.headOption).map(jobOption => ok(jobOption.map(mapToDto)))
+    db.run(taskQuery.result.headOption).map(jobOption => ok(jobOption.map(toListDto)))
   }
 
   def completeTask = authorized.async(BodyParsers.parse.json) { request =>
     processRequest[CompleteTaskDto](request.body) { dto =>
+
       val userId = request.token.get.userInfo.id
       val updateQuery = for {
         job <- Jobs if job.jobId === dto.jobId && job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
@@ -123,34 +136,46 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userQuery = for {
         user <- Users if user.id === userId && user.stripeId.isDefined
       } yield user
-      db.run(updateQuery.update(true) zip userQuery.result.head).flatMap { resultRow =>
-        resultRow._1 match {
-          case 1 =>
-            Logger.info(s"Job with JobId: ${dto.jobId} updated!")
-            dto.tip.map(tip => stripeService.charge(tip.amount,
-              StripeService.PaymentSource(resultRow._2.stripeId.get, tip.cardId), dto.jobId))
-              .map(_.map {
-                case Right(charge) => Logger.info(s"Tip charged. Charge id: ${charge.getId}"); success
-                case Left(error) => Logger.info(s"Failed to charge tip: ${error.message}"); success
-              })
-              .getOrElse(Future.successful(success))
-          case _ =>
-            Logger.info(s"Failed to update job with JobId: ${dto.jobId}")
-            wrapInFuture(badRequest(s"Failed to update job with JobId: ${dto.jobId}"))
+
+      dto.tip.map { tip =>
+        val paymentResult = tip.token
+          .map(token => stripeService.charge(tip.amount, token, dto.jobId))
+          .getOrElse {
+            db.run(userQuery.result.head).flatMap { user =>
+              val paymentSource = StripeService.PaymentSource(user.stripeId.get, tip.cardId)
+              stripeService.charge(tip.amount, paymentSource, dto.jobId)
+            }
+          }
+
+        paymentResult.flatMap {
+          case Right(charge) =>
+            db.run(updateQuery.update(true))
+              .map(_ => success)
+          case Left(error) =>
+            Logger.debug(s"Failed to charge tip: ${error.message}")
+            Future(badRequest(error.message, error.errorType))
         }
+      }.getOrElse {
+        db.run(updateQuery.update(true).map(_ => success))
       }
     }
   }
 
   def tasksHistory(offset: Int, limit: Int) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
-    val listQuery = for {
+    val status = request.getQueryString("status").map(_.toInt)
+    val submitted = request.getQueryString("submitted").map(_.toBoolean)
+
+    val baseQuery = for {
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.userId === userId
     } yield (job, agent, vehicle)
+    val filteredByStatus = status.map(s => baseQuery.filter(_._1.jobStatus === s)).getOrElse(baseQuery)
+    val listQuery = submitted.map(s => filteredByStatus.filter(_._1.submitted === s)).getOrElse(filteredByStatus)
+
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
       .map { result =>
-        val jobs = result._2.map(mapToDto).toList
+        val jobs = result._2.map(toListDto).toList
         ok(ListResponse(jobs, limit, offset, result._1))
       }
   }
@@ -161,7 +186,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     NoContent
   }
 
-  def mapToDto(row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
+  def toListDto(row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
     val job = row._1
     val car = row._3
 
@@ -209,7 +234,8 @@ object TasksController {
                     status: Int,
                     submitted: Boolean)
 
-  case class TaskDto(cardId: Option[String],
+  case class TaskDto(token: Option[String],
+                     cardId: Option[String],
                      description: String,
                      pickupName: String,
                      pickupEmail: Option[String],
@@ -225,7 +251,8 @@ object TasksController {
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
   implicit val taskDtoReads: Reads[TaskDto] = (
-    (__ \ "cardId").readNullable[String] and
+    (__ \ "token").readNullable[String] and
+      (__ \ "cardId").readNullable[String] and
       (__ \ "description").read[String] and
       (__ \ "name").read[String] and
       (__ \ "email").readNullable[String](email) and
@@ -243,7 +270,8 @@ object TasksController {
     ) (TaskDto.apply _)
 
   case class TipDto(amount: Int,
-                    cardId: Option[String])
+                    cardId: Option[String],
+                    token: Option[String])
 
   case class CompleteTaskDto(jobId: Long,
                              tip: Option[TipDto])
