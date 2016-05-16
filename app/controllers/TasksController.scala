@@ -106,7 +106,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
       } yield v
       val userQuery = for {
-        user <- Users if user.id === userId && user.stripeId.isDefined
+        user <- Users if user.id === userId
       } yield user
       db.run(vehicleQuery.result.headOption zip userQuery.result.headOption).flatMap { resultRow =>
         val taskCreateResultOpt = for {
