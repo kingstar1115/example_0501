@@ -8,6 +8,7 @@ import javax.inject.Inject
 import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
+import commons.enums.{ValidationError=>VError}
 import commons.enums.TaskStatuses.Successful
 import controllers.TasksController._
 import controllers.VehiclesController._
@@ -22,6 +23,7 @@ import play.api.libs.json.{Reads, _}
 import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
 import security.TokenStorage
+import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
@@ -130,33 +132,46 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     processRequest[CompleteTaskDto](request.body) { dto =>
 
       val userId = request.token.get.userInfo.id
-      val updateQuery = for {
+      val taskQuery = for {
         job <- Jobs if job.jobId === dto.jobId && job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
       } yield job.submitted
       val userQuery = for {
-        user <- Users if user.id === userId && user.stripeId.isDefined
+        user <- Users if user.id === userId
       } yield user
 
-      dto.tip.map { tip =>
-        val paymentResult = tip.token
-          .map(token => stripeService.charge(tip.amount, token, dto.jobId))
-          .getOrElse {
-            db.run(userQuery.result.head).flatMap { user =>
-              val paymentSource = StripeService.PaymentSource(user.stripeId.get, tip.cardId)
-              stripeService.charge(tip.amount, paymentSource, dto.jobId)
-            }
-          }
+      db.run(taskQuery.exists.result).flatMap {
+        case true =>
+          dto.tip.map { tip =>
+            val paymentResult = tip.token
+              .map { token =>
+                Logger.debug(s"Charging tip for task ${dto.jobId} from token $token")
+                stripeService.charge(tip.amount, token, dto.jobId)
+              }
+              .getOrElse {
+                db.run(userQuery.result.head).flatMap { user =>
+                  user.stripeId.map { stripeId =>
+                    val paymentSource = StripeService.PaymentSource(user.stripeId.get, tip.cardId)
+                    stripeService.charge(tip.amount, paymentSource, dto.jobId)
+                  }.getOrElse {
+                    Future(Left(ErrorResponse("User doesn't set a payment method", VError)))
+                  }
+                }
+              }
 
-        paymentResult.flatMap {
-          case Right(charge) =>
-            db.run(updateQuery.update(true))
-              .map(_ => success)
-          case Left(error) =>
-            Logger.debug(s"Failed to charge tip: ${error.message}")
-            Future(badRequest(error.message, error.errorType))
-        }
-      }.getOrElse {
-        db.run(updateQuery.update(true).map(_ => success))
+            paymentResult.flatMap {
+              case Right(charge) =>
+                db.run(taskQuery.update(true))
+                  .map(_ => success)
+              case Left(error) =>
+                Logger.debug(s"Failed to charge tip: ${error.message}")
+                Future(badRequest(error.message, error.errorType))
+            }
+          }.getOrElse {
+            db.run(taskQuery.update(true).map(_ => success))
+          }
+        case _ =>
+          Logger.debug(s"Task with id ${dto.jobId} was not found for submitting")
+          Future(badRequest("Can't find task to submit"))
       }
     }
   }
