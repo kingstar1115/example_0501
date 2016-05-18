@@ -301,18 +301,19 @@ trait Tables {
    *  @param year Database column year SqlType(int4)
    *  @param color Database column color SqlType(varchar), Length(255,true), Default(None)
    *  @param licPlate Database column lic_plate SqlType(varchar), Length(255,true), Default(None)
-   *  @param userId Database column user_id SqlType(int4) */
-  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, makerId: Int, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int)
+   *  @param userId Database column user_id SqlType(int4)
+   *  @param deleted Database column deleted SqlType(bool), Default(false) */
+  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, makerId: Int, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false)
   /** GetResult implicit for fetching VehiclesRow objects using plain SQL queries */
-  implicit def GetResultVehiclesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]]): GR[VehiclesRow] = GR{
+  implicit def GetResultVehiclesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[VehiclesRow] = GR{
     prs => import prs._
-    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Int], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int]))
+    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Int], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean]))
   }
   /** Table description of table vehicles. Objects of this class serve as prototypes for rows in queries. */
   class Vehicles(_tableTag: Tag) extends Table[VehiclesRow](_tableTag, "vehicles") {
-    def * = (id, createdDate, updatedDate, makerId, makerNiceName, modelId, modelNiceName, yearId, year, color, licPlate, userId) <> (VehiclesRow.tupled, VehiclesRow.unapply)
+    def * = (id, createdDate, updatedDate, makerId, makerNiceName, modelId, modelNiceName, yearId, year, color, licPlate, userId, deleted) <> (VehiclesRow.tupled, VehiclesRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), Rep.Some(color), licPlate, Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), Rep.Some(color), licPlate, Rep.Some(userId), Rep.Some(deleted)).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11, _12.get, _13.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -338,6 +339,8 @@ trait Tables {
     val licPlate: Rep[Option[String]] = column[Option[String]]("lic_plate", O.Length(255,varying=true), O.Default(None))
     /** Database column user_id SqlType(int4) */
     val userId: Rep[Int] = column[Int]("user_id")
+    /** Database column deleted SqlType(bool), Default(false) */
+    val deleted: Rep[Boolean] = column[Boolean]("deleted", O.Default(false))
 
     /** Foreign key referencing Users (database name vehicles_user_id_fkey) */
     lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
