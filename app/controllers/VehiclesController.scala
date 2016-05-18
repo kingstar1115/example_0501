@@ -14,6 +14,7 @@ import services.EdmundsService
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,
                                    edmundsService: EdmundsService,
@@ -26,40 +27,62 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
   def getVehiclesMakers = Action.async {
     edmundsService.getCarMakers()
       .map { makersOpt =>
-        makersOpt.map(makers => ok(makers.makes))
+        makersOpt
+          .map(makers => ok(makers.makes))
           .getOrElse(badRequest("Can't load makers data", ServerError))
       }
   }
 
-  def create = authorized.async(BodyParsers.parse.json) { implicit request =>
+  def create() = authorized.async(parse.json) { implicit request =>
     processRequest[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
         v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) +=(dto.makerId, dto.makerName,
         dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate, userId)
 
-      db.run(createQuery).map(vehiclesId => created(routes.VehiclesController.get(vehiclesId).absoluteURL()))
+      db.run(createQuery)
+        .map(vehiclesId => created(routes.VehiclesController.get(vehiclesId).absoluteURL()))
     }(vehicleDtoFormat)
   }
 
   def update(id: Int) = authorized.async(parse.json) { request =>
-    val userId = request.token.get.userInfo.id
-    val existQuery = for {
-      l <- Vehicles if l.userId === userId && l.id === id
-    } yield l
-    db.run(existQuery.length.result).flatMap {
-      case 1 =>
-        processRequest[VehicleDto](request.body) { dto =>
-          val updateQuery = Vehicles.filter(_.id === id).map(v => (v.makerId, v.makerNiceName, v.modelId,
-            v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
-            .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
-              dto.color.getOrElse("None"), dto.licPlate)
-          db.run(updateQuery).map(r => ok("Updated"))
-        }(vehicleDtoFormat)
-      case _ => wrapInFuture(notFound)
+    processRequest[VehicleDto](request.body) { dto =>
+      val userId = request.token.get.userInfo.id
+      val updateQuery = Vehicles.filter(v => v.id === id && v.userId === userId && v.deleted === false)
+        .map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
+        .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
+          dto.color.getOrElse("None"), dto.licPlate)
+      db.run(updateQuery).map {
+        case 1 => success
+        case _ => notFound
+      }
     }
   }
 
+  override def delete(id: Int) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val deleteQuery = for {
+      v <- Vehicles if v.userId === userId && v.id === id && v.deleted === false
+    } yield v.deleted
+    db.run(deleteQuery.update(true)).map {
+      case 1 => success
+      case _ => notFound
+    }
+  }
+
+  override def findByIdAndUserId(id: Int, userId: Int) = {
+    for {
+      v <- Vehicles if v.id === id && v.userId === userId && v.deleted === false
+    } yield v
+  }
+
+
+  override def findByUser(userId: Int) = {
+    for {
+      v <- Vehicles if v.id === userId && v.deleted === false
+    } yield v
+  }
+  
   override def toDto(vehicle: _root_.models.Tables.VehiclesRow): VehicleDto = {
     new VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
       vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
