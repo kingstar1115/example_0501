@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS vehicles (
   year            INT          NOT NULL,
   color           VARCHAR(255) NOT NULL DEFAULT 'None',
   lic_plate       VARCHAR(255),
-  user_id         INT          NOT NULL REFERENCES users (id)
+  user_id         INT          NOT NULL REFERENCES users (id),
+  deleted         BOOLEAN      NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
