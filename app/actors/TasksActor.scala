@@ -28,18 +28,26 @@ class TasksActor(tookanService: TookanService,
     tookanService.getTask(jobId).map {
       case Right(task) =>
         updateOrCreateAgent(task.fleetId)
-          .map { agentId =>
-            val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
-            val taskSelectQuery = for {
-              job <- Jobs if job.jobId === jobId
-            } yield job
+          .flatMap { agentId =>
+            tookanService.getTeam.flatMap{
+              case Left(e) =>
+                Logger.debug("Can't get team information")
+                Future.successful(e)
+              case Right(team) =>
+                val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
+                val taskSelectQuery = for {
+                  job <- Jobs if job.jobId === jobId
+                } yield job
 
-            db.run(taskSelectQuery.result.head).map { taskRow =>
-              Logger.info(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
-              val taskUpdateQuery = Jobs.filter(_.jobId === jobId)
-                .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime))
-                .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate)))
-              db.run(taskUpdateQuery)
+                db.run(taskSelectQuery.result.head).map { taskRow =>
+                  Logger.info(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
+                  val taskUpdateQuery = Jobs.filter(_.jobId === jobId)
+                    .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
+                      job.jobPickupPhone, job.customerPhone, job.teamName))
+                    .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
+                      Option(task.pickupPhone), Option(task.customerPhone), Option(team.teamName)))
+                  db.run(taskUpdateQuery)
+                }
             }
           }
 
@@ -52,15 +60,15 @@ class TasksActor(tookanService: TookanService,
 
     def saveAgent(implicit agent: Agent): Future[Option[Int]] = {
       val insertQuery = (
-        Agents.map(agent => (agent.fleetId, agent.name, agent.fleetImage))
-          returning Agents.map(_.id) +=(agent.fleetId, agent.name, agent.image)
+        Agents.map(agent => (agent.fleetId, agent.name, agent.fleetImage, agent.phone))
+          returning Agents.map(_.id) +=(agent.fleetId, agent.name, agent.image, agent.phone)
         )
       db.run(insertQuery).map(id => Some(id))
     }
 
     def updateAgent(id: Int)(implicit agent: Agent) = {
-      val updateQuery = Agents.filter(_.id === id).map(agent => (agent.name, agent.fleetImage))
-        .update((agent.name, agent.image))
+      val updateQuery = Agents.filter(_.id === id).map(agent => (agent.name, agent.fleetImage, agent.phone))
+        .update((agent.name, agent.image, agent.phone))
       db.run(updateQuery).map(updatedCount => Option(id))
     }
 
