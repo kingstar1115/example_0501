@@ -41,7 +41,8 @@ CREATE TABLE IF NOT EXISTS agents (
   updated_date TIMESTAMP    NOT NULL DEFAULT now(),
   fleet_id     BIGINT       NOT NULL UNIQUE,
   name         VARCHAR(255) NOT NULL,
-  fleet_image  TEXT         NOT NULL
+  fleet_image  TEXT         NOT NULL,
+  phone        VARCHAR(20)  NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS vehicles (
@@ -61,19 +62,24 @@ CREATE TABLE IF NOT EXISTS vehicles (
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
-  id             SERIAL PRIMARY KEY,
-  created_date   TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date   TIMESTAMP    NOT NULL DEFAULT now(),
-  job_id         BIGINT       NOT NULL UNIQUE,
-  job_status     INT          NOT NULL DEFAULT 6,
-  job_token      VARCHAR(255) NOT NULL,
-  description    VARCHAR(255) NOT NULL,
-  scheduled_time TIMESTAMP    NOT NULL,
-  images         TEXT,
-  submitted      BOOLEAN      NOT NULL DEFAULT FALSE,
-  user_id        INT          NOT NULL REFERENCES users (id),
-  agent_id       INT REFERENCES agents (id),
-  vehicle_id     INT          NOT NULL REFERENCES vehicles (id)
+  id               SERIAL PRIMARY KEY,
+  created_date     TIMESTAMP    NOT NULL DEFAULT now(),
+  updated_date     TIMESTAMP    NOT NULL DEFAULT now(),
+  job_id           BIGINT       NOT NULL UNIQUE,
+  job_status       INT          NOT NULL DEFAULT 6,
+  job_token        VARCHAR(255) NOT NULL,
+  description      VARCHAR(255) NOT NULL,
+  scheduled_time   TIMESTAMP    NOT NULL,
+  images           TEXT,
+  submitted        BOOLEAN      NOT NULL DEFAULT FALSE,
+  user_id          INT          NOT NULL REFERENCES users (id),
+  agent_id         INT REFERENCES agents (id),
+  vehicle_id       INT          NOT NULL REFERENCES vehicles (id),
+  payment_method   VARCHAR(32)  NOT NULL,
+  job_address      VARCHAR(255),
+  job_pickup_phone VARCHAR(20),
+  customer_phone   VARCHAR(20),
+  team_name        VARCHAR(255)
 );
 
   # --- !Downs

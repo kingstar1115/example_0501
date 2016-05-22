@@ -66,13 +66,29 @@ class TookanService @Inject()(ws: WSClient,
       .post(Json.obj(
         "access_token" -> config.key,
         "user_id" -> config.userId,
-        "job_id" -> jobId.toString))
+        "job_id" -> jobId.toString
+      ))
       .map { response =>
         response.asList[AppointmentDetails] match {
           case Right(list) =>
             Right(list.head)
           case Left(e) =>
             Left(e)
+        }
+      }
+  }
+
+  def getTeam: Future[Either[TookanResponse, Team]] = {
+    buildRequest(TEAM)
+      .post(Json.obj(
+        "access_token" -> config.key
+      ))
+      .map { response =>
+        response.asList[Team] match {
+          case Right(list) =>
+            Right(list.head)
+          case Left(e) =>
+            Left (e)
         }
       }
   }
@@ -122,6 +138,7 @@ object TookanService {
   val DELETE_TASK = "delete_job"
   val TASK_DETAILS = "view_task_profile"
   val LIST_AGENTS = "view_all_fleets_location"
+  val TEAM = "view_team"
 
   case class Config(key: String,
                     teamId: Int,
@@ -289,7 +306,10 @@ object TookanService {
                                 jobStatus: Int,
                                 pickupDatetime: String,
                                 fields: Fields,
-                                taskHistory: Seq[TaskAction]) {
+                                taskHistory: Seq[TaskAction],
+                                address: String,
+                                pickupPhone: String,
+                                customerPhone: String) {
 
     def getDate = {
       val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a")
@@ -306,21 +326,37 @@ object TookanService {
         (__ \ "job_status").read[Int] and
         (__ \ "job_pickup_datetime").read[String] and
         (__ \ "fields").read[Fields] and
-        (__ \ "task_history").read[Seq[TaskAction]]
+        (__ \ "task_history").read[Seq[TaskAction]] and
+        (__ \ "job_address").read[String] and
+        (__ \ "job_pickup_phone").read[String] and
+        (__ \ "customer_phone").read[String]
       ) (AppointmentDetails.apply _)
   }
 
   case class Agent(fleetId: Long,
                    image: String,
-                   name: String)
+                   name: String,
+                   phone: String)
 
   object Agent {
 
     implicit val agentReads: Reads[Agent] = (
       (__ \ "fleet_id").read[Long] and
         (__ \ "fleet_image").read[String] and
-        (__ \ "username").read[String]
+        (__ \ "username").read[String] and
+        (__ \ "phone").read[String]
       ) (Agent.apply _)
+  }
+
+  case class Team(teamId: Long,
+                  teamName: String)
+
+  object Team {
+
+    implicit val teamReads: Reads[Team] = (
+      (__ \ "team_id").read[Long] and
+        (__ \ "team_name").read[String]
+      ) (Team.apply _)
   }
 
   implicit class BooleanEx(value: Boolean) {

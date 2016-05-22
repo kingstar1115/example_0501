@@ -8,8 +8,8 @@ import javax.inject.Inject
 import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
-import commons.enums.{ValidationError=>VError}
 import commons.enums.TaskStatuses.Successful
+import commons.enums.{PaymentMethods, ValidationError => VError}
 import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
@@ -40,7 +40,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 system: ActorSystem) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
-  implicit val jobDtoFormat = Json.format[JobDto]
+  implicit val taskListDtoFormat = Json.format[TaskListDto]
+  implicit val taskDetailsDtoFormat = Json.format[TaskDetailsDto]
   implicit val tipDtoFormat = Json.format[TipDto]
   implicit val completeTaskDtoFormat = Json.format[CompleteTaskDto]
 
@@ -54,9 +55,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
         def saveTask() = {
           val insertQuery = (
-            Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId))
+            Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod))
               returning Jobs.map(_.id)
-              += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId))
+              += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime),
+              dto.vehicleId, dto.cardId.getOrElse(PaymentMethods.ApplePay.toString)))
             )
           db.run(insertQuery).map { id =>
             updateTask(tookanTask.jobId)
@@ -125,7 +127,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.jobStatus === Successful.code && job.submitted === false && job.userId === request.token.get.userInfo.id
     } yield (job, agent, vehicle)
-    db.run(taskQuery.result.headOption).map(jobOption => ok(jobOption.map(toListDto)))
+    db.run(taskQuery.result.headOption).map { rowOpt =>
+      ok(rowOpt.map { row =>
+        implicit val job = row._1
+        mapToDto(row)(toListDto)
+      }
+      )
+    }
   }
 
   def completeTask = authorized.async(BodyParsers.parse.json) { request =>
@@ -190,9 +198,26 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
       .map { result =>
-        val jobs = result._2.map(toListDto).toList
+        val jobs = result._2.map { row =>
+          implicit val job = row._1
+          mapToDto(row)(toListDto)
+        }.toList
         ok(ListResponse(jobs, limit, offset, result._1))
       }
+  }
+
+  def getTask(id: Long) = authorized.async { request =>
+    val selectQuery = for {
+      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
+      if job.userId === request.token.get.userInfo.id && job.jobId === id
+    } yield (job, agent, vehicle)
+    db.run(selectQuery.result.headOption).map(_.map { resultSet =>
+      val job = resultSet._1
+      mapToDto(resultSet) { (agent, vehicle) =>
+        ok(TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
+          job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod))
+      }
+    }.getOrElse(notFound))
   }
 
   def onTaskUpdate = Action { implicit request =>
@@ -201,16 +226,21 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     NoContent
   }
 
-  def toListDto(row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
-    val job = row._1
-    val car = row._3
+  def toListDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
+    TaskListDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle,
+      job.jobStatus, job.submitted)
+  }
 
+  private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
+    val car = row._3
     val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
-    val images = job.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
     val vehicle = new VehicleDto(Some(car.id), car.makerId, car.makerNiceName, car.modelId,
       car.modelNiceName, car.yearId, car.year, Option(car.color), car.licPlate)
+    mapper(agent, vehicle)
+  }
 
-    JobDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, images, vehicle, job.jobStatus, job.submitted)
+  private def getJobImages(job: JobsRow) = {
+    job.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
   }
 
   private def updateTask(jobId: Long) = {
@@ -241,13 +271,26 @@ object TasksController {
   case class AgentDto(name: String,
                       picture: String)
 
-  case class JobDto(jobId: Long,
-                    scheduledDateTime: LocalDateTime,
-                    agent: Option[AgentDto],
-                    images: List[String],
-                    vehicle: VehicleDto,
-                    status: Int,
-                    submitted: Boolean)
+  case class TaskListDto(jobId: Long,
+                         scheduledDateTime: LocalDateTime,
+                         agent: Option[AgentDto],
+                         images: List[String],
+                         vehicle: VehicleDto,
+                         status: Int,
+                         submitted: Boolean)
+
+  case class TaskDetailsDto(jobId: Long,
+                            scheduledDateTime: LocalDateTime,
+                            agent: Option[AgentDto],
+                            images: List[String],
+                            vehicle: VehicleDto,
+                            status: Int,
+                            submitted: Boolean,
+                            teamName: Option[String],
+                            jobAddress: Option[String],
+                            jobPickupPhone: Option[String],
+                            customerPhone: Option[String],
+                            paymentMethod: String)
 
   case class TaskDto(token: Option[String],
                      cardId: Option[String],
