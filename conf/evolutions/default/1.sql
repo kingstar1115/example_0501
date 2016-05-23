@@ -62,24 +62,27 @@ CREATE TABLE IF NOT EXISTS vehicles (
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
-  id               SERIAL PRIMARY KEY,
-  created_date     TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date     TIMESTAMP    NOT NULL DEFAULT now(),
-  job_id           BIGINT       NOT NULL UNIQUE,
-  job_status       INT          NOT NULL DEFAULT 6,
-  job_token        VARCHAR(255) NOT NULL,
-  description      VARCHAR(255) NOT NULL,
-  scheduled_time   TIMESTAMP    NOT NULL,
-  images           TEXT,
-  submitted        BOOLEAN      NOT NULL DEFAULT FALSE,
-  user_id          INT          NOT NULL REFERENCES users (id),
-  agent_id         INT REFERENCES agents (id),
-  vehicle_id       INT          NOT NULL REFERENCES vehicles (id),
-  payment_method   VARCHAR(32)  NOT NULL,
-  job_address      VARCHAR(255),
-  job_pickup_phone VARCHAR(20),
-  customer_phone   VARCHAR(20),
-  team_name        VARCHAR(255)
+  id                    SERIAL PRIMARY KEY,
+  created_date          TIMESTAMP    NOT NULL DEFAULT now(),
+  updated_date          TIMESTAMP    NOT NULL DEFAULT now(),
+  job_id                BIGINT       NOT NULL UNIQUE,
+  job_status            INT          NOT NULL DEFAULT 6,
+  job_token             VARCHAR(255) NOT NULL,
+  description           VARCHAR(255) NOT NULL,
+  scheduled_time        TIMESTAMP    NOT NULL,
+  images                TEXT,
+  submitted             BOOLEAN      NOT NULL DEFAULT FALSE,
+  user_id               INT          NOT NULL REFERENCES users (id),
+  agent_id              INT REFERENCES agents (id),
+  vehicle_id            INT          NOT NULL REFERENCES vehicles (id),
+  payment_method        VARCHAR(32)  NOT NULL,
+  job_address           VARCHAR(255),
+  job_pickup_phone      VARCHAR(20),
+  customer_phone        VARCHAR(20),
+  team_name             VARCHAR(255),
+  price                 INT NOT NULL,
+  has_interior_cleaning BOOLEAN NOT NULL,
+  cleaning_type         INT NOT NULL
 );
 
   # --- !Downs
