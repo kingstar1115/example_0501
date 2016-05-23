@@ -53,12 +53,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userId = token.userInfo.id
 
       def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
-        def saveTask() = {
+        def saveTask(price: Int = 0) = {
           val insertQuery = (
-            Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod))
+            Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId,
+              job.paymentMethod, job.cleaningType, job.hasInteriorCleaning, job.price))
               returning Jobs.map(_.id)
               += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime),
-              dto.vehicleId, dto.cardId.getOrElse(PaymentMethods.ApplePay.toString)))
+              dto.vehicleId, dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.cleaningType, dto.hasInteriorCleaning, price))
             )
           db.run(insertQuery).map { id =>
             updateTask(tookanTask.jobId)
@@ -86,7 +87,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                 tookanService.deleteTask(tookanTask.jobId)
                   .map(response => badRequest(error.message, error.errorType))
               case Right(charge) =>
-                saveTask();
+                saveTask(price);
             }).getOrElse(Future(badRequest("User doesn't set payment sources")))
           case _ =>
             Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
@@ -215,7 +216,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val job = resultSet._1
       mapToDto(resultSet) { (agent, vehicle) =>
         ok(TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
-          job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod))
+          job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
+          job.cleaningType, job.hasInteriorCleaning, job.price))
       }
     }.getOrElse(notFound))
   }
@@ -233,7 +235,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
     val car = row._3
-    val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage)).orElse(None)
+    val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage, agent.phone)).orElse(None)
     val vehicle = new VehicleDto(Some(car.id), car.makerId, car.makerNiceName, car.modelId,
       car.modelNiceName, car.yearId, car.year, Option(car.color), car.licPlate)
     mapper(agent, vehicle)
@@ -269,7 +271,8 @@ object TasksController {
   }
 
   case class AgentDto(name: String,
-                      picture: String)
+                      picture: String,
+                      phone: String)
 
   case class TaskListDto(jobId: Long,
                          scheduledDateTime: LocalDateTime,
@@ -290,7 +293,10 @@ object TasksController {
                             jobAddress: Option[String],
                             jobPickupPhone: Option[String],
                             customerPhone: Option[String],
-                            paymentMethod: String)
+                            paymentMethod: String,
+                            cleaningType: Int,
+                            hasInteriorCleaning: Boolean,
+                            price: Int)
 
   case class TaskDto(token: Option[String],
                      cardId: Option[String],
