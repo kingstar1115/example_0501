@@ -33,11 +33,13 @@ PUT           /api/v1/locations/:id                    @controllers.LocationCont
 
 #Tasks
 POST          /api/v1/tasks/new                        @controllers.TasksController.createTask
-GET           /api/v1/tasks                            @controllers.TasksController.tasksHistory(offset: Int = 0, limit: Int = 10)
+GET           /api/v1/tasks                            @controllers.TasksController.listTasks(offset: Int = 0, limit: Int = 10)
 POST          /api/v1/tasks/refresh                    @controllers.TasksController.onTaskUpdate
 POST          /api/v1/tasks/complete                   @controllers.TasksController.completeTask
 GET           /api/v1/tasks/pending                    @controllers.TasksController.getPendingTask
+GET           /api/v1/tasks/active                     @controllers.TasksController.getActiveTask
 GET           /api/v1/tasks/:id                        @controllers.TasksController.getTask(id: Long)
+GET           /api/v1/tasks/agents/:id/coordinates     @controllers.TasksController.getAgentCoordinates(id: Long)
 
 #Vehicles
 GET           /api/v1/vehicles/makers                  @controllers.VehiclesController.getVehiclesMakers

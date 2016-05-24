@@ -50,19 +50,19 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
-    buildRequest(CREATE_TASK)
+    buildRequest(CreateTask)
       .post(Json.toJson(task))
       .map(response => response.convert[AppointmentResponse])
   }
 
   def deleteTask(jobId: Long) = {
-    buildRequest(DELETE_TASK)
+    buildRequest(DeleteTask)
       .post(Json.toJson(DeleteTaskDto.default(jobId)))
       .map(response => response.getResponse)
   }
 
   def getTask(jobId: Long): Future[Either[TookanResponse, AppointmentDetails]] = {
-    buildRequest(TASK_DETAILS)
+    buildRequest(TaskDetails)
       .post(Json.obj(
         "access_token" -> config.key,
         "user_id" -> config.userId,
@@ -79,7 +79,7 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def getTeam: Future[Either[TookanResponse, Team]] = {
-    buildRequest(TEAM)
+    buildRequest(TeamDetails)
       .post(Json.obj(
         "access_token" -> config.key
       ))
@@ -88,15 +88,31 @@ class TookanService @Inject()(ws: WSClient,
           case Right(list) =>
             Right(list.head)
           case Left(e) =>
-            Left (e)
+            Left(e)
         }
       }
   }
 
   def listAgents: Future[Either[TookanResponse, List[Agent]]] = {
-    buildRequest(LIST_AGENTS)
+    buildRequest(ListAgents)
       .post(Json.obj("access_token" -> config.key))
       .map(response => response.asList[Agent])
+  }
+
+  def getAgentCoordinates(fleetId: Long): Future[Either[TookanResponse, Coordinates]] = {
+    buildRequest(AgentCoordinates)
+      .post(Json.obj(
+        "access_token" -> config.key,
+        "fleet_id" -> fleetId
+      ))
+      .map { response =>
+        response.asList[Coordinates] match {
+          case Right(list) =>
+            Right(list.head)
+          case Left(e) =>
+            Left(e)
+        }
+      }
   }
 
   private def buildRequest(path: String) = {
@@ -134,11 +150,12 @@ class TookanService @Inject()(ws: WSClient,
 
 object TookanService {
 
-  val CREATE_TASK = "create_task"
-  val DELETE_TASK = "delete_job"
-  val TASK_DETAILS = "view_task_profile"
-  val LIST_AGENTS = "view_all_fleets_location"
-  val TEAM = "view_team"
+  val CreateTask = "create_task"
+  val DeleteTask = "delete_job"
+  val TaskDetails = "view_task_profile"
+  val ListAgents = "view_all_fleets_location"
+  val TeamDetails = "view_team"
+  val AgentCoordinates = "view_all_fleets"
 
   case class Config(key: String,
                     teamId: Int,
@@ -293,7 +310,6 @@ object TookanService {
   }
 
   object TaskAction {
-
     implicit val taskActionReads: Reads[TaskAction] = (
       (__ \ "type").read[String] and
         (__ \ "description").read[String]
@@ -319,7 +335,6 @@ object TookanService {
 
 
   object AppointmentDetails {
-
     implicit val appointmentDetailsReads: Reads[AppointmentDetails] = (
       (__ \ "job_id").read[Long] and
         (__ \ "fleet_id").readNullable[Long] and
@@ -339,7 +354,6 @@ object TookanService {
                    phone: String)
 
   object Agent {
-
     implicit val agentReads: Reads[Agent] = (
       (__ \ "fleet_id").read[Long] and
         (__ \ "fleet_image").read[String] and
@@ -352,11 +366,26 @@ object TookanService {
                   teamName: String)
 
   object Team {
-
     implicit val teamReads: Reads[Team] = (
       (__ \ "team_id").read[Long] and
         (__ \ "team_name").read[String]
       ) (Team.apply _)
+  }
+
+  case class Coordinates(latitude: String,
+                         longitude: String)
+
+  object Coordinates {
+    implicit val coordinatesReads: Reads[Coordinates] = (
+      (__ \ "latitude").read[String] and
+        (__ \ "longitude").read[String]
+      ) (Coordinates.apply _)
+
+    implicit val coordinatesWrites: Writes[Coordinates] = Writes((coordinates: Coordinates) =>
+      Json.obj(
+        "latitude" -> coordinates.latitude,
+        "longitude" -> coordinates.longitude
+      ))
   }
 
   implicit class BooleanEx(value: Boolean) {
