@@ -23,4 +23,6 @@ object TaskStatuses {
 
   case object Cancel extends TaskStatus(9)
 
+  lazy val activeStatuses = Set(Accepted.code, Started.code, InProgress.code)
+
 }

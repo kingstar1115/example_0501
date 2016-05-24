@@ -9,7 +9,7 @@ import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
 import commons.enums.TaskStatuses.Successful
-import commons.enums.{PaymentMethods, ValidationError => VError}
+import commons.enums.{PaymentMethods, TaskStatuses, ValidationError => VError}
 import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
@@ -129,11 +129,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       if job.jobStatus === Successful.code && job.submitted === false && job.userId === request.token.get.userInfo.id
     } yield (job, agent, vehicle)
     db.run(taskQuery.result.headOption).map { rowOpt =>
-      ok(rowOpt.map { row =>
+      val pendingTaskOpt = rowOpt.map { row =>
         implicit val job = row._1
         mapToDto(row)(toListDto)
       }
-      )
+      ok(pendingTaskOpt)
     }
   }
 
@@ -185,7 +185,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def tasksHistory(offset: Int, limit: Int) = authorized.async { request =>
+  def listTasks(offset: Int, limit: Int) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val status = request.getQueryString("status").map(_.toInt)
     val submitted = request.getQueryString("submitted").map(_.toBoolean)
@@ -212,13 +212,9 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.userId === request.token.get.userInfo.id && job.jobId === id
     } yield (job, agent, vehicle)
-    db.run(selectQuery.result.headOption).map(_.map { resultSet =>
-      val job = resultSet._1
-      mapToDto(resultSet) { (agent, vehicle) =>
-        ok(TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
-          job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
-          job.cleaningType, job.hasInteriorCleaning, job.price))
-      }
+    db.run(selectQuery.result.headOption).map(_.map { row =>
+      implicit val job = row._1
+      ok(mapToDto(row)(toDetailsDto))
     }.getOrElse(notFound))
   }
 
@@ -228,14 +224,45 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     NoContent
   }
 
+  def getAgentCoordinates(fleetId: Long) = authorized.async { request =>
+    tookanService.getAgentCoordinates(fleetId).map {
+      case Right(coordinates) =>
+        ok(coordinates)
+      case Left(e) =>
+        badRequest(e.message)
+    }
+  }
+
+  def getActiveTask = authorized.async { request =>
+    val selectQuery = for {
+      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
+      if job.userId === request.token.get.userInfo.id && job.jobStatus.inSet(TaskStatuses.activeStatuses)
+    } yield (job, agent, vehicle)
+    db.run(selectQuery.sortBy(_._1.scheduledTime.asc).result.headOption).map { rowOpt =>
+      val activeTaskOpt = rowOpt.map { row =>
+        implicit val job = row._1
+        mapToDto(row)(toDetailsDto)
+      }
+      ok(activeTaskOpt)
+    }
+  }
+
   def toListDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
     TaskListDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle,
       job.jobStatus, job.submitted)
   }
 
+  def toDetailsDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
+    TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
+      job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
+      job.cleaningType, job.hasInteriorCleaning, job.price)
+  }
+
   private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
     val car = row._3
-    val agent = row._2.map(agent => AgentDto(agent.name, agent.fleetImage, agent.phone)).orElse(None)
+    val agent = row._2
+      .map(agent => AgentDto(agent.fleetId, agent.name, agent.fleetImage, agent.phone))
+      .orElse(None)
     val vehicle = new VehicleDto(Some(car.id), car.makerId, car.makerNiceName, car.modelId,
       car.modelNiceName, car.yearId, car.year, Option(car.color), car.licPlate)
     mapper(agent, vehicle)
@@ -270,7 +297,8 @@ object TasksController {
     }.getOrElse(priceBeforeDiscount)
   }
 
-  case class AgentDto(name: String,
+  case class AgentDto(fleetId: Long,
+                      name: String,
                       picture: String,
                       phone: String)
 
