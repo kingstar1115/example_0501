@@ -24,7 +24,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
     processRequest[LocationDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Locations.map(l => (l.userId, l.title, l.formattedAddress, l.latitude,
-        l.longitude, l.address, l.appartments, l.zipCode, l.notes)) returning Locations.map(_.id) +=(userId, dto.title,
+        l.longitude, l.address, l.apartments, l.zipCode, l.notes)) returning Locations.map(_.id) +=(userId, dto.title,
         dto.formattedAddress, dto.latitude, dto.longitude, dto.address, dto.apartments, dto.zipCode, dto.notes)
 
       db.run(createQuery).map(locationId => created(routes.LocationController.get(locationId).absoluteURL()))
@@ -48,7 +48,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
   }
 
   override def toDto(location: _root_.models.Tables.LocationsRow): LocationDto = {
-    new LocationDto(Some(location.id), location.title, location.address, location.appartments,
+    new LocationDto(Some(location.id), location.title, location.address, location.apartments,
       location.zipCode, location.formattedAddress, location.latitude, location.longitude, location.notes)
   }
 

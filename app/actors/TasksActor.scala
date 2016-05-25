@@ -22,7 +22,6 @@ class TasksActor(tookanService: TookanService,
   }
 
   private def updateTaskData(jobId: Long) = {
-    Logger.debug(s"Updating job with id: $jobId")
     val db = dbConfigProvider.get.db
 
     tookanService.getTask(jobId).map {
@@ -32,7 +31,7 @@ class TasksActor(tookanService: TookanService,
             tookanService.getTeam.flatMap{
               case Left(e) =>
                 Logger.debug("Can't get team information")
-                Future.successful(e)
+                Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
               case Right(team) =>
                 val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
                 val taskSelectQuery = for {
@@ -40,13 +39,14 @@ class TasksActor(tookanService: TookanService,
                 } yield job
 
                 db.run(taskSelectQuery.result.head).map { taskRow =>
-                  Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
+                  Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${task.jobStatus}")
                   val taskUpdateQuery = Jobs.filter(_.jobId === jobId)
                     .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
                       job.jobPickupPhone, job.customerPhone, job.teamName))
                     .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
                       Option(task.pickupPhone), Option(task.customerPhone), Option(team.teamName)))
                   db.run(taskUpdateQuery)
+                    .map(_ => Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!"))
                 }
             }
           }

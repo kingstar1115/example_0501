@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS locations (
   longitude         NUMERIC      NOT NULL,
   notes             TEXT,
   zip_code          VARCHAR(6),
-  appartments       VARCHAR(10),
+  apartments        VARCHAR(10),
   user_id           INT          NOT NULL REFERENCES users (id)
 );
 
@@ -67,8 +67,6 @@ CREATE TABLE IF NOT EXISTS jobs (
   updated_date          TIMESTAMP    NOT NULL DEFAULT now(),
   job_id                BIGINT       NOT NULL UNIQUE,
   job_status            INT          NOT NULL DEFAULT 6,
-  job_token             VARCHAR(255) NOT NULL,
-  description           VARCHAR(255) NOT NULL,
   scheduled_time        TIMESTAMP    NOT NULL,
   images                TEXT,
   submitted             BOOLEAN      NOT NULL DEFAULT FALSE,
@@ -82,7 +80,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   team_name             VARCHAR(255),
   price                 INT NOT NULL,
   has_interior_cleaning BOOLEAN NOT NULL,
-  cleaning_type         INT NOT NULL
+  cleaning_type         INT NOT NULL,
+  latitude              NUMERIC      NOT NULL,
+  longitude             NUMERIC      NOT NULL
 );
 
   # --- !Downs
