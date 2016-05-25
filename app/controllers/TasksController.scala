@@ -14,6 +14,7 @@ import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
 import models.Tables._
+import play.api.data.Forms.{email => _, _}
 import play.api.data.validation.ValidationError
 import play.api.data.{Form, Forms}
 import play.api.db.slick.DatabaseConfigProvider
@@ -55,11 +56,12 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
         def saveTask(price: Int = 0) = {
           val insertQuery = (
-            Jobs.map(job => (job.jobId, job.jobToken, job.description, job.userId, job.scheduledTime, job.vehicleId,
-              job.paymentMethod, job.cleaningType, job.hasInteriorCleaning, job.price))
+            Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
+              job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude))
               returning Jobs.map(_.id)
-              += ((tookanTask.jobId, tookanTask.jobToken, dto.description, userId, Timestamp.valueOf(dto.pickupDateTime),
-              dto.vehicleId, dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.cleaningType, dto.hasInteriorCleaning, price))
+              += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
+              dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.cleaningType, dto.hasInteriorCleaning,
+              price, dto.pickupLatitude, dto.pickupLongitude))
             )
           db.run(insertQuery).map { id =>
             updateTask(tookanTask.jobId)
@@ -219,8 +221,12 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def onTaskUpdate = Action { implicit request =>
-    Logger.info("Task update web hook")
-    updateTask(Form(Forms.single("job_id" -> Forms.number)).bindFromRequest().get)
+    val formData = Form(mapping(
+      "job_id" -> Forms.longNumber,
+      "job_status" -> Forms.number
+    )(TaskHook.apply)(TaskHook.unapply)).bindFromRequest().get
+    Logger.debug(s"Task update web hook. ${formData.toString}")
+    updateTask(formData.jobId)
     NoContent
   }
 
@@ -255,7 +261,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def toDetailsDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
     TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
       job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
-      job.cleaningType, job.hasInteriorCleaning, job.price)
+      job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude)
   }
 
   private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
@@ -324,7 +330,9 @@ object TasksController {
                             paymentMethod: String,
                             cleaningType: Int,
                             hasInteriorCleaning: Boolean,
-                            price: Int)
+                            price: Int,
+                            latitude: BigDecimal,
+                            longitude: BigDecimal)
 
   case class TaskDto(token: Option[String],
                      cardId: Option[String],
@@ -360,6 +368,7 @@ object TasksController {
       (__ \ "promotion").readNullable[Int]
         .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
     ) (TaskDto.apply _)
+    .filter(ValidationError("token or cardId must be defined"))(dto => dto.token.isDefined || dto.cardId.isDefined)
 
   case class TipDto(amount: Int,
                     cardId: Option[String],
@@ -367,6 +376,9 @@ object TasksController {
 
   case class CompleteTaskDto(jobId: Long,
                              tip: Option[TipDto])
+
+  case class TaskHook(jobId: Long,
+                      jobStatus: Int)
 
 }
 
