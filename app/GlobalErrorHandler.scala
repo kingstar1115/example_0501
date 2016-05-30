@@ -9,7 +9,7 @@ import scala.concurrent.Future
 class GlobalErrorHandler extends HttpErrorHandler with RestResponses{
 
   override def onClientError(request: RequestHeader, statusCode: Int, message: String): Future[Result] = {
-    Logger.info(s"Failed to accept request: ${request.queryString}")
+    Logger.debug(s"Failed to accept request: ${request.queryString}")
     Future.successful(badRequest(message, ClientError(statusCode)))
   }
 

@@ -7,15 +7,19 @@ import akka.actor.{Actor, Props}
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
+import commons.enums.TaskStatuses.Successful
 import services.TookanService
 import services.TookanService.Agent
+import services.notifications.{JobData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class TasksActor(tookanService: TookanService,
-                 dbConfigProvider: DatabaseConfigProvider) extends Actor {
+                 dbConfigProvider: DatabaseConfigProvider,
+                 pushNotificationService: PushNotificationService) extends Actor {
+
   override def receive = {
     case t: RefreshTaskData => updateTaskData(t.jobId)
     case _ =>
@@ -28,7 +32,7 @@ class TasksActor(tookanService: TookanService,
       case Right(task) =>
         updateOrCreateAgent(task.fleetId)
           .flatMap { agentId =>
-            tookanService.getTeam.flatMap{
+            tookanService.getTeam.flatMap {
               case Left(e) =>
                 Logger.debug("Can't get team information")
                 Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
@@ -46,12 +50,28 @@ class TasksActor(tookanService: TookanService,
                     .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
                       Option(task.pickupPhone), Option(task.customerPhone), Option(team.teamName)))
                   db.run(taskUpdateQuery)
-                    .map(_ => Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!"))
+                    .map { _ =>
+                      Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
+                      if (taskRow.jobStatus != task.jobStatus && task.jobStatus == Successful.code) {
+                        sendJobCompleteNotification(jobId, agentId)
+                      }
+                    }
                 }
             }
           }
 
       case _ => Logger.debug(s"Can't find job with id: $jobId")
+    }
+  }
+
+  def sendJobCompleteNotification(jobId: Long, agentId: Option[Int]) = {
+    val db = dbConfigProvider.get.db
+    val agentQuery = for {
+      agent <- Agents if agent.id === agentId.get
+    } yield agent.name
+    db.run(agentQuery.result.head).map { agentName =>
+      //TODO: obtain token
+      pushNotificationService.sendJobCompleteNotification(new JobData(jobId, agentName), "")
     }
   }
 
@@ -101,8 +121,9 @@ class TasksActor(tookanService: TookanService,
 
 object TasksActor {
 
-  def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider) =
-    Props(classOf[TasksActor], tookanService, dbConfigProvider)
+  def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider,
+            pushNotificationService: PushNotificationService) =
+    Props(classOf[TasksActor], tookanService, dbConfigProvider, pushNotificationService)
 
   case class RefreshTaskData(jobId: Long)
 

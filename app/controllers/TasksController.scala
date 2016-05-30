@@ -26,6 +26,7 @@ import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
+import services.notifications.PushNotificationService
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
@@ -38,7 +39,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 tookanService: TookanService,
                                 stripeService: StripeService,
                                 config: Configuration,
-                                system: ActorSystem) extends BaseController {
+                                system: ActorSystem,
+                                pushNotificationService: PushNotificationService) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
   implicit val taskListDtoFormat = Json.format[TaskListDto]
@@ -279,7 +281,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   private def updateTask(jobId: Long) = {
-    system.actorOf(TasksActor.props(tookanService, dbConfigProvider)) ! RefreshTaskData(jobId)
+    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(jobId)
   }
 }
 
