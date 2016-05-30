@@ -6,13 +6,13 @@ import controllers.PhoneVerificationController._
 import controllers.base.BaseController
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
-import play.api.libs.json.{JsSuccess, JsError, Reads, JsPath}
-import play.api.libs.json.Reads._
 import play.api.libs.functional.syntax._
+import play.api.libs.json.Reads._
+import play.api.libs.json.{JsError, JsPath, JsSuccess, Reads}
 import play.api.mvc.BodyParsers
+import security.{AuthResponse, AuthToken, TokenStorage}
 import services.AuthyVerifyService
-import AuthyVerifyService.AuthyResponseDto
-import security.{AuthToken, AuthResponse, TokenStorage}
+import services.AuthyVerifyService.AuthyResponseDto
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -93,7 +93,7 @@ object PhoneVerificationController {
   case class PhoneChangeDto(phoneCountryCode: String, phoneNumber: String)
 
   implicit val phoneChangeDtoReads: Reads[PhoneChangeDto] = (
-      (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
+    (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format"))
-    )(PhoneChangeDto.apply _)
+    ) (PhoneChangeDto.apply _)
 }

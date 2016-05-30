@@ -12,7 +12,7 @@ import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
-import play.api.libs.json.{JsError, JsPath, JsSuccess, Reads}
+import play.api.libs.json.{JsPath, Reads}
 import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, BodyParsers}
 import security._

@@ -15,7 +15,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Result, Action, BodyParsers}
+import play.api.mvc.{Action, BodyParsers, Result}
 import security._
 import services.AuthyVerifyService
 import slick.driver.PostgresDriver.api._

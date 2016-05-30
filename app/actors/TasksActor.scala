@@ -4,12 +4,13 @@ import java.sql.Timestamp
 
 import actors.TasksActor._
 import akka.actor.{Actor, Props}
+import commons.enums.TaskStatuses.Successful
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
-import commons.enums.TaskStatuses.Successful
 import services.TookanService
 import services.TookanService.Agent
+import services.cache.CacheService
 import services.notifications.{JobData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
@@ -18,7 +19,8 @@ import scala.concurrent.Future
 
 class TasksActor(tookanService: TookanService,
                  dbConfigProvider: DatabaseConfigProvider,
-                 pushNotificationService: PushNotificationService) extends Actor {
+                 pushNotificationService: PushNotificationService,
+                 cacheService: CacheService) extends Actor {
 
   override def receive = {
     case t: RefreshTaskData => updateTaskData(t.jobId)
@@ -53,7 +55,7 @@ class TasksActor(tookanService: TookanService,
                     .map { _ =>
                       Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
                       if (taskRow.jobStatus != task.jobStatus && task.jobStatus == Successful.code) {
-                        sendJobCompleteNotification(jobId, agentId)
+                        sendJobCompleteNotification(jobId, agentId.get)
                       }
                     }
                 }
@@ -64,14 +66,15 @@ class TasksActor(tookanService: TookanService,
     }
   }
 
-  def sendJobCompleteNotification(jobId: Long, agentId: Option[Int]) = {
+  def sendJobCompleteNotification(jobId: Long, agentId: Int) = {
     val db = dbConfigProvider.get.db
     val agentQuery = for {
-      agent <- Agents if agent.id === agentId.get
+      agent <- Agents if agent.id === agentId
     } yield agent.name
     db.run(agentQuery.result.head).map { agentName =>
-      //TODO: obtain token
-      pushNotificationService.sendJobCompleteNotification(new JobData(jobId, agentName), "")
+      val data = new JobData(jobId, agentName)
+      cacheService.getUserDeviceTokens(1)
+        .foreach(token => pushNotificationService.sendJobCompleteNotification(data, token))
     }
   }
 
@@ -122,8 +125,8 @@ class TasksActor(tookanService: TookanService,
 object TasksActor {
 
   def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider,
-            pushNotificationService: PushNotificationService) =
-    Props(classOf[TasksActor], tookanService, dbConfigProvider, pushNotificationService)
+            pushNotificationService: PushNotificationService, cacheService: CacheService) =
+    Props(classOf[TasksActor], tookanService, dbConfigProvider, pushNotificationService, cacheService)
 
   case class RefreshTaskData(jobId: Long)
 

@@ -26,6 +26,7 @@ class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
   }
 
   override def sendJobCompleteNotification(data: JobData, tokenString: String) = {
+    Logger.debug(s"Sending job complete notification: ${data.toString}. Token: $tokenString")
     connectFuture.flatMap { _ =>
       val token = TokenUtil.sanitizeTokenString(tokenString)
       val payload = buildJobCompletedPayload(data)
