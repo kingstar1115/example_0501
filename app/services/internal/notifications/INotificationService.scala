@@ -12,6 +12,7 @@ import services.internal.cache.CacheService
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Promise, Future => SFuture}
+import scala.reflect.io.File
 import scala.util.Try
 
 
@@ -19,7 +20,7 @@ class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
                                      environment: Environment,
                                      cacheService: CacheService) extends PushNotificationService {
 
-  var client = new ApnsClient[SimpleApnsPushNotification](new File(new File(environment.rootPath, "cert"), "qweex_push.p12"), "")
+  var client = new ApnsClient[SimpleApnsPushNotification](environment.resourceAsStream("qweex_push.p12").get, "")
   val connectFuture = toScalaFuture(client.connect(ApnsClient.DEVELOPMENT_APNS_HOST))
 
   lifecycle.addStopHook { () =>
