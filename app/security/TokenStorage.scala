@@ -5,7 +5,7 @@ import javax.inject.{Inject, Singleton}
 import org.sedis.Pool
 import play.api.libs.json.Json
 
-import scala.util.{Success, Failure, Try}
+import scala.util.{Failure, Success, Try}
 
 @Singleton
 class TokenStorage @Inject()(sedisPool: Pool) {

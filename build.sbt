@@ -20,7 +20,9 @@ libraryDependencies ++= Seq(cache, ws, "postgresql" % "postgresql" % "9.1-901.jd
   "com.typesafe.play.modules" %% "play-modules-redis" % "2.4.0",
   "com.github.t3hnar" % "scala-bcrypt_2.10" % "2.5",
   "com.typesafe.play" %% "play-mailer" % "3.0.1",
-  "com.stripe" % "stripe-java" % "1.45.0"
+  "com.stripe" % "stripe-java" % "1.45.0",
+  "com.relayrides" % "pushy" % "0.7.2",
+  "io.netty" % "netty-tcnative-boringssl-static" % "1.1.33.Fork17"
 )
 
 routesGenerator := InjectedRoutesGenerator

@@ -26,6 +26,8 @@ import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
+import services.internal.cache.CacheService
+import services.internal.notifications.PushNotificationService
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
@@ -38,7 +40,9 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 tookanService: TookanService,
                                 stripeService: StripeService,
                                 config: Configuration,
-                                system: ActorSystem) extends BaseController {
+                                system: ActorSystem,
+                                pushNotificationService: PushNotificationService,
+                                cacheService: CacheService) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
   implicit val taskListDtoFormat = Json.format[TaskListDto]
@@ -49,7 +53,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def createTask = authorized.async(BodyParsers.parse.json) { request =>
-    processRequest[TaskDto](request.body) { dto =>
+    processRequestF[TaskDto](request.body) { dto =>
       val token = request.token.get
       val userId = token.userInfo.id
 
@@ -140,7 +144,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def completeTask = authorized.async(BodyParsers.parse.json) { request =>
-    processRequest[CompleteTaskDto](request.body) { dto =>
+    processRequestF[CompleteTaskDto](request.body) { dto =>
 
       val userId = request.token.get.userInfo.id
       val taskQuery = for {
@@ -279,7 +283,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   private def updateTask(jobId: Long) = {
-    system.actorOf(TasksActor.props(tookanService, dbConfigProvider)) ! RefreshTaskData(jobId)
+    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService, cacheService)) ! RefreshTaskData(jobId)
   }
 }
 

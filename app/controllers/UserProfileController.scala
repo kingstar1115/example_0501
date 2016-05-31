@@ -65,7 +65,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def changePassword = authorized.async(BodyParsers.parse.json) { request =>
-    processRequest[PasswordChangeDto](request.body) { dto =>
+    processRequestF[PasswordChangeDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val userQuery = for {
         u <- Users
@@ -131,7 +131,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def updateProfile() = authorized.async(parse.json) { request =>
-    processRequest[UserUpdateDto](request.body) { dto =>
+    processRequestF[UserUpdateDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
         .map(user => (user.firstName, user.lastName, user.phoneCode, user.phone, user.email))
@@ -143,7 +143,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def updateDefaultPaymentMethod() = authorized.async(parse.json) { request =>
-    processRequest[PaymentMethod](request.body) { dto =>
+    processRequestF[PaymentMethod](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val paymentMethodOpt = Try(PaymentMethods.withName(dto.name))
         .map(paymentMethod => Future(Option(paymentMethod.toString)))
