@@ -1,4 +1,4 @@
-package services.notifications
+package services.internal.notifications
 
 import java.io.File
 import java.util.concurrent.{TimeUnit, Future => JFuture}
@@ -8,6 +8,7 @@ import com.relayrides.pushy.apns.ApnsClient
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Environment, Logger}
+import services.internal.cache.CacheService
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Promise, Future => SFuture}
@@ -15,7 +16,8 @@ import scala.util.Try
 
 
 class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
-                                     environment: Environment) extends PushNotificationService {
+                                     environment: Environment,
+                                     cacheService: CacheService) extends PushNotificationService {
 
   var client = new ApnsClient[SimpleApnsPushNotification](new File(new File(environment.rootPath, "cert"), "qweex_push.p12"), "")
   val connectFuture = toScalaFuture(client.connect(ApnsClient.DEVELOPMENT_APNS_HOST))
@@ -53,4 +55,5 @@ class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
     promise.future
   }
 
+  override def getCacheService = cacheService
 }

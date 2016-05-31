@@ -54,6 +54,10 @@ POST          /api/v1/cards/new                        @controllers.PaymentCards
 GET           /api/v1/cards                            @controllers.PaymentCardsController.listPaymentCards
 DELETE        /api/v1/cards/:id                        @controllers.PaymentCardsController.removePaymentCard(id: String)
 
+#Notifications
+POST          /api/v1/notifications/subscribe          @controllers.PushNotificationsController.subscribe
+POST          /api/v1/notifications/unsubscribe        @controllers.PushNotificationsController.unsubscribe
+
 # Web controllers
 # Password recovery
 GET           /password-recover/success                @controllers.PasswordRecoveryController.successPage

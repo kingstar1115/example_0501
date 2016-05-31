@@ -1,7 +1,7 @@
 package config
 
 import com.google.inject.AbstractModule
-import services.notifications.{INotificationService, PushNotificationService}
+import services.internal.notifications.{INotificationService, PushNotificationService}
 
 
 class GuiceBindings extends AbstractModule {

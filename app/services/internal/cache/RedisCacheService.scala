@@ -1,4 +1,4 @@
-package services.cache
+package services.internal.cache
 
 import javax.inject.{Inject, Singleton}
 
@@ -14,9 +14,10 @@ class RedisCacheService @Inject()(sedisPool: Pool) extends CacheService {
     }
   }
 
-  override def setUserDeviceTokens(userId: Int, deviceTokens: List[String]): Unit = {
+  override def setUserDeviceTokens(userId: Int, deviceTokens: List[String]): Boolean = {
     sedisPool.withClient { client =>
-      client.set(userId.toString, deviceTokens.mkString(" "))
+      Option(client.set(userId.toString, deviceTokens.mkString(" ").trim))
+        .exists(_.equalsIgnoreCase("ok"))
     }
   }
 }

@@ -21,7 +21,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def create = authorized.async(parse.json) { implicit request =>
-    processRequest[LocationDto](request.body) { dto =>
+    processRequestF[LocationDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Locations.map(l => (l.userId, l.title, l.formattedAddress, l.latitude,
         l.longitude, l.address, l.apartments, l.zipCode, l.notes)) returning Locations.map(_.id) +=(userId, dto.title,
@@ -38,7 +38,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
     } yield l
     db.run(existQuery.length.result).flatMap {
       case 1 =>
-        processRequest[LocationDto](request.body) { dto =>
+        processRequestF[LocationDto](request.body) { dto =>
           val updateQuery = Locations.filter(_.id === id).map(l => (l.title, l.address, l.latitude, l.longitude))
             .update(dto.title, dto.address, dto.latitude, dto.longitude)
           db.run(updateQuery).map(r => ok("Updated"))

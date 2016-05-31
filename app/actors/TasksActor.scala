@@ -10,8 +10,8 @@ import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import services.TookanService
 import services.TookanService.Agent
-import services.cache.CacheService
-import services.notifications.{JobData, PushNotificationService}
+import services.internal.cache.CacheService
+import services.internal.notifications.{JobData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global

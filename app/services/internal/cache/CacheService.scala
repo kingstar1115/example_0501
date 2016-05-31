@@ -1,4 +1,4 @@
-package services.cache
+package services.internal.cache
 
 import com.google.inject.ImplementedBy
 
@@ -7,5 +7,5 @@ trait CacheService {
 
   def getUserDeviceTokens(userId: Int): List[String]
 
-  def setUserDeviceTokens(userId: Int, deviceTokens: List[String])
+  def setUserDeviceTokens(userId: Int, deviceTokens: List[String]): Boolean
 }

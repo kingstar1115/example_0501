@@ -26,8 +26,8 @@ import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
-import services.cache.CacheService
-import services.notifications.PushNotificationService
+import services.internal.cache.CacheService
+import services.internal.notifications.PushNotificationService
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
@@ -53,7 +53,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def createTask = authorized.async(BodyParsers.parse.json) { request =>
-    processRequest[TaskDto](request.body) { dto =>
+    processRequestF[TaskDto](request.body) { dto =>
       val token = request.token.get
       val userId = token.userInfo.id
 
@@ -144,7 +144,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def completeTask = authorized.async(BodyParsers.parse.json) { request =>
-    processRequest[CompleteTaskDto](request.body) { dto =>
+    processRequestF[CompleteTaskDto](request.body) { dto =>
 
       val userId = request.token.get.userInfo.id
       val taskQuery = for {

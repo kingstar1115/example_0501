@@ -28,7 +28,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def addPaymentCard() = authorized.async(parse.json) { request =>
-    processRequest[PaymentSource](request.body) { dto =>
+    processRequestF[PaymentSource](request.body) { dto =>
       val userId = request.token.get.userInfo.id
 
       def addPaymentSource(stripeId: String) = {
