@@ -15,7 +15,11 @@ trait BaseController extends Controller with ApiActions {
 
   def wrapInFuture(result: Result) = Future.successful(result)
 
-  def processRequest[T](jsonBody: JsValue)(f: T => Future[Result])(implicit reads: Reads[T]) = {
-    jsonBody.validate.fold(jsonValidationFailedF, f)
+  def processRequest[T](jsonBody: JsValue)(valid: T => Result)(implicit reads: Reads[T]) = {
+    jsonBody.validate.fold(jsonValidationFailed, valid)
+  }
+
+  def processRequestF[T](jsonBody: JsValue)(valid: T => Future[Result])(implicit reads: Reads[T]) = {
+    jsonBody.validate.fold(jsonValidationFailedF, valid)
   }
 }

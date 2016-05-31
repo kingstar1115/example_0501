@@ -12,7 +12,7 @@ import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
-import play.api.libs.json.{JsError, JsPath, JsSuccess, Reads}
+import play.api.libs.json.{JsPath, Reads}
 import play.api.libs.ws.WSClient
 import play.api.mvc.{Action, BodyParsers}
 import security._
@@ -33,7 +33,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   val db = dbConfigProvider.get.db
 
   def logIn = Action.async(BodyParsers.parse.json) { request =>
-    processRequest[EmailLogInDto](request.body) { dto =>
+    processRequestF[EmailLogInDto](request.body) { dto =>
       val userQuery = for {
         u <- Tables.Users if u.email === dto.email && u.userType === 0
       } yield u
@@ -58,7 +58,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   }
 
   def forgotPassword = Action.async(BodyParsers.parse.json) { implicit request =>
-    processRequest[FbTokenDto](request.body) { dto =>
+    processRequestF[FbTokenDto](request.body) { dto =>
       val userQuery = for {u <- Users if u.email === dto.token} yield u
       db.run(userQuery.result.headOption)
         .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))

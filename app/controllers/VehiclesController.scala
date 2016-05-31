@@ -34,7 +34,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def create() = authorized.async(parse.json) { implicit request =>
-    processRequest[VehicleDto](request.body) { dto =>
+    processRequestF[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
         v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) +=(dto.makerId, dto.makerName,
@@ -46,7 +46,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def update(id: Int) = authorized.async(parse.json) { request =>
-    processRequest[VehicleDto](request.body) { dto =>
+    processRequestF[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val updateQuery = Vehicles.filter(v => v.id === id && v.userId === userId && v.deleted === false)
         .map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
