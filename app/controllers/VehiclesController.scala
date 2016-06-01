@@ -79,7 +79,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   override def findByUser(userId: Int) = {
     for {
-      v <- Vehicles if v.id === userId && v.deleted === false
+      v <- Vehicles if v.userId === userId && v.deleted === false
     } yield v
   }
   
