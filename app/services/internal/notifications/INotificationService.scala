@@ -1,8 +1,9 @@
 package services.internal.notifications
 
-import java.io.File
 import java.util.concurrent.{TimeUnit, Future => JFuture}
 import javax.inject.Inject
+
+import services.internal.notifications.INotificationService._
 
 import com.relayrides.pushy.apns.ApnsClient
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
@@ -12,7 +13,6 @@ import services.internal.cache.CacheService
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Promise, Future => SFuture}
-import scala.reflect.io.File
 import scala.util.Try
 
 
@@ -28,20 +28,67 @@ class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
     SFuture(client.disconnect())
   }
 
+  override def sendJobAcceptedNotification(data: JobData, token: String): Unit = {
+    sendNotification(token, buildJobAcceptedPayload(data))
+  }
+
+  override def sendJobStartedNotification(data: JobData, token: String): Unit = {
+    sendNotification(token, buildJobStartedNotification(data))
+  }
+
+  override def sendJobInProgressNotification(data: JobData, token: String): Unit = {
+    sendNotification(token, buildJobInProgressNotification(data))
+  }
+
   override def sendJobCompleteNotification(data: JobData, tokenString: String) = {
-    Logger.debug(s"Sending job complete notification: ${data.toString}. Token: $tokenString")
+    sendNotification(tokenString, buildJobCompletedPayload(data))
+  }
+
+  private def sendNotification(tokenString: String, buildPayload: => String) = {
     connectFuture.flatMap { _ =>
+      val payload = buildPayload
       val token = TokenUtil.sanitizeTokenString(tokenString)
-      val payload = buildJobCompletedPayload(data)
       val notification = new SimpleApnsPushNotification(token, "Qweex", payload)
       toScalaFuture(client.sendNotification(notification))
     }
   }
 
-  private def buildJobCompletedPayload(data: JobData) = {
+  private def buildJobAcceptedPayload(data: JobData) = {
+    Logger.debug(s"Building job accepted notification: ${data.toString}")
     new ApnsPayloadBuilder()
-      .addCustomProperty("jobId", data.jobId)
-      .setAlertBody(s"${data.agentName} has completed your car wash, don't forget to rate and tip")
+      .addCustomProperty(JobId, data.jobId)
+      .addCustomProperty(JobStatus, data.jobStatus)
+      .setAlertBody(s"Car Wash was Accepted by ${data.agentName}.")
+      .setAlertTitle("Car wash accepted")
+      .buildWithDefaultMaximumLength()
+  }
+
+  private def buildJobStartedNotification(data: JobData) = {
+    Logger.debug(s"Building job started notification: ${data.toString}")
+    new ApnsPayloadBuilder()
+      .addCustomProperty(JobId, data.jobId)
+      .addCustomProperty(JobStatus, data.jobStatus)
+      .setAlertBody(s"${data.agentName} from Qweex is on the way to your car.")
+      .setAlertTitle("Agent on the way to your car")
+      .buildWithDefaultMaximumLength()
+  }
+
+  private def buildJobInProgressNotification(data: JobData) = {
+    Logger.debug(s"Building job started notification: ${data.toString}")
+    new ApnsPayloadBuilder()
+      .addCustomProperty(JobId, data.jobId)
+      .addCustomProperty(JobStatus, data.jobStatus)
+      .setAlertBody(s"Your car is being washed right now.")
+      .setAlertTitle("Car washing in progress")
+      .buildWithDefaultMaximumLength()
+  }
+
+  private def buildJobCompletedPayload(data: JobData) = {
+    Logger.debug(s"Building job complete notification: ${data.toString}")
+    new ApnsPayloadBuilder()
+      .addCustomProperty(JobId, data.jobId)
+      .addCustomProperty(JobStatus, data.jobStatus)
+      .setAlertBody(s"You car is now clean. Don't forget to rate and tip ${data.agentName}")
       .setAlertTitle("Car wash completed")
       .buildWithDefaultMaximumLength()
   }
@@ -57,4 +104,9 @@ class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
   }
 
   override def getCacheService = cacheService
+}
+
+object INotificationService {
+  val JobId = "jobId"
+  val JobStatus = "jobStatus"
 }

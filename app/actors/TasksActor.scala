@@ -4,7 +4,7 @@ import java.sql.Timestamp
 
 import actors.TasksActor._
 import akka.actor.{Actor, Props}
-import commons.enums.TaskStatuses.Successful
+import commons.enums.TaskStatuses._
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -54,8 +54,8 @@ class TasksActor(tookanService: TookanService,
                   db.run(taskUpdateQuery)
                     .map { _ =>
                       Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
-                      if (taskRow.jobStatus != task.jobStatus && task.jobStatus == Successful.code) {
-                        sendJobCompleteNotification(jobId, agentId.get)
+                      if (taskRow.jobStatus != task.jobStatus && agentId.isDefined) {
+                        sendJobStatusChangeNotification(jobId, agentId.get, task.jobStatus)
                       }
                     }
                 }
@@ -66,15 +66,27 @@ class TasksActor(tookanService: TookanService,
     }
   }
 
-  def sendJobCompleteNotification(jobId: Long, agentId: Int) = {
+  def sendJobStatusChangeNotification(jobId: Long, agentId: Int, jobStatus: Int) = {
     val db = dbConfigProvider.get.db
     val agentQuery = for {
       agent <- Agents if agent.id === agentId
     } yield agent.name
     db.run(agentQuery.result.head).map { agentName =>
-      val data = new JobData(jobId, agentName)
+      val data = new JobData(jobId, agentName, jobStatus)
       cacheService.getUserDeviceTokens(1)
-        .foreach(token => pushNotificationService.sendJobCompleteNotification(data, token))
+        .foreach { token =>
+          jobStatus match {
+            case x if x == Accepted.code =>
+              pushNotificationService.sendJobAcceptedNotification(data, token)
+            case x if x == Started.code =>
+              pushNotificationService.sendJobStartedNotification(data, token)
+            case x if x == InProgress.code =>
+              pushNotificationService.sendJobInProgressNotification(data, token)
+            case x if x == Successful.code =>
+              pushNotificationService.sendJobAcceptedNotification(data, token)
+            case _ =>
+          }
+        }
     }
   }
 

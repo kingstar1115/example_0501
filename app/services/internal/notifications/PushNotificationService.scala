@@ -7,6 +7,12 @@ trait PushNotificationService {
 
   def getCacheService: CacheService
 
+  def sendJobAcceptedNotification(data: JobData, token: String): Unit
+
+  def sendJobStartedNotification(data: JobData, token: String): Unit
+
+  def sendJobInProgressNotification(data: JobData, token: String): Unit
+
   def sendJobCompleteNotification(data: JobData, token: String): Unit
 
   def subscribeDevice(userId: Int, deviceToken: String): Boolean = {
@@ -31,5 +37,7 @@ trait PushNotificationService {
   }
 }
 
-case class JobData(jobId: Long, agentName: String)
+case class JobData(jobId: Long,
+                   agentName: String,
+                   jobStatus: Int)
 
