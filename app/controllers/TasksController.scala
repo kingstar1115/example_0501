@@ -61,11 +61,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         def saveTask(price: Int = 0) = {
           val insertQuery = (
             Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
-              job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude))
+              job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion))
               returning Jobs.map(_.id)
               += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
               dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.cleaningType, dto.hasInteriorCleaning,
-              price, dto.pickupLatitude, dto.pickupLongitude))
+              price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0)))
             )
           db.run(insertQuery).map { id =>
             updateTask(tookanTask.jobId)
@@ -149,7 +149,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userId = request.token.get.userInfo.id
       val taskQuery = for {
         job <- Jobs if job.jobId === dto.jobId && job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
-      } yield job.submitted
+      } yield job
       val userQuery = for {
         user <- Users if user.id === userId
       } yield user
@@ -175,14 +175,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
             paymentResult.flatMap {
               case Right(charge) =>
-                db.run(taskQuery.update(true))
+                db.run(taskQuery.map(task => (task.tip, task.submitted)).update((tip.amount, true)))
                   .map(_ => success)
               case Left(error) =>
                 Logger.debug(s"Failed to charge tip: ${error.message}")
                 Future(badRequest(error.message, error.errorType))
             }
           }.getOrElse {
-            db.run(taskQuery.update(true).map(_ => success))
+            db.run(taskQuery.map(_.submitted).update(true).map(_ => success))
           }
         case _ =>
           Logger.debug(s"Task with id ${dto.jobId} was not found for submitting")
@@ -265,7 +265,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def toDetailsDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
     TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
       job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
-      job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude)
+      job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.tip)
   }
 
   private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
@@ -336,7 +336,9 @@ object TasksController {
                             hasInteriorCleaning: Boolean,
                             price: Int,
                             latitude: BigDecimal,
-                            longitude: BigDecimal)
+                            longitude: BigDecimal,
+                            promotion: Int,
+                            tip: Int)
 
   case class TaskDto(token: Option[String],
                      cardId: Option[String],
