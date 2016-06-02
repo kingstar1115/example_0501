@@ -3,7 +3,6 @@
 CREATE TABLE IF NOT EXISTS users (
   id              SERIAL PRIMARY KEY,
   created_date    TIMESTAMP           NOT NULL DEFAULT now(),
-  updated_date    TIMESTAMP           NOT NULL DEFAULT now(),
   first_name      VARCHAR(150)        NOT NULL,
   last_name       VARCHAR(150)        NOT NULL,
   email           VARCHAR(255) UNIQUE NOT NULL,
@@ -23,7 +22,6 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS locations (
   id                SERIAL PRIMARY KEY,
   created_date      TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date      TIMESTAMP    NOT NULL DEFAULT now(),
   title             VARCHAR(255) NOT NULL,
   address           VARCHAR(255),
   formatted_address VARCHAR(255) NOT NULL,
@@ -38,7 +36,6 @@ CREATE TABLE IF NOT EXISTS locations (
 CREATE TABLE IF NOT EXISTS agents (
   id           SERIAL PRIMARY KEY,
   created_date TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date TIMESTAMP    NOT NULL DEFAULT now(),
   fleet_id     BIGINT       NOT NULL UNIQUE,
   name         VARCHAR(255) NOT NULL,
   fleet_image  TEXT         NOT NULL,
@@ -48,7 +45,6 @@ CREATE TABLE IF NOT EXISTS agents (
 CREATE TABLE IF NOT EXISTS vehicles (
   id              SERIAL PRIMARY KEY,
   created_date    TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date    TIMESTAMP    NOT NULL DEFAULT now(),
   maker_id        INT          NOT NULL,
   maker_nice_name VARCHAR(150) NOT NULL,
   model_id        VARCHAR(255) NOT NULL,
@@ -64,7 +60,6 @@ CREATE TABLE IF NOT EXISTS vehicles (
 CREATE TABLE IF NOT EXISTS jobs (
   id                    SERIAL PRIMARY KEY,
   created_date          TIMESTAMP    NOT NULL DEFAULT now(),
-  updated_date          TIMESTAMP    NOT NULL DEFAULT now(),
   job_id                BIGINT       NOT NULL UNIQUE,
   job_status            INT          NOT NULL DEFAULT 6,
   scheduled_time        TIMESTAMP    NOT NULL,
@@ -73,17 +68,25 @@ CREATE TABLE IF NOT EXISTS jobs (
   user_id               INT          NOT NULL REFERENCES users (id),
   agent_id              INT REFERENCES agents (id),
   vehicle_id            INT          NOT NULL REFERENCES vehicles (id),
-  payment_method        VARCHAR(32)  NOT NULL,
   job_address           VARCHAR(255),
   job_pickup_phone      VARCHAR(20),
   customer_phone        VARCHAR(20),
   team_name             VARCHAR(255),
-  price                 INT NOT NULL,
   has_interior_cleaning BOOLEAN NOT NULL,
   cleaning_type         INT NOT NULL,
   latitude              NUMERIC      NOT NULL,
-  longitude             NUMERIC      NOT NULL
+  longitude             NUMERIC      NOT NULL,
+  payment_method        VARCHAR(32)  NOT NULL,
+  price                 INT NOT NULL,
+  tip                   INT          NOT NULL DEFAULT 0,
+  promotion             INT          NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS settings (
+  id    SERIAL PRIMARY KEY,
+  key   VARCHAR(32) NOT NULL,
+  value VARCHAR(64) NOT NULL
+)
 
   # --- !Downs
 DROP TABLE IF EXISTS jobs;
@@ -91,3 +94,4 @@ DROP TABLE IF EXISTS vehicles;
 DROP TABLE IF EXISTS agents;
 DROP TABLE IF EXISTS locations;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS settings;
