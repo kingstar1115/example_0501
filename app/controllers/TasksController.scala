@@ -28,6 +28,7 @@ import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
 import services.internal.cache.CacheService
 import services.internal.notifications.PushNotificationService
+import services.internal.settings.SettingsService
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
@@ -42,7 +43,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 config: Configuration,
                                 system: ActorSystem,
                                 pushNotificationService: PushNotificationService,
-                                cacheService: CacheService) extends BaseController {
+                                cacheService: CacheService,
+                                settingsService: SettingsService) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
   implicit val taskListDtoFormat = Json.format[TaskListDto]
@@ -285,27 +287,31 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   private def updateTask(jobId: Long) = {
     system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService, cacheService)) ! RefreshTaskData(jobId)
   }
-}
 
-object TasksController {
-
-  def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
+  private def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
+    val priceSettings = settingsService.getPriceSettings
     def calculateCarWashingPrice() = {
       index match {
-        case 0 => 2000
-        case 1 => 2500
-        case 2 => 3000
+        case 0 => priceSettings.compactWashing
+        case 1 => priceSettings.sedanWashing
+        case 2 => priceSettings.suvWashing
         case _ => 0
       }
     }
 
-    val priceBeforeDiscount = if (hasInteriorCleaning) calculateCarWashingPrice() + 500 else calculateCarWashingPrice()
+    val priceBeforeDiscount = if (hasInteriorCleaning)
+      calculateCarWashingPrice() + priceSettings.interiorCleaning
+    else
+      calculateCarWashingPrice()
     discount.map { discountAmount =>
       Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
       val discountedPrice = priceBeforeDiscount - discountAmount
       if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
     }.getOrElse(priceBeforeDiscount)
   }
+}
+
+object TasksController {
 
   case class AgentDto(fleetId: Long,
                       name: String,
