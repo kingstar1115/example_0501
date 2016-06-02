@@ -45,12 +45,10 @@ class INotificationService @Inject()(lifecycle: ApplicationLifecycle,
   }
 
   private def sendNotification(tokenString: String, buildPayload: => String) = {
-    connectFuture.flatMap { _ =>
-      val payload = buildPayload
-      val token = TokenUtil.sanitizeTokenString(tokenString)
-      val notification = new SimpleApnsPushNotification(token, "Qweex", payload)
-      toScalaFuture(client.sendNotification(notification))
-    }
+    val payload = buildPayload
+    val token = TokenUtil.sanitizeTokenString(tokenString)
+    val notification = new SimpleApnsPushNotification(token, "Qweex", payload)
+    toScalaFuture(client.sendNotification(notification))
   }
 
   private def buildJobAcceptedPayload(data: JobData) = {

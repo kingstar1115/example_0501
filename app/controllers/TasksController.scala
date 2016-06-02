@@ -28,6 +28,7 @@ import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
 import services.internal.cache.CacheService
 import services.internal.notifications.PushNotificationService
+import services.internal.settings.SettingsService
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
@@ -42,7 +43,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 config: Configuration,
                                 system: ActorSystem,
                                 pushNotificationService: PushNotificationService,
-                                cacheService: CacheService) extends BaseController {
+                                cacheService: CacheService,
+                                settingsService: SettingsService) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
   implicit val taskListDtoFormat = Json.format[TaskListDto]
@@ -61,11 +63,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         def saveTask(price: Int = 0) = {
           val insertQuery = (
             Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
-              job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude))
+              job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion))
               returning Jobs.map(_.id)
               += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
               dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.cleaningType, dto.hasInteriorCleaning,
-              price, dto.pickupLatitude, dto.pickupLongitude))
+              price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0)))
             )
           db.run(insertQuery).map { id =>
             updateTask(tookanTask.jobId)
@@ -149,7 +151,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userId = request.token.get.userInfo.id
       val taskQuery = for {
         job <- Jobs if job.jobId === dto.jobId && job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
-      } yield job.submitted
+      } yield job
       val userQuery = for {
         user <- Users if user.id === userId
       } yield user
@@ -175,14 +177,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
             paymentResult.flatMap {
               case Right(charge) =>
-                db.run(taskQuery.update(true))
+                db.run(taskQuery.map(task => (task.tip, task.submitted)).update((tip.amount, true)))
                   .map(_ => success)
               case Left(error) =>
                 Logger.debug(s"Failed to charge tip: ${error.message}")
                 Future(badRequest(error.message, error.errorType))
             }
           }.getOrElse {
-            db.run(taskQuery.update(true).map(_ => success))
+            db.run(taskQuery.map(_.submitted).update(true).map(_ => success))
           }
         case _ =>
           Logger.debug(s"Task with id ${dto.jobId} was not found for submitting")
@@ -265,7 +267,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def toDetailsDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
     TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
       job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
-      job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude)
+      job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.tip)
   }
 
   private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
@@ -285,27 +287,31 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   private def updateTask(jobId: Long) = {
     system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService, cacheService)) ! RefreshTaskData(jobId)
   }
-}
 
-object TasksController {
-
-  def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
+  private def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
+    val priceSettings = settingsService.getPriceSettings
     def calculateCarWashingPrice() = {
       index match {
-        case 0 => 2000
-        case 1 => 2500
-        case 2 => 3000
+        case 0 => priceSettings.compactWashing
+        case 1 => priceSettings.sedanWashing
+        case 2 => priceSettings.suvWashing
         case _ => 0
       }
     }
 
-    val priceBeforeDiscount = if (hasInteriorCleaning) calculateCarWashingPrice() + 500 else calculateCarWashingPrice()
+    val priceBeforeDiscount = if (hasInteriorCleaning)
+      calculateCarWashingPrice() + priceSettings.interiorCleaning
+    else
+      calculateCarWashingPrice()
     discount.map { discountAmount =>
       Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
       val discountedPrice = priceBeforeDiscount - discountAmount
       if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
     }.getOrElse(priceBeforeDiscount)
   }
+}
+
+object TasksController {
 
   case class AgentDto(fleetId: Long,
                       name: String,
@@ -336,7 +342,9 @@ object TasksController {
                             hasInteriorCleaning: Boolean,
                             price: Int,
                             latitude: BigDecimal,
-                            longitude: BigDecimal)
+                            longitude: BigDecimal,
+                            promotion: Int,
+                            tip: Int)
 
   case class TaskDto(token: Option[String],
                      cardId: Option[String],

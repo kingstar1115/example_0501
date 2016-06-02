@@ -14,36 +14,33 @@ trait Tables {
   import slick.jdbc.{GetResult => GR}
 
   /** DDL for all tables. Call .create to execute. */
-  lazy val schema: profile.SchemaDescription = Array(Agents.schema, Jobs.schema, Locations.schema, PlayEvolutions.schema, Users.schema, Vehicles.schema).reduceLeft(_ ++ _)
+  lazy val schema: profile.SchemaDescription = Array(Agents.schema, Jobs.schema, Locations.schema, PlayEvolutions.schema, Settings.schema, Users.schema, Vehicles.schema).reduceLeft(_ ++ _)
   @deprecated("Use .schema instead of .ddl", "3.0")
   def ddl = schema
 
   /** Entity class storing rows of table Agents
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param fleetId Database column fleet_id SqlType(int8)
    *  @param name Database column name SqlType(varchar), Length(255,true)
    *  @param fleetImage Database column fleet_image SqlType(text)
    *  @param phone Database column phone SqlType(varchar), Length(20,true) */
-  case class AgentsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, fleetId: Long, name: String, fleetImage: String, phone: String)
+  case class AgentsRow(id: Int, createdDate: java.sql.Timestamp, fleetId: Long, name: String, fleetImage: String, phone: String)
   /** GetResult implicit for fetching AgentsRow objects using plain SQL queries */
   implicit def GetResultAgentsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String]): GR[AgentsRow] = GR{
     prs => import prs._
-    AgentsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[String], <<[String], <<[String]))
+    AgentsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[String], <<[String], <<[String]))
   }
   /** Table description of table agents. Objects of this class serve as prototypes for rows in queries. */
   class Agents(_tableTag: Tag) extends Table[AgentsRow](_tableTag, "agents") {
-    def * = (id, createdDate, updatedDate, fleetId, name, fleetImage, phone) <> (AgentsRow.tupled, AgentsRow.unapply)
+    def * = (id, createdDate, fleetId, name, fleetImage, phone) <> (AgentsRow.tupled, AgentsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(fleetId), Rep.Some(name), Rep.Some(fleetImage), Rep.Some(phone)).shaped.<>({r=>import r._; _1.map(_=> AgentsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(fleetId), Rep.Some(name), Rep.Some(fleetImage), Rep.Some(phone)).shaped.<>({r=>import r._; _1.map(_=> AgentsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column updated_date SqlType(timestamp) */
-    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
     /** Database column fleet_id SqlType(int8) */
     val fleetId: Rep[Long] = column[Long]("fleet_id")
     /** Database column name SqlType(varchar), Length(255,true) */
@@ -62,7 +59,6 @@ trait Tables {
   /** Entity class storing rows of table Jobs
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param jobId Database column job_id SqlType(int8)
    *  @param jobStatus Database column job_status SqlType(int4), Default(6)
    *  @param scheduledTime Database column scheduled_time SqlType(timestamp)
@@ -71,34 +67,34 @@ trait Tables {
    *  @param userId Database column user_id SqlType(int4)
    *  @param agentId Database column agent_id SqlType(int4), Default(None)
    *  @param vehicleId Database column vehicle_id SqlType(int4)
-   *  @param paymentMethod Database column payment_method SqlType(varchar), Length(32,true)
    *  @param jobAddress Database column job_address SqlType(varchar), Length(255,true), Default(None)
    *  @param jobPickupPhone Database column job_pickup_phone SqlType(varchar), Length(20,true), Default(None)
    *  @param customerPhone Database column customer_phone SqlType(varchar), Length(20,true), Default(None)
    *  @param teamName Database column team_name SqlType(varchar), Length(255,true), Default(None)
-   *  @param price Database column price SqlType(int4)
    *  @param hasInteriorCleaning Database column has_interior_cleaning SqlType(bool)
    *  @param cleaningType Database column cleaning_type SqlType(int4)
    *  @param latitude Database column latitude SqlType(numeric)
-   *  @param longitude Database column longitude SqlType(numeric) */
-  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, paymentMethod: String, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, price: Int, hasInteriorCleaning: Boolean, cleaningType: Int, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal)
+   *  @param longitude Database column longitude SqlType(numeric)
+   *  @param paymentMethod Database column payment_method SqlType(varchar), Length(32,true)
+   *  @param price Database column price SqlType(int4)
+   *  @param tip Database column tip SqlType(int4), Default(0)
+   *  @param promotion Database column promotion SqlType(int4), Default(0) */
+  case class JobsRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, cleaningType: Int, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, paymentMethod: String, price: Int, tip: Int = 0, promotion: Int = 0)
   /** GetResult implicit for fetching JobsRow objects using plain SQL queries */
-  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[Option[String]], e4: GR[Boolean], e5: GR[Option[Int]], e6: GR[String], e7: GR[scala.math.BigDecimal]): GR[JobsRow] = GR{
+  implicit def GetResultJobsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[Option[String]], e4: GR[Boolean], e5: GR[Option[Int]], e6: GR[scala.math.BigDecimal], e7: GR[String]): GR[JobsRow] = GR{
     prs => import prs._
-    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<[String], <<?[String], <<?[String], <<?[String], <<?[String], <<[Int], <<[Boolean], <<[Int], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal]))
+    JobsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[Int], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<[String], <<[Int], <<[Int], <<[Int]))
   }
   /** Table description of table jobs. Objects of this class serve as prototypes for rows in queries. */
   class Jobs(_tableTag: Tag) extends Table[JobsRow](_tableTag, "jobs") {
-    def * = (id, createdDate, updatedDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, paymentMethod, jobAddress, jobPickupPhone, customerPhone, teamName, price, hasInteriorCleaning, cleaningType, latitude, longitude) <> (JobsRow.tupled, JobsRow.unapply)
+    def * = (id, createdDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, jobAddress, jobPickupPhone, customerPhone, teamName, hasInteriorCleaning, cleaningType, latitude, longitude, paymentMethod, price, tip, promotion) <> (JobsRow.tupled, JobsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), Rep.Some(paymentMethod), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(price), Rep.Some(hasInteriorCleaning), Rep.Some(cleaningType), Rep.Some(latitude), Rep.Some(longitude)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7, _8.get, _9.get, _10, _11.get, _12.get, _13, _14, _15, _16, _17.get, _18.get, _19.get, _20.get, _21.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(cleaningType), Rep.Some(latitude), Rep.Some(longitude), Rep.Some(paymentMethod), Rep.Some(price), Rep.Some(tip), Rep.Some(promotion)).shaped.<>({r=>import r._; _1.map(_=> JobsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get, _18.get, _19.get, _20.get, _21.get, _22.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column updated_date SqlType(timestamp) */
-    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
     /** Database column job_id SqlType(int8) */
     val jobId: Rep[Long] = column[Long]("job_id")
     /** Database column job_status SqlType(int4), Default(6) */
@@ -115,8 +111,6 @@ trait Tables {
     val agentId: Rep[Option[Int]] = column[Option[Int]]("agent_id", O.Default(None))
     /** Database column vehicle_id SqlType(int4) */
     val vehicleId: Rep[Int] = column[Int]("vehicle_id")
-    /** Database column payment_method SqlType(varchar), Length(32,true) */
-    val paymentMethod: Rep[String] = column[String]("payment_method", O.Length(32,varying=true))
     /** Database column job_address SqlType(varchar), Length(255,true), Default(None) */
     val jobAddress: Rep[Option[String]] = column[Option[String]]("job_address", O.Length(255,varying=true), O.Default(None))
     /** Database column job_pickup_phone SqlType(varchar), Length(20,true), Default(None) */
@@ -125,8 +119,6 @@ trait Tables {
     val customerPhone: Rep[Option[String]] = column[Option[String]]("customer_phone", O.Length(20,varying=true), O.Default(None))
     /** Database column team_name SqlType(varchar), Length(255,true), Default(None) */
     val teamName: Rep[Option[String]] = column[Option[String]]("team_name", O.Length(255,varying=true), O.Default(None))
-    /** Database column price SqlType(int4) */
-    val price: Rep[Int] = column[Int]("price")
     /** Database column has_interior_cleaning SqlType(bool) */
     val hasInteriorCleaning: Rep[Boolean] = column[Boolean]("has_interior_cleaning")
     /** Database column cleaning_type SqlType(int4) */
@@ -135,6 +127,14 @@ trait Tables {
     val latitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("latitude")
     /** Database column longitude SqlType(numeric) */
     val longitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("longitude")
+    /** Database column payment_method SqlType(varchar), Length(32,true) */
+    val paymentMethod: Rep[String] = column[String]("payment_method", O.Length(32,varying=true))
+    /** Database column price SqlType(int4) */
+    val price: Rep[Int] = column[Int]("price")
+    /** Database column tip SqlType(int4), Default(0) */
+    val tip: Rep[Int] = column[Int]("tip", O.Default(0))
+    /** Database column promotion SqlType(int4), Default(0) */
+    val promotion: Rep[Int] = column[Int]("promotion", O.Default(0))
 
     /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
     lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
@@ -152,7 +152,6 @@ trait Tables {
   /** Entity class storing rows of table Locations
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param title Database column title SqlType(varchar), Length(255,true)
    *  @param address Database column address SqlType(varchar), Length(255,true), Default(None)
    *  @param formattedAddress Database column formatted_address SqlType(varchar), Length(255,true)
@@ -162,24 +161,22 @@ trait Tables {
    *  @param zipCode Database column zip_code SqlType(varchar), Length(6,true), Default(None)
    *  @param apartments Database column apartments SqlType(varchar), Length(10,true), Default(None)
    *  @param userId Database column user_id SqlType(int4) */
-  case class LocationsRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, title: String, address: Option[String] = None, formattedAddress: String, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, notes: Option[String] = None, zipCode: Option[String] = None, apartments: Option[String] = None, userId: Int)
+  case class LocationsRow(id: Int, createdDate: java.sql.Timestamp, title: String, address: Option[String] = None, formattedAddress: String, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, notes: Option[String] = None, zipCode: Option[String] = None, apartments: Option[String] = None, userId: Int)
   /** GetResult implicit for fetching LocationsRow objects using plain SQL queries */
   implicit def GetResultLocationsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[scala.math.BigDecimal]): GR[LocationsRow] = GR{
     prs => import prs._
-    LocationsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<?[String], <<[String], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<?[String], <<?[String], <<?[String], <<[Int]))
+    LocationsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<?[String], <<[String], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<?[String], <<?[String], <<?[String], <<[Int]))
   }
   /** Table description of table locations. Objects of this class serve as prototypes for rows in queries. */
   class Locations(_tableTag: Tag) extends Table[LocationsRow](_tableTag, "locations") {
-    def * = (id, createdDate, updatedDate, title, address, formattedAddress, latitude, longitude, notes, zipCode, apartments, userId) <> (LocationsRow.tupled, LocationsRow.unapply)
+    def * = (id, createdDate, title, address, formattedAddress, latitude, longitude, notes, zipCode, apartments, userId) <> (LocationsRow.tupled, LocationsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(title), address, Rep.Some(formattedAddress), Rep.Some(latitude), Rep.Some(longitude), notes, zipCode, apartments, Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> LocationsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5, _6.get, _7.get, _8.get, _9, _10, _11, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(title), address, Rep.Some(formattedAddress), Rep.Some(latitude), Rep.Some(longitude), notes, zipCode, apartments, Rep.Some(userId)).shaped.<>({r=>import r._; _1.map(_=> LocationsRow.tupled((_1.get, _2.get, _3.get, _4, _5.get, _6.get, _7.get, _8, _9, _10, _11.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column updated_date SqlType(timestamp) */
-    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
     /** Database column title SqlType(varchar), Length(255,true) */
     val title: Rep[String] = column[String]("title", O.Length(255,varying=true))
     /** Database column address SqlType(varchar), Length(255,true), Default(None) */
@@ -243,10 +240,35 @@ trait Tables {
   /** Collection-like TableQuery object for table PlayEvolutions */
   lazy val PlayEvolutions = new TableQuery(tag => new PlayEvolutions(tag))
 
+  /** Entity class storing rows of table Settings
+   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
+   *  @param key Database column key SqlType(varchar), Length(32,true)
+   *  @param value Database column value SqlType(varchar), Length(64,true) */
+  case class SettingsRow(id: Int, key: String, value: String)
+  /** GetResult implicit for fetching SettingsRow objects using plain SQL queries */
+  implicit def GetResultSettingsRow(implicit e0: GR[Int], e1: GR[String]): GR[SettingsRow] = GR{
+    prs => import prs._
+    SettingsRow.tupled((<<[Int], <<[String], <<[String]))
+  }
+  /** Table description of table settings. Objects of this class serve as prototypes for rows in queries. */
+  class Settings(_tableTag: Tag) extends Table[SettingsRow](_tableTag, "settings") {
+    def * = (id, key, value) <> (SettingsRow.tupled, SettingsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (Rep.Some(id), Rep.Some(key), Rep.Some(value)).shaped.<>({r=>import r._; _1.map(_=> SettingsRow.tupled((_1.get, _2.get, _3.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+
+    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
+    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column key SqlType(varchar), Length(32,true) */
+    val key: Rep[String] = column[String]("key", O.Length(32,varying=true))
+    /** Database column value SqlType(varchar), Length(64,true) */
+    val value: Rep[String] = column[String]("value", O.Length(64,varying=true))
+  }
+  /** Collection-like TableQuery object for table Settings */
+  lazy val Settings = new TableQuery(tag => new Settings(tag))
+
   /** Entity class storing rows of table Users
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param firstName Database column first_name SqlType(varchar), Length(150,true)
    *  @param lastName Database column last_name SqlType(varchar), Length(150,true)
    *  @param email Database column email SqlType(varchar), Length(255,true)
@@ -261,24 +283,22 @@ trait Tables {
    *  @param profilePicture Database column profile_picture SqlType(text), Default(None)
    *  @param stripeId Database column stripe_id SqlType(varchar), Length(32,true), Default(None)
    *  @param paymentMethod Database column payment_method SqlType(varchar), Length(32,true), Default(None) */
-  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, firstName: String, lastName: String, email: String, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None, stripeId: Option[String] = None, paymentMethod: Option[String] = None)
+  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, firstName: String, lastName: String, email: String, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None, stripeId: Option[String] = None, paymentMethod: Option[String] = None)
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
   implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[UsersRow] = GR{
     prs => import prs._
-    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<?[String], <<[String], <<?[String], <<[String], <<[String], <<[Int], <<[Boolean], <<?[String], <<?[String], <<?[String], <<?[String]))
+    UsersRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<?[String], <<[String], <<?[String], <<[String], <<[String], <<[Int], <<[Boolean], <<?[String], <<?[String], <<?[String], <<?[String]))
   }
   /** Table description of table users. Objects of this class serve as prototypes for rows in queries. */
   class Users(_tableTag: Tag) extends Table[UsersRow](_tableTag, "users") {
-    def * = (id, createdDate, updatedDate, firstName, lastName, email, password, salt, facebookId, phoneCode, phone, userType, verified, code, profilePicture, stripeId, paymentMethod) <> (UsersRow.tupled, UsersRow.unapply)
+    def * = (id, createdDate, firstName, lastName, email, password, salt, facebookId, phoneCode, phone, userType, verified, code, profilePicture, stripeId, paymentMethod) <> (UsersRow.tupled, UsersRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(firstName), Rep.Some(lastName), Rep.Some(email), password, Rep.Some(salt), facebookId, Rep.Some(phoneCode), Rep.Some(phone), Rep.Some(userType), Rep.Some(verified), code, profilePicture, stripeId, paymentMethod).shaped.<>({r=>import r._; _1.map(_=> UsersRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7, _8.get, _9, _10.get, _11.get, _12.get, _13.get, _14, _15, _16, _17)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(firstName), Rep.Some(lastName), Rep.Some(email), password, Rep.Some(salt), facebookId, Rep.Some(phoneCode), Rep.Some(phone), Rep.Some(userType), Rep.Some(verified), code, profilePicture, stripeId, paymentMethod).shaped.<>({r=>import r._; _1.map(_=> UsersRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8, _9.get, _10.get, _11.get, _12.get, _13, _14, _15, _16)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column updated_date SqlType(timestamp) */
-    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
     /** Database column first_name SqlType(varchar), Length(150,true) */
     val firstName: Rep[String] = column[String]("first_name", O.Length(150,varying=true))
     /** Database column last_name SqlType(varchar), Length(150,true) */
@@ -319,7 +339,6 @@ trait Tables {
   /** Entity class storing rows of table Vehicles
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param updatedDate Database column updated_date SqlType(timestamp)
    *  @param makerId Database column maker_id SqlType(int4)
    *  @param makerNiceName Database column maker_nice_name SqlType(varchar), Length(150,true)
    *  @param modelId Database column model_id SqlType(varchar), Length(255,true)
@@ -330,24 +349,22 @@ trait Tables {
    *  @param licPlate Database column lic_plate SqlType(varchar), Length(255,true), Default(None)
    *  @param userId Database column user_id SqlType(int4)
    *  @param deleted Database column deleted SqlType(bool), Default(false) */
-  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, updatedDate: java.sql.Timestamp, makerId: Int, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false)
+  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, makerId: Int, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false)
   /** GetResult implicit for fetching VehiclesRow objects using plain SQL queries */
   implicit def GetResultVehiclesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[VehiclesRow] = GR{
     prs => import prs._
-    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Timestamp], <<[Int], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean]))
+    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Int], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean]))
   }
   /** Table description of table vehicles. Objects of this class serve as prototypes for rows in queries. */
   class Vehicles(_tableTag: Tag) extends Table[VehiclesRow](_tableTag, "vehicles") {
-    def * = (id, createdDate, updatedDate, makerId, makerNiceName, modelId, modelNiceName, yearId, year, color, licPlate, userId, deleted) <> (VehiclesRow.tupled, VehiclesRow.unapply)
+    def * = (id, createdDate, makerId, makerNiceName, modelId, modelNiceName, yearId, year, color, licPlate, userId, deleted) <> (VehiclesRow.tupled, VehiclesRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(updatedDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), Rep.Some(color), licPlate, Rep.Some(userId), Rep.Some(deleted)).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10.get, _11, _12.get, _13.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), Rep.Some(color), licPlate, Rep.Some(userId), Rep.Some(deleted)).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11.get, _12.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column updated_date SqlType(timestamp) */
-    val updatedDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("updated_date")
     /** Database column maker_id SqlType(int4) */
     val makerId: Rep[Int] = column[Int]("maker_id")
     /** Database column maker_nice_name SqlType(varchar), Length(150,true) */
