@@ -59,7 +59,7 @@ POST          /api/v1/notifications/subscribe          @controllers.PushNotifica
 POST          /api/v1/notifications/unsubscribe        @controllers.PushNotificationsController.unsubscribe
 
 #Settings
-GET          /api/v1/settings                          @controllers.SettingsController.getSettings
+GET           /api/v1/settings                         @controllers.SettingsController.getSettings
 
 # Web controllers
 # Password recovery
