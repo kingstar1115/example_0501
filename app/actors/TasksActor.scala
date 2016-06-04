@@ -10,8 +10,7 @@ import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import services.TookanService
 import services.TookanService.Agent
-import services.internal.cache.CacheService
-import services.internal.notifications.{JobData, PushNotificationService}
+import services.internal.notifications.{JobNotificationData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -19,8 +18,7 @@ import scala.concurrent.Future
 
 class TasksActor(tookanService: TookanService,
                  dbConfigProvider: DatabaseConfigProvider,
-                 pushNotificationService: PushNotificationService,
-                 cacheService: CacheService) extends Actor {
+                 pushNotificationService: PushNotificationService) extends Actor {
 
   override def receive = {
     case t: RefreshTaskData => updateTaskData(t.jobId)
@@ -55,7 +53,7 @@ class TasksActor(tookanService: TookanService,
                     .map { _ =>
                       Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
                       if (taskRow.jobStatus != task.jobStatus && agentId.isDefined) {
-                        sendJobStatusChangeNotification(jobId, agentId.get, task.jobStatus)
+                        sendJobStatusChangeNotification(taskRow, agentId.get, task.jobStatus)
                       }
                     }
                 }
@@ -66,14 +64,14 @@ class TasksActor(tookanService: TookanService,
     }
   }
 
-  def sendJobStatusChangeNotification(jobId: Long, agentId: Int, jobStatus: Int) = {
+  def sendJobStatusChangeNotification(job: JobsRow, agentId: Int, jobStatus: Int) = {
     val db = dbConfigProvider.get.db
     val agentQuery = for {
       agent <- Agents if agent.id === agentId
     } yield agent.name
     db.run(agentQuery.result.head).map { agentName =>
-      val data = new JobData(jobId, agentName, jobStatus)
-      cacheService.getUserDeviceTokens(1)
+      val data = new JobNotificationData(job.jobId, agentName, jobStatus, job.userId)
+      pushNotificationService.getUserDeviceTokens(job.userId)
         .foreach { token =>
           jobStatus match {
             case x if x == Accepted.code =>
@@ -137,8 +135,8 @@ class TasksActor(tookanService: TookanService,
 object TasksActor {
 
   def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider,
-            pushNotificationService: PushNotificationService, cacheService: CacheService) =
-    Props(classOf[TasksActor], tookanService, dbConfigProvider, pushNotificationService, cacheService)
+            pushNotificationService: PushNotificationService) =
+    Props(classOf[TasksActor], tookanService, dbConfigProvider, pushNotificationService)
 
   case class RefreshTaskData(jobId: Long)
 
