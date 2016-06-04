@@ -29,12 +29,12 @@ class DefaultSettingsService @Inject()(cacheService: CacheService,
         settings.find(_.key == "suvWashing").get.value.toInt,
         settings.find(_.key == "interiorCleaning").get.value.toInt
       )
-      cacheService.saveValue(PricesSettingsKey, priceSettings)
+      cacheService.set(PricesSettingsKey, priceSettings)
     }
   }
 
   override def getPriceSettings: PriceSettings = {
-    cacheService.getValue[PriceSettings](PricesSettingsKey).get
+    cacheService.get[PriceSettings](PricesSettingsKey).get
   }
 }
 

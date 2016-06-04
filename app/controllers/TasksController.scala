@@ -26,7 +26,6 @@ import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
 import services.TookanService.AppointmentResponse
-import services.internal.cache.CacheService
 import services.internal.notifications.PushNotificationService
 import services.internal.settings.SettingsService
 import services.{StripeService, _}
@@ -43,7 +42,6 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 config: Configuration,
                                 system: ActorSystem,
                                 pushNotificationService: PushNotificationService,
-                                cacheService: CacheService,
                                 settingsService: SettingsService) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
@@ -285,7 +283,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   private def updateTask(jobId: Long) = {
-    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService, cacheService)) ! RefreshTaskData(jobId)
+    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(jobId)
   }
 
   private def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
