@@ -81,7 +81,7 @@ class TasksActor(tookanService: TookanService,
             case x if x == InProgress.code =>
               pushNotificationService.sendJobInProgressNotification(data, token)
             case x if x == Successful.code =>
-              pushNotificationService.sendJobAcceptedNotification(data, token)
+              pushNotificationService.sendJobCompleteNotification(data, token)
             case _ =>
           }
         }
@@ -94,14 +94,14 @@ class TasksActor(tookanService: TookanService,
     def saveAgent(implicit agent: Agent): Future[Option[Int]] = {
       val insertQuery = (
         Agents.map(agent => (agent.fleetId, agent.name, agent.fleetImage, agent.phone))
-          returning Agents.map(_.id) +=(agent.fleetId, agent.name, agent.image, agent.phone)
+          returning Agents.map(_.id) +=(agent.fleetId, agent.name.trim, agent.image, agent.phone)
         )
       db.run(insertQuery).map(id => Some(id))
     }
 
     def updateAgent(id: Int)(implicit agent: Agent) = {
       val updateQuery = Agents.filter(_.id === id).map(agent => (agent.name, agent.fleetImage, agent.phone))
-        .update((agent.name, agent.image, agent.phone))
+        .update((agent.name.trim, agent.image, agent.phone))
       db.run(updateQuery).map(updatedCount => Option(id))
     }
 

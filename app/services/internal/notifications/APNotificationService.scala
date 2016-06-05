@@ -72,7 +72,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)
-        .setAlertBody(s"You car is now clean. Don't forget to rate and tip ${data.agentName}")
+        .setAlertBody(s"You car is now clean. Don't forget to rate and tip ${data.agentName}.")
         .setAlertTitle("Car wash completed")
         .buildWithDefaultMaximumLength()
     }
@@ -81,7 +81,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
   private def sendNotification(deviceToken: String, notificationData: JobNotificationData)(buildPayload: JobNotificationData => String) = {
     val payload = buildPayload(notificationData)
     val token = TokenUtil.sanitizeTokenString(deviceToken)
-    val notification = new SimpleApnsPushNotification(token, "Qweex", payload)
+    val notification = new SimpleApnsPushNotification(token, "co.qweex.qweexapp", payload)
     toScalaFuture(client.sendNotification(notification)).map { pushNotificationResponse =>
       pushNotificationResponse.isAccepted match {
         case true =>
