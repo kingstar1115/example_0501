@@ -72,7 +72,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)
-        .setAlertBody(s"You car is now clean. Don't forget to rate and tip ${data.agentName}")
+        .setAlertBody(s"You car is now clean. Don't forget to rate and tip ${data.agentName}.")
         .setAlertTitle("Car wash completed")
         .buildWithDefaultMaximumLength()
     }
