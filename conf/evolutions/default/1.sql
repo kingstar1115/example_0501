@@ -73,7 +73,6 @@ CREATE TABLE IF NOT EXISTS jobs (
   customer_phone        VARCHAR(20),
   team_name             VARCHAR(255),
   has_interior_cleaning BOOLEAN NOT NULL,
-  cleaning_type         INT NOT NULL,
   latitude              NUMERIC      NOT NULL,
   longitude             NUMERIC      NOT NULL,
   payment_method        VARCHAR(32)  NOT NULL,

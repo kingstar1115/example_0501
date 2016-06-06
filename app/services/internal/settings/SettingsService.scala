@@ -12,9 +12,7 @@ trait SettingsService {
 
 object SettingsService {
 
-  case class PriceSettings(compactWashing: Int,
-                           sedanWashing: Int,
-                           suvWashing: Int,
+  case class PriceSettings(carWashing: Int,
                            interiorCleaning: Int)
 
   implicit val priceSettingsFormat = Json.format[PriceSettings]

@@ -24,9 +24,7 @@ class DefaultSettingsService @Inject()(cacheService: CacheService,
     } yield settings
     dbConfigProvider.get.db.run(listQuery.result).map { settings =>
       val priceSettings = PriceSettings(
-        settings.find(_.key == "compactWashing").get.value.toInt,
-        settings.find(_.key == "sedanWashing").get.value.toInt,
-        settings.find(_.key == "suvWashing").get.value.toInt,
+        settings.find(_.key == "carWashing").get.value.toInt,
         settings.find(_.key == "interiorCleaning").get.value.toInt
       )
       cacheService.set(PricesSettingsKey, priceSettings)
