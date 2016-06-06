@@ -61,10 +61,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         def saveTask(price: Int = 0) = {
           val insertQuery = (
             Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
-              job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion))
+              job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion))
               returning Jobs.map(_.id)
               += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
-              dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.cleaningType, dto.hasInteriorCleaning,
+              dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.hasInteriorCleaning,
               price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0)))
             )
           db.run(insertQuery).map { id =>
@@ -84,7 +84,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             }
         }
 
-        val price = calculatePrice(dto.cleaningType, dto.hasInteriorCleaning, dto.promotion)
+        val price = calculatePrice(dto.hasInteriorCleaning, dto.promotion)
         price match {
           case x if x > 50 =>
             Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
@@ -265,7 +265,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def toDetailsDto(agent: Option[AgentDto], vehicle: VehicleDto)(implicit job: JobsRow) = {
     TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agent, getJobImages(job), vehicle, job.jobStatus,
       job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, job.paymentMethod,
-      job.cleaningType, job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.tip)
+      job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.tip)
   }
 
   private def mapToDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow))(mapper: (Option[AgentDto], VehicleDto) => D) = {
@@ -286,21 +286,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(jobId)
   }
 
-  private def calculatePrice(index: Int, hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
+  private def calculatePrice(hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
     val priceSettings = settingsService.getPriceSettings
-    def calculateCarWashingPrice() = {
-      index match {
-        case 0 => priceSettings.compactWashing
-        case 1 => priceSettings.sedanWashing
-        case 2 => priceSettings.suvWashing
-        case _ => 0
-      }
+    val priceBeforeDiscount = hasInteriorCleaning match {
+      case true =>
+        priceSettings.carWashing + priceSettings.interiorCleaning
+      case false =>
+        priceSettings.carWashing
     }
-
-    val priceBeforeDiscount = if (hasInteriorCleaning)
-      calculateCarWashingPrice() + priceSettings.interiorCleaning
-    else
-      calculateCarWashingPrice()
     discount.map { discountAmount =>
       Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
       val discountedPrice = priceBeforeDiscount - discountAmount
@@ -336,7 +329,6 @@ object TasksController {
                             jobPickupPhone: Option[String],
                             customerPhone: Option[String],
                             paymentMethod: String,
-                            cleaningType: Int,
                             hasInteriorCleaning: Boolean,
                             price: Int,
                             latitude: BigDecimal,
@@ -354,7 +346,6 @@ object TasksController {
                      pickupLatitude: Double,
                      pickupLongitude: Double,
                      pickupDateTime: LocalDateTime,
-                     cleaningType: Int,
                      hasInteriorCleaning: Boolean,
                      vehicleId: Int,
                      promotion: Option[Int])
@@ -371,8 +362,6 @@ object TasksController {
       (__ \ "latitude").read[Double] and
       (__ \ "longitude").read[Double] and
       (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
-      (__ \ "cleaningType").read[Int]
-        .filter(ValidationError("Value must be in range from 0 to 2"))(v => v >= 0 && v <= 2) and
       (__ \ "hasInteriorCleaning").read[Boolean] and
       (__ \ "vehicleId").read[Int] and
       (__ \ "promotion").readNullable[Int]
