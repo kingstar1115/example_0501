@@ -13,7 +13,7 @@ resolvers ++= Seq(
   "google-sedis-fix" at "http://pk11-scratch.googlecode.com/svn/trunk"
 )
 
-libraryDependencies ++= Seq(cache, ws, "postgresql" % "postgresql" % "9.1-901.jdbc4",
+libraryDependencies ++= Seq(cache, ws, filters, "postgresql" % "postgresql" % "9.1-901.jdbc4",
   "com.typesafe.play" %% "play-slick" % "1.1.0",
   "com.typesafe.play" %% "play-slick-evolutions" % "1.1.0",
   "com.typesafe.slick" %% "slick-codegen" % "3.1.0",
