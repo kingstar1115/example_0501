@@ -8,6 +8,7 @@ import javax.inject.Inject
 import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
+import com.stripe.model.Charge
 import commons.enums.TaskStatuses.Successful
 import commons.enums.{PaymentMethods, TaskStatuses, ValidationError => VError}
 import controllers.TasksController._
@@ -74,14 +75,20 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         }
 
         def pay(price: Int) = {
-          dto.token
-            .map(token => Option(stripeService.charge(price, token, tookanTask.jobId)))
-            .getOrElse {
-              user.stripeId.map { stripeId =>
-                val paymentSource = StripeService.PaymentSource(stripeId, dto.cardId)
-                stripeService.charge(price, paymentSource, tookanTask.jobId)
-              }
-            }
+          price match {
+            case x if dto.cardId.isDefined || dto.token.isDefined =>
+              dto.token
+                .map(token => Option(stripeService.charge(price, token, tookanTask.jobId)))
+                .getOrElse {
+                  user.stripeId.map { stripeId =>
+                    val paymentSource = StripeService.PaymentSource(stripeId, dto.cardId)
+                    stripeService.charge(price, paymentSource, tookanTask.jobId)
+                  }
+                }
+            case other =>
+              Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expexted charge amount: ${other}")
+              Option(Future(Right(new Charge)))
+          }
         }
 
         val price = calculatePrice(dto.hasInteriorCleaning, dto.promotion)
@@ -367,7 +374,6 @@ object TasksController {
       (__ \ "promotion").readNullable[Int]
         .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
     ) (TaskDto.apply _)
-    .filter(ValidationError("token or cardId must be defined"))(dto => dto.token.isDefined || dto.cardId.isDefined)
 
   case class TipDto(amount: Int,
                     cardId: Option[String],
