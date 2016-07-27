@@ -28,7 +28,7 @@ class EmailService @Inject()(mailerClient: MailerClient,
     val messageBody = Messages("email.registration.body", firstName, lastName, email)
     val mail = Email(Messages("email.registration.title"),
       noReplyEmail,
-      Seq("valera.rusakov@gmail.com"),
+      Seq("yegormakarov@gmail.com"),
       bodyHtml = Option(messageBody))
     mailerClient.send(mail)
   }
