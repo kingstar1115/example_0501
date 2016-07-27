@@ -11,7 +11,7 @@ import play.api.mvc.RequestHeader
 @Singleton
 class EmailService @Inject()(mailerClient: MailerClient,
                              config: Configuration,
-                              val messagesApi: MessagesApi) extends I18nSupport{
+                             val messagesApi: MessagesApi) extends I18nSupport {
 
   val noReplyEmail = config.getString("play.mailer.user").get
 
@@ -19,7 +19,17 @@ class EmailService @Inject()(mailerClient: MailerClient,
     val messageBody = Messages("email.forget.body", passwordRecoverUrl)
     val mail = Email(Messages("email.forget.title"),
       noReplyEmail,
-      Seq(email), bodyHtml = Option(messageBody))
+      Seq(email),
+      bodyHtml = Option(messageBody))
+    mailerClient.send(mail)
+  }
+
+  def sendUserRegistredEmail(firstName: String, lastName: String, email: String)(implicit requestHeader: RequestHeader) = {
+    val messageBody = Messages("email.registration.body", firstName, lastName, email)
+    val mail = Email(Messages("email.registration.title"),
+      noReplyEmail,
+      Seq("valera.rusakov@gmail.com"),
+      bodyHtml = Option(messageBody))
     mailerClient.send(mail)
   }
 
