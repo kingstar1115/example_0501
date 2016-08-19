@@ -25,4 +25,6 @@ object TaskStatuses {
 
   lazy val activeStatuses = Set(Accepted.code, Started.code, InProgress.code)
 
+  lazy val cancelableStatuses = Set(Assigned.code, Unassigned.code, Accepted.code, Decline.code, Cancel.code)
+
 }

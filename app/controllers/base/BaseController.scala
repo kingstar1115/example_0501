@@ -11,9 +11,7 @@ trait BaseController extends Controller with ApiActions {
   def jsonValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) = validationFailed(JsError.toJson(errors))
 
   def jsonValidationFailedF(errors: Seq[(JsPath, Seq[ValidationError])]) =
-    wrapInFuture(validationFailed(JsError.toJson(errors)))
-
-  def wrapInFuture(result: Result) = Future.successful(result)
+    Future.successful(validationFailed(JsError.toJson(errors)))
 
   def processRequest[T](jsonBody: JsValue)(valid: T => Result)(implicit reads: Reads[T]) = {
     jsonBody.validate.fold(jsonValidationFailed, valid)

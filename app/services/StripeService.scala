@@ -5,7 +5,7 @@ import javax.inject.{Inject, Singleton}
 
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
-import com.stripe.model.{Card, Charge, Customer, DeletedExternalAccount}
+import com.stripe.model._
 import commons.enums.{ErrorType, ServerError, StripeError}
 import play.api.Configuration
 import services.StripeService._
@@ -101,6 +101,13 @@ class StripeService @Inject()(configuration: Configuration) {
     }
     addParameters(params)
     process(Charge.create(params))
+  }
+
+  def refund(chargeId: String) = {
+    val params = new util.HashMap[String, Object]() {
+      put("charge", chargeId)
+    }
+    process(Refund.create(params))
   }
 }
 
