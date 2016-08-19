@@ -12,6 +12,7 @@ import security.TokenStorage
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class LocationController @Inject()(val tokenStorage: TokenStorage,
                                    val dbConfigProvider: DatabaseConfigProvider)
@@ -43,7 +44,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
             .update(dto.title, dto.address, dto.latitude, dto.longitude)
           db.run(updateQuery).map(r => ok("Updated"))
         }
-      case _ => wrapInFuture(notFound)
+      case _ => Future.successful(notFound)
     }
   }
 

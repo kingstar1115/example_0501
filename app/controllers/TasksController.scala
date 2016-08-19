@@ -59,14 +59,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userId = token.userInfo.id
 
       def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
-        def saveTask(price: Int = 0) = {
+        def saveTask(price: Int = 0, chargeId: Option[String] = None) = {
           val insertQuery = (
             Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
-              job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion))
+              job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.chargeId))
               returning Jobs.map(_.id)
               += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
               dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.hasInteriorCleaning,
-              price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0)))
+              price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0), chargeId))
             )
           db.run(insertQuery).map { id =>
             updateTask(tookanTask.jobId)
@@ -86,7 +86,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                   }
                 }
             case other =>
-              Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expexted charge amount: ${other}")
+              Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expected charge amount: ${other}")
               Option(Future(Right(new Charge)))
           }
         }
@@ -100,7 +100,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                 tookanService.deleteTask(tookanTask.jobId)
                   .map(response => badRequest(error.message, error.errorType))
               case Right(charge) =>
-                saveTask(price);
+                saveTask(price, Option(charge.getId));
             }).getOrElse(Future(badRequest("User doesn't set payment sources")))
           case _ =>
             Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
@@ -110,11 +110,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
       def createTaskInternal(vehicle: VehiclesRow, user: UsersRow) = {
         tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
-          dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(token.userInfo.email),
+          dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(user.email),
           TookanService.Metadata.getVehicleMetadata(vehicle, dto.hasInteriorCleaning))
           .flatMap {
             case Left(error) =>
-              wrapInFuture(badRequest(error))
+              Future.successful(badRequest(error))
             case Right(task) =>
               processPayment(task, user)
           }
@@ -133,6 +133,40 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         } yield createTaskInternal(vehicle, user)
         taskCreateResultOpt.getOrElse(Future(badRequest("Invalid vehicle id or user not found")))
       }
+    }
+  }
+
+  def cancelTask(id: Long) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val selectQuery = for {
+      job <- Jobs
+      if job.userId === userId && job.jobStatus.inSet(TaskStatuses.cancelableStatuses) && job.jobId === id
+    } yield job
+
+    db.run(selectQuery.result.headOption).flatMap {
+      _.map { job =>
+
+        val refundResult = job.chargeId.map { chargeId =>
+          Logger.debug(s"Refunding charge $chargeId for customer ${request.token.get.userInfo.email}")
+          stripeService.refund(chargeId).map {
+            case Left(error) =>
+              Logger.debug(s"Can't refund money for job $id")
+              Option(chargeId)
+            case Right(refund) =>
+              Logger.debug(s"Refunded money for task with $id id")
+              Option.empty
+          }
+        }.getOrElse(Future.successful(Option.empty))
+
+        refundResult.flatMap { chargeOpt =>
+          tookanService.updateTaskStatus(id, TaskStatuses.Cancel)
+          val updateQuery = for {
+            job <- Jobs if job.jobId === id && job.userId === userId
+          } yield (job.jobStatus, job.chargeId)
+          db.run(updateQuery.update(TaskStatuses.Cancel.code, chargeOpt))
+            .map(_ => success)
+        }
+      }.getOrElse(Future.successful(badRequest(s"Can't cancel task with $id id")))
     }
   }
 

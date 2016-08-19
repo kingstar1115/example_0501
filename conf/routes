@@ -40,6 +40,7 @@ GET           /api/v1/tasks/pending                    @controllers.TasksControl
 GET           /api/v1/tasks/active                     @controllers.TasksController.getActiveTask
 GET           /api/v1/tasks/:id                        @controllers.TasksController.getTask(id: Long)
 GET           /api/v1/tasks/agents/:id/coordinates     @controllers.TasksController.getAgentCoordinates(id: Long)
+GET           /api/v1/tasks/:id/cancel                 @controllers.TasksController.cancelTask(id: Long)
 
 #Vehicles
 GET           /api/v1/vehicles/makers                  @controllers.VehiclesController.getVehiclesMakers

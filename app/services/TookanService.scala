@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.{Inject, Singleton}
 
+import commons.enums.TaskStatuses.TaskStatus
 import models.Tables.VehiclesRow
 import play.api.Configuration
 import play.api.libs.functional.syntax._
@@ -115,6 +116,15 @@ class TookanService @Inject()(ws: WSClient,
       }
   }
 
+  def updateTaskStatus(taskId: Long, status: TaskStatus) = {
+    buildRequest(UpdateTaskStatus)
+      .post(Json.obj(
+        "access_token" -> config.key,
+        "job_id" -> taskId.toString,
+        "job_status" -> status.code
+      ))
+  }
+
   private def buildRequest(path: String) = {
     ws.url(buildUrl(path))
       .withRequestTimeout(10000L)
@@ -156,6 +166,7 @@ object TookanService {
   val ListAgents = "view_all_fleets_location"
   val TeamDetails = "view_team"
   val AgentCoordinates = "view_all_fleets"
+  val UpdateTaskStatus = "update_task_via_dashboard"
 
   case class Config(key: String,
                     teamId: Int,

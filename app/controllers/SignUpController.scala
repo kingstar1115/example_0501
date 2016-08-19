@@ -77,13 +77,13 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   def fbAuth = Action.async(BodyParsers.parse.json) { request =>
 
     def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) =
-      wrapInFuture(badRequest("Token required"))
+      Future.successful(badRequest("Token required"))
 
     def onValidationPassed(dto: FbTokenDto) = {
       facebookMe(dto.token) flatMap { wsResponse =>
 
         def onError(errors: Seq[(JsPath, Seq[ValidationError])]) =
-          wrapInFuture(badRequest("Failed to get FB information"))
+          Future.successful(badRequest("Failed to get FB information"))
 
         def onSuccess(fbDto: FacebookResponseDto) = {
           val userQuery = for {
@@ -133,7 +133,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                         Option(fbDto.picture.data.url), dto.phoneCode.concat(dto.phone)))(AuthToken.authResponseFormat)
                     }
 
-                  case failed => wrapInFuture(badRequest(failed.message, AuthyError))
+                  case failed => Future.successful(badRequest(failed.message, AuthyError))
                 }
               }
 
@@ -144,14 +144,14 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
               db.run(existsQuery.length.result).flatMap {
                 case 0 => createUser
-                case _ => wrapInFuture(validationFailed("User with this FB id or Email Or Phone already exists"))
+                case _ => Future.successful(validationFailed("User with this FB id or Email Or Phone already exists"))
               }
             }
 
             wsResponse.json.validate[FacebookResponseDto]
-              .fold(errors => wrapInFuture(badRequest("Invalid token", FacebookError)), onFBSuccess)
+              .fold(errors => Future.successful(badRequest("Invalid token", FacebookError)), onFBSuccess)
 
-          case _ => wrapInFuture(badRequest(s"Failed to fetch FB data", FacebookError))
+          case _ => Future.successful(badRequest(s"Failed to fetch FB data", FacebookError))
         }
       }
     }
