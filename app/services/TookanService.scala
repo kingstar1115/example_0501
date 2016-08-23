@@ -192,9 +192,9 @@ object TookanService {
         Metadata("Model", vehicle.modelNiceName),
         Metadata("Year", vehicle.year.toString),
         Metadata("Color", vehicle.color),
-        Metadata("Exterior", hasInteriorCleaning.toString)
+        Metadata("Interior", hasInteriorCleaning.toString)
       )
-      vehicle.licPlate.map(licPlate => metadata ++ Seq(Metadata("Lic Plate", licPlate))).getOrElse(metadata)
+      vehicle.licPlate.map(licPlate => metadata ++ Seq(Metadata("Lic_Plate", licPlate))).getOrElse(metadata)
     }
   }
 
@@ -249,7 +249,7 @@ object TookanService {
         1,
         true,
         config.teamId,
-        false,
+        true,
         None,
         Seq.empty[String],
         Option(config.key),
