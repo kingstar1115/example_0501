@@ -59,7 +59,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       val userId = token.userInfo.id
 
       def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
-        def saveTask(price: Int = 0, chargeId: Option[String] = None) = {
+        def saveTask(price: Int, chargeId: Option[String] = None) = {
           val insertQuery = (
             Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
               job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.chargeId))
@@ -86,12 +86,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                   }
                 }
             case other =>
-              Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expected charge amount: ${other}")
+              Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expected charge amount: $other")
               Option(Future(Right(new Charge)))
           }
         }
 
-        val price = calculatePrice(dto.hasInteriorCleaning, dto.promotion)
+        val basePrice = getBasePrice(dto.hasInteriorCleaning)
+        val price = calculatePrice(basePrice, dto.promotion)
         price match {
           case x if x > 50 =>
             Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
@@ -100,11 +101,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                 tookanService.deleteTask(tookanTask.jobId)
                   .map(response => badRequest(error.message, error.errorType))
               case Right(charge) =>
-                saveTask(price, Option(charge.getId));
+                saveTask(basePrice, Option(charge.getId));
             }).getOrElse(Future(badRequest("User doesn't set payment sources")))
           case _ =>
             Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
-            saveTask()
+            saveTask(basePrice)
         }
       }
 
@@ -329,19 +330,22 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(jobId)
   }
 
-  private def calculatePrice(hasInteriorCleaning: Boolean, discount: Option[Int] = None) = {
-    val priceSettings = settingsService.getPriceSettings
-    val priceBeforeDiscount = hasInteriorCleaning match {
-      case true =>
-        priceSettings.carWashing + priceSettings.interiorCleaning
-      case false =>
-        priceSettings.carWashing
-    }
+  private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None) = {
     discount.map { discountAmount =>
       Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
       val discountedPrice = priceBeforeDiscount - discountAmount
       if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
     }.getOrElse(priceBeforeDiscount)
+  }
+
+  private def getBasePrice(hasInteriorCleaning: Boolean): Int = {
+    val priceSettings = settingsService.getPriceSettings
+    hasInteriorCleaning match {
+      case true =>
+        priceSettings.carWashing + priceSettings.interiorCleaning
+      case false =>
+        priceSettings.carWashing
+    }
   }
 }
 
