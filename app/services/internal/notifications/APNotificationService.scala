@@ -6,7 +6,7 @@ import javax.inject.Inject
 import com.relayrides.pushy.apns.ApnsClient
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
 import play.api.inject.ApplicationLifecycle
-import play.api.{Environment, Logger}
+import play.api.{Configuration, Environment, Logger}
 import services.internal.cache.CacheService
 import services.internal.notifications.APNotificationService._
 
@@ -17,9 +17,12 @@ import scala.util.Try
 
 class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
                                       environment: Environment,
-                                      cacheService: CacheService) extends PushNotificationService {
+                                      cacheService: CacheService,
+                                      config: Configuration) extends PushNotificationService {
 
-  var client = new ApnsClient[SimpleApnsPushNotification](environment.resourceAsStream("qweex_push.p12").get, "")
+  val p12FileName = config.getString("apns.filename").get
+
+  var client = new ApnsClient[SimpleApnsPushNotification](environment.resourceAsStream(p12FileName).get, "")
   Logger.info("Connecting to APNs")
   val connectFuture = toScalaFuture(client.connect(ApnsClient.PRODUCTION_APNS_HOST))
     .map(_ => Logger.info("Connected to APNs"))
