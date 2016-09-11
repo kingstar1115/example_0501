@@ -20,11 +20,13 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
                                       cacheService: CacheService,
                                       config: Configuration) extends PushNotificationService {
 
-  val p12FileName = config.getString("apns.filename").get
+  val devMode = config.getBoolean("apns.dev.mode").get
+  val p12FileName = if (devMode) "qweex_push.p12" else "qweex_push_test.p12"
+  val serverAddress = if (devMode) ApnsClient.DEVELOPMENT_APNS_HOST else ApnsClient.PRODUCTION_APNS_HOST
 
   var client = new ApnsClient[SimpleApnsPushNotification](environment.resourceAsStream(p12FileName).get, "")
   Logger.info("Connecting to APNs")
-  val connectFuture = toScalaFuture(client.connect(ApnsClient.PRODUCTION_APNS_HOST))
+  val connectFuture = toScalaFuture(client.connect(serverAddress))
     .map(_ => Logger.info("Connected to APNs"))
 
   lifecycle.addStopHook { () =>
