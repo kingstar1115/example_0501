@@ -2,19 +2,18 @@ package controllers
 
 import javax.inject.Inject
 
-import commons.enums.ServerError
+import commons.enums.InternalSError
 import controllers.VehiclesController._
 import controllers.base.{BaseController, CRUDOperations}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Json
-import play.api.mvc.{Action, BodyParsers}
+import play.api.mvc.Action
 import security.TokenStorage
 import services.EdmundsService
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,
                                    edmundsService: EdmundsService,
@@ -29,7 +28,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       .map { makersOpt =>
         makersOpt
           .map(makers => ok(makers.makes))
-          .getOrElse(badRequest("Can't load makers data", ServerError))
+          .getOrElse(badRequest("Can't load makers data", InternalSError))
       }
   }
 
@@ -82,7 +81,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       v <- Vehicles if v.userId === userId && v.deleted === false
     } yield v
   }
-  
+
   override def toDto(vehicle: _root_.models.Tables.VehiclesRow): VehicleDto = {
     new VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
       vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
