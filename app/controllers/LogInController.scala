@@ -4,8 +4,7 @@ import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
 import commons.enums.CommonError
-import controllers.LogInController.EmailLogInDto
-import controllers.SignUpController.FbTokenDto
+import controllers.LogInController.{EmailLogInDto, ForgotPasswordDto}
 import controllers.base._
 import models.Tables
 import models.Tables._
@@ -58,8 +57,8 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
   }
 
   def forgotPassword = Action.async(BodyParsers.parse.json) { implicit request =>
-    processRequestF[FbTokenDto](request.body) { dto =>
-      val userQuery = for {u <- Users if u.email === dto.token} yield u
+    processRequestF[ForgotPasswordDto](request.body) { dto =>
+      val userQuery = for {u <- Users if u.email === dto.email} yield u
       db.run(userQuery.result.headOption)
         .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
         .flatMap {
@@ -68,7 +67,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
             val code = tokenProvider.generateKey
             val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
             mailService.sendPasswordForgetEmail(user.email, recoverURL)
-            db.run(Users.map(_.code).update(Option(code))).map {
+            db.run(Users.filter(_.id === user.id).map(_.code).update(Option(code))).map {
               case 1 => ok("Instruction send to specified email")
               case _ => badRequest("Oops, something went wrong", CommonError)
             }
@@ -83,11 +82,15 @@ object LogInController {
 
   case class FacebookLogInDto(token: String)
 
+  case class ForgotPasswordDto(email: String)
+
   implicit val emailLogInDtoReads: Reads[EmailLogInDto] = (
     (JsPath \ "email").read[String](email) and
       (JsPath \ "password").read[String](minLength[String](6) keepAnd maxLength[String](32))
     ) (EmailLogInDto.apply _)
 
   implicit val facebookLogInDtoReads: Reads[FacebookLogInDto] = (JsPath \ "token").read[String].map(FacebookLogInDto.apply)
+
+  implicit val forgotPasswordDtoReads: Reads[ForgotPasswordDto] = (JsPath \ 'email).read[String].map(ForgotPasswordDto)
 
 }

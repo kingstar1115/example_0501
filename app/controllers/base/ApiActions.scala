@@ -22,7 +22,8 @@ trait ApiActions extends RestResponses {
 
   class UserAction extends ActionBuilder[UserRequest] with ActionTransformer[Request, UserRequest] {
     def transform[A](request: Request[A]) = Future.successful {
-      val token = tokenStorage.getToken(request.headers.get(HeaderNames.AUTHORIZATION).getOrElse(""))
+      val token = request.headers.get(HeaderNames.AUTHORIZATION)
+        .flatMap(key => tokenStorage.getToken(key))
       new UserRequest(token, request)
     }
   }

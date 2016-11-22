@@ -20,7 +20,9 @@ class TokenStorage @Inject()(sedisPool: Pool) {
   def getToken(key: String): Option[AuthToken] = {
     sedisPool.withClient { client =>
       Try {
-        client.get(key).map(value => Some(Json.parse(value).as[AuthToken])).getOrElse(None)
+        client.get(key)
+          .map(value => Some(Json.parse(value).as[AuthToken]))
+          .getOrElse(None)
       } match {
         case Success(token) => token
         case Failure(e) => None

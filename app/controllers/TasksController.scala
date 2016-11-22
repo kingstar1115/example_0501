@@ -1,16 +1,11 @@
 package controllers
 
-import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-import actors.TasksActor
-import actors.TasksActor.RefreshTaskData
-import akka.actor.ActorSystem
-import com.stripe.model.Charge
 import commons.enums.TaskStatuses.Successful
-import commons.enums.{PaymentMethods, TaskStatuses, ValidationError => VError}
+import commons.enums.{TaskStatuses, ValidationError => VError}
 import controllers.TasksController._
 import controllers.VehiclesController._
 import controllers.base.{BaseController, ListResponse}
@@ -26,9 +21,9 @@ import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
-import services.TookanService.AppointmentResponse
-import services.internal.notifications.PushNotificationService
 import services.internal.settings.SettingsService
+import services.internal.tasks.TasksService
+import services.internal.tasks.TasksService._
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
@@ -41,9 +36,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 tookanService: TookanService,
                                 stripeService: StripeService,
                                 config: Configuration,
-                                system: ActorSystem,
-                                pushNotificationService: PushNotificationService,
-                                settingsService: SettingsService) extends BaseController {
+                                settingsService: SettingsService,
+                                taskService: TasksService) extends BaseController {
 
   implicit val agentDtoFormat = Json.format[AgentDto]
   implicit val taskListDtoFormat = Json.format[TaskListDto]
@@ -53,86 +47,20 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
-  def createTask = authorized.async(BodyParsers.parse.json) { request =>
-    processRequestF[TaskDto](request.body) { dto =>
-      val token = request.token.get
-      val userId = token.userInfo.id
-
-      def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
-        def saveTask(price: Int, chargeId: Option[String] = None) = {
-          val insertQuery = (
-            Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
-              job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.chargeId))
-              returning Jobs.map(_.id)
-              += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
-              dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.hasInteriorCleaning,
-              price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0), chargeId))
-            )
-          db.run(insertQuery).map { id =>
-            updateTask(tookanTask.jobId)
-            ok(tookanTask)
-          }
-        }
-
-        def pay(price: Int) = {
-          price match {
-            case x if dto.cardId.isDefined || dto.token.isDefined =>
-              dto.token
-                .map(token => Option(stripeService.charge(price, token, tookanTask.jobId)))
-                .getOrElse {
-                  user.stripeId.map { stripeId =>
-                    val paymentSource = StripeService.PaymentSource(stripeId, dto.cardId)
-                    stripeService.charge(price, paymentSource, tookanTask.jobId)
-                  }
-                }
-            case other =>
-              Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expected charge amount: $other")
-              Option(Future(Right(new Charge)))
-          }
-        }
-
-        val basePrice = getBasePrice(dto.hasInteriorCleaning)
-        val price = calculatePrice(basePrice, dto.promotion)
-        price match {
-          case x if x > 50 =>
-            Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
-            pay(price).map(_.flatMap {
-              case Left(error) =>
-                tookanService.deleteTask(tookanTask.jobId)
-                  .map(response => badRequest(error.message, error.errorType))
-              case Right(charge) =>
-                saveTask(basePrice, Option(charge.getId));
-            }).getOrElse(Future(badRequest("User doesn't set payment sources")))
-          case _ =>
-            Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
-            saveTask(basePrice)
-        }
+  def createCustomerTask = authorized.async(BodyParsers.parse.json) { request =>
+    processRequestF[CustomerTaskDto](request.body) { implicit dto =>
+      taskService.createTaskForCustomer(request.token.get.userInfo.id).map {
+        case Left(error) => badRequest(error.message)
+        case Right(tookanTask) => ok(tookanTask)
       }
+    }
+  }
 
-      def createTaskInternal(vehicle: VehiclesRow, user: UsersRow) = {
-        tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
-          dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(user.email),
-          TookanService.Metadata.getVehicleMetadata(vehicle, dto.hasInteriorCleaning))
-          .flatMap {
-            case Left(error) =>
-              Future.successful(badRequest(error))
-            case Right(task) =>
-              processPayment(task, user)
-          }
-      }
-
-      val vehicleQuery = for {
-        v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
-      } yield v
-      val userQuery = for {
-        user <- Users if user.id === userId
-      } yield user
-      db.run(vehicleQuery.result.headOption zip userQuery.result.headOption).flatMap { resultRow =>
-        val taskCreateResultOpt = for {
-          vehicle <- resultRow._1
-          user <- resultRow._2
-        } yield createTaskInternal(vehicle, user)
-        taskCreateResultOpt.getOrElse(Future(badRequest("Invalid vehicle id or user not found")))
+  def createAnonymousTask = Action.async(BodyParsers.parse.json) { request =>
+    processRequestF[AnonymousTaskDto](request.body) { implicit dto =>
+      taskService.createTaskForAnonymous(dto).map {
+        case Left(error) => badRequest(error.message)
+        case Right(tookanTask) => ok(tookanTask)
       }
     }
   }
@@ -274,7 +202,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       "job_status" -> Forms.number
     )(TaskHook.apply)(TaskHook.unapply)).bindFromRequest().get
     Logger.debug(s"Task update web hook. ${formData.toString}")
-    updateTask(formData.jobId)
+    taskService.refreshTask(formData.jobId)
     NoContent
   }
 
@@ -325,28 +253,6 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   private def getJobImages(job: JobsRow) = {
     job.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
   }
-
-  private def updateTask(jobId: Long) = {
-    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(jobId)
-  }
-
-  private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None) = {
-    discount.map { discountAmount =>
-      Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
-      val discountedPrice = priceBeforeDiscount - discountAmount
-      if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
-    }.getOrElse(priceBeforeDiscount)
-  }
-
-  private def getBasePrice(hasInteriorCleaning: Boolean): Int = {
-    val priceSettings = settingsService.getPriceSettings
-    hasInteriorCleaning match {
-      case true =>
-        priceSettings.carWashing + priceSettings.interiorCleaning
-      case false =>
-        priceSettings.carWashing
-    }
-  }
 }
 
 object TasksController {
@@ -383,37 +289,44 @@ object TasksController {
                             promotion: Int,
                             tip: Int)
 
-  case class TaskDto(token: Option[String],
-                     cardId: Option[String],
-                     description: String,
-                     pickupName: String,
-                     pickupEmail: Option[String],
-                     pickupPhone: String,
-                     pickupAddress: String,
-                     pickupLatitude: Double,
-                     pickupLongitude: Double,
-                     pickupDateTime: LocalDateTime,
-                     hasInteriorCleaning: Boolean,
-                     vehicleId: Int,
-                     promotion: Option[Int])
+
+  implicit val anonymousPaymentDetailsFormat = Json.format[AnonymousPaymentDetails]
+  implicit val anonymousVehicleDetailsFormat = Json.format[AnonymousVehicleDetailsDto]
+  implicit val customerPaymentDetailsReads: Reads[CustomerPaymentDetails] = (
+    (__ \ "promotion").readNullable[Int] and
+      (__ \ "hasInteriorCleaning").read[Boolean] and
+      (__ \ "token").readNullable[String] and
+      (__ \ "cardId").readNullable[String]
+    ) (CustomerPaymentDetails.apply _)
+    .filter(ValidationError("Token or card id must be provided"))(dto => dto.token.isDefined || dto.cardId.isDefined)
 
   val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
-  implicit val taskDtoReads: Reads[TaskDto] = (
-    (__ \ "token").readNullable[String] and
-      (__ \ "cardId").readNullable[String] and
-      (__ \ "description").read[String] and
+
+  implicit val customerTaskReads: Reads[CustomerTaskDto] = (
+    (__ \ "description").read[String] and
       (__ \ "name").read[String] and
-      (__ \ "email").readNullable[String](email) and
+      (__ \ "email").readNullable[String] and
       (__ \ "phone").read[String] and
       (__ \ "address").read[String] and
       (__ \ "latitude").read[Double] and
       (__ \ "longitude").read[Double] and
       (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
-      (__ \ "hasInteriorCleaning").read[Boolean] and
       (__ \ "vehicleId").read[Int] and
-      (__ \ "promotion").readNullable[Int]
-        .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
-    ) (TaskDto.apply _)
+      (__ \ "paymentDetails").read[CustomerPaymentDetails]
+    ) (CustomerTaskDto.apply _)
+
+  implicit val anonymousTaskReads: Reads[AnonymousTaskDto] = (
+    (__ \ "description").read[String] and
+      (__ \ "name").read[String] and
+      (__ \ "email").readNullable[String] and
+      (__ \ "phone").read[String] and
+      (__ \ "address").read[String] and
+      (__ \ "latitude").read[Double] and
+      (__ \ "longitude").read[Double] and
+      (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
+      (__ \ "vehicle").read[AnonymousVehicleDetailsDto] and
+      (__ \ "paymentDetails").read[AnonymousPaymentDetails]
+    ) (AnonymousTaskDto.apply _)
 
   case class TipDto(amount: Int,
                     cardId: Option[String],

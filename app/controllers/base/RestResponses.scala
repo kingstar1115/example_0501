@@ -1,7 +1,7 @@
 package controllers.base
 
 
-import commons.enums.{ErrorType, ServerError, ValidationError}
+import commons.enums.{ErrorType, InternalSError, ValidationError}
 import play.api.http.MimeTypes
 import play.api.libs.json._
 import play.api.mvc.Results._
@@ -41,7 +41,7 @@ trait RestResponses {
   }
 
   def serverError(t: Throwable) = {
-    InternalServerError(toJson(ApiResponse(t.getMessage, ServerError.name))).as(MimeTypes.JSON)
+    InternalServerError(toJson(ApiResponse(t.getMessage, InternalSError.name))).as(MimeTypes.JSON)
   }
 
   def created(url: String) = {

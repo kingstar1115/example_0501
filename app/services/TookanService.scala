@@ -186,16 +186,12 @@ object TookanService {
   object Metadata {
     implicit val metadataFormat = Json.format[Metadata]
 
-    def getVehicleMetadata(vehicle: VehiclesRow, hasInteriorCleaning: Boolean) = {
-      val metadata = Seq(
-        Metadata("Maker", vehicle.makerNiceName),
-        Metadata("Model", vehicle.modelNiceName),
-        Metadata("Year", vehicle.year.toString),
-        Metadata("Color", vehicle.color),
-        Metadata("Interior", hasInteriorCleaning.toString)
-      )
-      vehicle.licPlate.map(licPlate => metadata ++ Seq(Metadata("Lic_Plate", licPlate))).getOrElse(metadata)
-    }
+    val maker: String = "Maker"
+    val model: String = "Model"
+    val year: String = "Year"
+    val color: String = "Color"
+    val interior: String = "Interior"
+    val licPlate: String = "Lic_Plate"
   }
 
   case class AppointmentTask(customerEmail: Option[String],

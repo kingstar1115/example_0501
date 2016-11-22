@@ -6,7 +6,7 @@ import javax.inject.{Inject, Singleton}
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model._
-import commons.enums.{ErrorType, ServerError, StripeError}
+import commons.enums.{ErrorType, StripeError, InternalSError}
 import play.api.Configuration
 import services.StripeService._
 
@@ -29,7 +29,7 @@ class StripeService @Inject()(configuration: Configuration) {
             case e: StripeException =>
               Left(ErrorResponse(e.getMessage, StripeError))
             case e: Exception =>
-              Left(ErrorResponse(e.getMessage, ServerError))
+              Left(ErrorResponse(e.getMessage, InternalSError))
           }
       }
     }
