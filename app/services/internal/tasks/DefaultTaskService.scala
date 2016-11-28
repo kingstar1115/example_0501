@@ -155,6 +155,86 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
+  override def createTask(dto: TaskDto, userId: Int): Future[Either[ServerError, AppointmentResponse]] = {
+
+    def processPayment(tookanTask: AppointmentResponse, user: UsersRow) = {
+      def saveTask(price: Int, chargeId: Option[String] = None) = {
+        val insertQuery = (
+          Jobs.map(job => (job.jobId, job.userId, job.scheduledTime, job.vehicleId, job.paymentMethod,
+            job.hasInteriorCleaning, job.price, job.latitude, job.longitude, job.promotion, job.chargeId))
+            returning Jobs.map(_.id)
+            += ((tookanTask.jobId, userId, Timestamp.valueOf(dto.pickupDateTime), dto.vehicleId,
+            dto.cardId.getOrElse(PaymentMethods.ApplePay.toString), dto.hasInteriorCleaning,
+            price, dto.pickupLatitude, dto.pickupLongitude, dto.promotion.getOrElse(0), chargeId))
+          )
+        db.run(insertQuery).map { id =>
+          refreshTask(tookanTask.jobId)
+          Right(tookanTask)
+        }
+      }
+
+      def pay(price: Int) = {
+        price match {
+          case x if dto.cardId.isDefined || dto.token.isDefined =>
+            dto.token
+              .map(token => Option(stripeService.charge(price, token, tookanTask.jobId)))
+              .getOrElse {
+                user.stripeId.map { stripeId =>
+                  val paymentSource = StripeService.PaymentSource(stripeId, dto.cardId)
+                  stripeService.charge(price, paymentSource, tookanTask.jobId)
+                }
+              }
+          case other =>
+            Logger.debug(s"Token or Card Id not provided. No charge for task: ${tookanTask.jobId}. Expected charge amount: $other")
+            Option(Future(Right(new Charge)))
+        }
+      }
+
+      val basePrice = getBasePrice(dto.hasInteriorCleaning)
+      val price = calculatePrice(basePrice, dto.promotion)
+      price match {
+        case x if x > 50 =>
+          Logger.debug(s"Charging $price from user $userId for task ${tookanTask.jobId}")
+          pay(price).map(_.flatMap {
+            case Left(error) =>
+              tookanService.deleteTask(tookanTask.jobId)
+                .map(response => Left(ServerError(error.message, Option(error.errorType))))
+            case Right(charge) =>
+              saveTask(basePrice, Option(charge.getId));
+          }).getOrElse(Future(Left(ServerError("User doesn't set payment sources"))))
+        case _ =>
+          Logger.debug(s"Task ${tookanTask.jobId} is free for user $userId")
+          saveTask(basePrice)
+      }
+    }
+
+    def createTaskInternal(vehicle: VehiclesRow, user: UsersRow) = {
+      tookanService.createAppointment(dto.pickupName, dto.pickupPhone, dto.pickupAddress, dto.description,
+        dto.pickupDateTime, Option(dto.pickupLatitude), Option(dto.pickupLongitude), Option(user.email),
+        getVehicleMetadata(vehicle, dto.hasInteriorCleaning))
+        .flatMap {
+          case Left(error) =>
+            Future.successful(Left(ServerError(error.message)))
+          case Right(task) =>
+            processPayment(task, user)
+        }
+    }
+
+    val vehicleQuery = for {
+      v <- Vehicles if v.id === dto.vehicleId && v.userId === userId
+    } yield v
+    val userQuery = for {
+      user <- Users if user.id === userId
+    } yield user
+    db.run(vehicleQuery.result.headOption zip userQuery.result.headOption).flatMap { resultRow =>
+      val taskCreateResultOpt = for {
+        vehicle <- resultRow._1
+        user <- resultRow._2
+      } yield createTaskInternal(vehicle, user)
+      taskCreateResultOpt.getOrElse(Future(Left(ServerError("Invalid vehicle id or user not found"))))
+    }
+  }
+
   override def refreshTask(taskId: Long) = {
     system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(taskId)
   }

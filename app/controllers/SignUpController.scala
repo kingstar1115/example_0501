@@ -58,7 +58,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
               db.run((insertQuery += user).asTry).map {
                 case Success(insertResult) =>
                   val token = getToken(insertResult, (user._1, user._2, user._3, 0))
-                  emailService.sendUserRegistredEmail(dto.firstName, dto.lastName, dto.email)
+                  emailService.sendUserRegisteredEmail(dto.firstName, dto.lastName, dto.email)
                   ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
                     0, token.userInfo.verified, None, dto.phoneCode.concat(dto.phone)))(AuthToken.authResponseFormat)
 
@@ -127,7 +127,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                       dto.lastName, dto.email, dto.phoneCode, dto.phone, Some(fbDto.id), 1,
                       generateSalt, Option(fbDto.picture.data.url))
                     db.run(insertQuery).map { userId =>
-                      emailService.sendUserRegistredEmail(dto.firstName, dto.lastName, dto.email)
+                      emailService.sendUserRegisteredEmail(dto.firstName, dto.lastName, dto.email)
                       val key = getToken(userId, (dto.firstName, dto.lastName, dto.email, 1)).key
                       ok(AuthResponse(key, dto.firstName, dto.lastName, 1, false,
                         Option(fbDto.picture.data.url), dto.phoneCode.concat(dto.phone)))(AuthToken.authResponseFormat)

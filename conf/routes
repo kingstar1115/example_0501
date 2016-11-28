@@ -32,7 +32,8 @@ GET           /api/v1/locations                        @controllers.LocationCont
 PUT           /api/v1/locations/:id                    @controllers.LocationController.update(id: Int)
 
 #Tasks
-POST          /api/v1/tasks/new                        @controllers.TasksController.createCustomerTask
+POST          /api/v1/tasks/new                        @controllers.TasksController.createTask
+POST          /api/v2/tasks/new                        @controllers.TasksController.createCustomerTask
 POST          /api/v1/tasks/anonymous/new              @controllers.TasksController.createAnonymousTask
 GET           /api/v1/tasks                            @controllers.TasksController.listTasks(offset: Int = 0, limit: Int = 10)
 POST          /api/v1/tasks/refresh                    @controllers.TasksController.onTaskUpdate
