@@ -16,6 +16,9 @@ trait TasksService {
 
   def createTaskForAnonymous(implicit taskDto: AnonymousTaskDto): Future[Either[ServerError, AppointmentResponse]]
 
+  @Deprecated
+  def createTask(dto: TaskDto, userId: Int): Future[Either[ServerError, AppointmentResponse]]
+
   def refreshTask(taskId: Long): Unit
 
 }
@@ -86,5 +89,19 @@ object TasksService {
                               dateTime: LocalDateTime,
                               vehicle: AnonymousVehicleDetailsDto,
                               paymentDetails: AnonymousPaymentDetails) extends BaseTaskDto
+
+  case class TaskDto(token: Option[String],
+                     cardId: Option[String],
+                     description: String,
+                     pickupName: String,
+                     pickupEmail: Option[String],
+                     pickupPhone: String,
+                     pickupAddress: String,
+                     pickupLatitude: Double,
+                     pickupLongitude: Double,
+                     pickupDateTime: LocalDateTime,
+                     hasInteriorCleaning: Boolean,
+                     vehicleId: Int,
+                     promotion: Option[Int])
 
 }

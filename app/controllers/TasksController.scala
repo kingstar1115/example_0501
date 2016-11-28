@@ -47,9 +47,19 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
+  def createTask = authorized.async(BodyParsers.parse.json) { request =>
+    processRequestF[TaskDto](request.body) { dto =>
+      val userId = request.token.get.userInfo.id
+      taskService.createTask(dto, userId) map {
+        case Left(error) => badRequest(error.message)
+        case Right(tookanTask) => ok(tookanTask)
+      }
+    }
+  }
+
   def createCustomerTask = authorized.async(BodyParsers.parse.json) { request =>
     processRequestF[CustomerTaskDto](request.body) { implicit dto =>
-      taskService.createTaskForCustomer(request.token.get.userInfo.id).map {
+      taskService.createTaskForCustomer(request.token.get.userInfo.id) map {
         case Left(error) => badRequest(error.message)
         case Right(tookanTask) => ok(tookanTask)
       }
@@ -58,7 +68,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def createAnonymousTask = Action.async(BodyParsers.parse.json) { request =>
     processRequestF[AnonymousTaskDto](request.body) { implicit dto =>
-      taskService.createTaskForAnonymous(dto).map {
+      taskService.createTaskForAnonymous(dto) map {
         case Left(error) => badRequest(error.message)
         case Right(tookanTask) => ok(tookanTask)
       }
@@ -289,6 +299,24 @@ object TasksController {
                             promotion: Int,
                             tip: Int)
 
+  val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
+  implicit val taskDtoReads: Reads[TaskDto] = (
+    (__ \ "token").readNullable[String] and
+      (__ \ "cardId").readNullable[String] and
+      (__ \ "description").read[String] and
+      (__ \ "name").read[String] and
+      (__ \ "email").readNullable[String](email) and
+      (__ \ "phone").read[String] and
+      (__ \ "address").read[String] and
+      (__ \ "latitude").read[Double] and
+      (__ \ "longitude").read[Double] and
+      (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
+      (__ \ "hasInteriorCleaning").read[Boolean] and
+      (__ \ "vehicleId").read[Int] and
+      (__ \ "promotion").readNullable[Int]
+        .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
+    ) (TaskDto.apply _)
+
 
   implicit val anonymousPaymentDetailsFormat = Json.format[AnonymousPaymentDetails]
   implicit val anonymousVehicleDetailsFormat = Json.format[AnonymousVehicleDetailsDto]
@@ -299,8 +327,6 @@ object TasksController {
       (__ \ "cardId").readNullable[String]
     ) (CustomerPaymentDetails.apply _)
     .filter(ValidationError("Token or card id must be provided"))(dto => dto.token.isDefined || dto.cardId.isDefined)
-
-  val dateTimeReads = localDateTimeReads(DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm"))
 
   implicit val customerTaskReads: Reads[CustomerTaskDto] = (
     (__ \ "description").read[String] and

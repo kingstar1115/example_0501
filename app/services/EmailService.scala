@@ -24,7 +24,7 @@ class EmailService @Inject()(mailerClient: MailerClient,
     mailerClient.send(mail)
   }
 
-  def sendUserRegistredEmail(firstName: String, lastName: String, email: String)(implicit requestHeader: RequestHeader) = {
+  def sendUserRegisteredEmail(firstName: String, lastName: String, email: String)(implicit requestHeader: RequestHeader) = {
     val messageBody = Messages("email.registration.body", firstName, lastName, email)
     val mail = Email(Messages("email.registration.title"),
       noReplyEmail,
