@@ -9,7 +9,8 @@ POST          /api/v1/fb-sign-up                       @controllers.SignUpContro
 # Log in
 POST          /api/v1/log-in                           @controllers.LogInController.logIn
 GET           /api/v1/log-out                          @controllers.LogInController.logOut
-POST          /api/v1/forget-password                  @controllers.LogInController.forgotPassword
+POST          /api/v1/forget-password                  @controllers.LogInController.forgotPasswordV1
+POST          /api/v2/forget-password                  @controllers.LogInController.forgotPasswordV2
 
 # Phone verification
 POST          /api/v1/phone/verify/:code               @controllers.PhoneVerificationController.verifyCode(code)
