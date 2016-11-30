@@ -5,6 +5,7 @@ import javax.inject.Inject
 import com.github.t3hnar.bcrypt._
 import commons.enums.CommonError
 import controllers.LogInController.{EmailLogInDto, ForgotPasswordDto}
+import controllers.SignUpController.FbTokenDto
 import controllers.base._
 import models.Tables
 import models.Tables._
@@ -13,7 +14,7 @@ import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{JsPath, Reads}
 import play.api.libs.ws.WSClient
-import play.api.mvc.{Action, BodyParsers}
+import play.api.mvc.{Action, BodyParsers, RequestHeader}
 import security._
 import services.EmailService
 import slick.driver.PostgresDriver.api._
@@ -56,23 +57,33 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     ok("Success log out")
   }
 
-  def forgotPassword = Action.async(BodyParsers.parse.json) { implicit request =>
-    processRequestF[ForgotPasswordDto](request.body) { dto =>
-      val userQuery = for {u <- Users if u.email === dto.email} yield u
-      db.run(userQuery.result.headOption)
-        .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
-        .flatMap {
-          case Left(error) => Future.successful(error)
-          case Right(user) =>
-            val code = tokenProvider.generateKey
-            val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
-            mailService.sendPasswordForgetEmail(user.email, recoverURL)
-            db.run(Users.filter(_.id === user.id).map(_.code).update(Option(code))).map {
-              case 1 => ok("Instruction send to specified email")
-              case _ => badRequest("Oops, something went wrong", CommonError)
-            }
-        }
+  def forgotPasswordV1 = Action.async(BodyParsers.parse.json) { implicit request =>
+    processRequestF[FbTokenDto](request.body) { dto =>
+      forgotPasswordInternal(dto.token)
     }
+  }
+
+  def forgotPasswordV2 = Action.async(BodyParsers.parse.json) { implicit request =>
+    processRequestF[ForgotPasswordDto](request.body) { dto =>
+      forgotPasswordInternal(dto.email)
+    }
+  }
+
+  private def forgotPasswordInternal(email: String)(implicit request: RequestHeader) = {
+    val userQuery = for {u <- Users if u.email === email} yield u
+    db.run(userQuery.result.headOption)
+      .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
+      .flatMap {
+        case Left(error) => Future.successful(error)
+        case Right(user) =>
+          val code = tokenProvider.generateKey
+          val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
+          mailService.sendPasswordForgetEmail(user.email, recoverURL)
+          db.run(Users.filter(_.id === user.id).map(_.code).update(Option(code))).map {
+            case 1 => ok("Instruction send to specified email")
+            case _ => badRequest("Oops, something went wrong", CommonError)
+          }
+      }
   }
 }
 
