@@ -9,7 +9,7 @@ import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import services.TookanService
-import services.TookanService.Agent
+import services.TookanService.{Agent, AppointmentDetails}
 import services.internal.notifications.{JobNotificationData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
@@ -43,24 +43,35 @@ class TasksActor(tookanService: TookanService,
                 } yield job
 
                 db.run(taskSelectQuery.result.head).map { taskRow =>
-                  Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${task.jobStatus}")
-                  val taskUpdateQuery = Jobs.filter(_.jobId === jobId)
-                    .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
-                      job.jobPickupPhone, job.customerPhone, job.teamName))
-                    .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
-                      Option(task.pickupPhone), Option(task.customerPhone), Option(team.teamName)))
-                  db.run(taskUpdateQuery)
-                    .map { _ =>
-                      Logger.debug(s"Task with id: ${taskRow.id} and jobId: $jobId updated!")
-                      if (taskRow.jobStatus != task.jobStatus && agentId.isDefined) {
-                        sendJobStatusChangeNotification(taskRow, agentId.get, task.jobStatus)
-                      }
-                    }
+                  task.jobStatus match {
+                    case Deleted.code =>
+                      Logger.debug(s"Deleting task with id: ${taskRow.id}")
+                      db.run(Jobs.filter(_.id === taskRow.id).delete)
+                    case _ =>
+                      update(taskRow, task, agentId, team.teamName)
+                  }
                 }
             }
           }
 
       case _ => Logger.debug(s"Can't find job with id: $jobId")
+    }
+  }
+
+  private def update(taskRow: JobsRow, task: AppointmentDetails, agentId: Option[Int], teamName: String) = {
+    Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${task.jobStatus}")
+
+    val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
+    val taskUpdateQuery = Jobs.filter(_.jobId === task.jobId)
+      .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
+        job.jobPickupPhone, job.customerPhone, job.teamName))
+      .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
+        Option(task.pickupPhone), Option(task.customerPhone), Option(teamName)))
+    dbConfigProvider.get.db.run(taskUpdateQuery).map { _ =>
+      Logger.debug(s"Task with id: ${taskRow.id} and jobId: ${task.jobId} updated!")
+      if (taskRow.jobStatus != task.jobStatus && agentId.isDefined) {
+        sendJobStatusChangeNotification(taskRow, agentId.get, task.jobStatus)
+      }
     }
   }
 
@@ -119,15 +130,15 @@ class TasksActor(tookanService: TookanService,
                     .getOrElse(saveAgent)
                 }
             }
-            .getOrElse(Future.successful(None))
+            .getOrElse(Future(None))
 
         case Left(response) =>
           Logger.error(s"Can't load agents. Status: ${response.status} Message: ${response.message}")
-          Future.successful(None)
+          Future(None)
       }
     }
 
-    fleetId.map(loadAgent).getOrElse(Future.successful(None))
+    fleetId.map(loadAgent).getOrElse(Future(None))
   }
 
 }
