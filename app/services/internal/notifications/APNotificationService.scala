@@ -3,8 +3,8 @@ package services.internal.notifications
 import java.util.concurrent.{TimeUnit, Future => JFuture}
 import javax.inject.Inject
 
-import com.relayrides.pushy.apns.ApnsClient
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
+import com.relayrides.pushy.apns.{ApnsClient, ApnsClientBuilder}
 import play.api.inject.ApplicationLifecycle
 import play.api.{Configuration, Environment, Logger}
 import services.internal.cache.CacheService
@@ -20,13 +20,18 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
                                       cacheService: CacheService,
                                       config: Configuration) extends PushNotificationService {
 
-  val devMode = config.getBoolean("apns.dev.mode").get
-  val p12FileName = if (devMode) "qweex_push.p12" else "qweex_push_test.p12"
-  val serverAddress = if (devMode) ApnsClient.DEVELOPMENT_APNS_HOST else ApnsClient.PRODUCTION_APNS_HOST
+  val p12FileName = config.getString("apns.certificate").get
+  val password = config.getString("apns.password").getOrElse("")
+  val serverAddress = p12FileName match {
+    case "qweex_push.p12" => ApnsClient.PRODUCTION_APNS_HOST
+    case _ => ApnsClient.DEVELOPMENT_APNS_HOST
+  }
   val topic = config.getString("apns.topic").get
 
-  var client = new ApnsClient[SimpleApnsPushNotification](environment.resourceAsStream(p12FileName).get, "")
-  Logger.info("Connecting to APNs")
+  var client = new ApnsClientBuilder()
+    .setClientCredentials(environment.resourceAsStream(p12FileName).get, password)
+    .build()
+  Logger.info(s"Connecting to APNs. Certificate $p12FileName. Topic $topic")
   val connectFuture = toScalaFuture(client.connect(serverAddress))
     .map(_ => Logger.info("Connected to APNs"))
 
