@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 
 import com.google.inject.ImplementedBy
 import commons.ServerError
+import models.Tables.{AgentsRow, JobsRow, VehiclesRow}
 import services.TookanService.AppointmentResponse
 import services.internal.tasks.TasksService._
 
@@ -20,6 +21,8 @@ trait TasksService {
   def createTask(dto: TaskDto, userId: Int): Future[Either[ServerError, AppointmentResponse]]
 
   def refreshTask(taskId: Long): Unit
+
+  def pendingTasks(userId: Int): Future[Seq[(JobsRow, Option[AgentsRow], VehiclesRow)]]
 
 }
 

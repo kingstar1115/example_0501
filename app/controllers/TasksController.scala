@@ -110,16 +110,22 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def getPendingTask = authorized.async { request =>
-    val taskQuery = for {
-      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
-      if job.jobStatus === Successful.code && job.submitted === false && job.userId === request.token.get.userInfo.id
-    } yield (job, agent, vehicle)
-    db.run(taskQuery.result.headOption).map { rowOpt =>
-      val pendingTaskOpt = rowOpt.map { row =>
+    taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
+      val pendingTask = resultSet.headOption.map { row =>
         implicit val job = row._1
         mapToDto(row)(toListDto)
       }
-      ok(pendingTaskOpt)
+      ok(pendingTask)
+    }
+  }
+
+  def getPendingTasks = authorized.async { request =>
+    taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
+      val pendingTasks = resultSet.map { row =>
+        implicit val job = row._1
+        mapToDto(row)(toListDto)
+      }
+      ok(pendingTasks)
     }
   }
 

@@ -8,6 +8,7 @@ import actors.TasksActor.RefreshTaskData
 import akka.actor.ActorSystem
 import com.stripe.model.Charge
 import commons.ServerError
+import commons.enums.TaskStatuses.Successful
 import commons.enums.{PaymentMethods, TookanError}
 import models.Tables._
 import play.api.Logger
@@ -237,5 +238,13 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def refreshTask(taskId: Long) = {
     system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(taskId)
+  }
+
+  override def pendingTasks(userId: Int) = {
+    val taskQuery = for {
+      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
+      if job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
+    } yield (job, agent, vehicle)
+    db.run(taskQuery.result)
   }
 }

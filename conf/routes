@@ -40,6 +40,7 @@ GET           /api/v1/tasks                            @controllers.TasksControl
 POST          /api/v1/tasks/refresh                    @controllers.TasksController.onTaskUpdate
 POST          /api/v1/tasks/complete                   @controllers.TasksController.completeTask
 GET           /api/v1/tasks/pending                    @controllers.TasksController.getPendingTask
+GET           /api/v2/tasks/pending                    @controllers.TasksController.getPendingTasks
 GET           /api/v1/tasks/active                     @controllers.TasksController.getActiveTask
 GET           /api/v1/tasks/:id                        @controllers.TasksController.getTask(id: Long)
 GET           /api/v1/tasks/agents/:id/coordinates     @controllers.TasksController.getAgentCoordinates(id: Long)
