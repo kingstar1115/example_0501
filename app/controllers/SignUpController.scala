@@ -37,7 +37,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
   val db = dbConfigProvider.get.db
 
-  def emailSignUp = Action.async(BodyParsers.parse.json) { implicit request =>
+  def emailSignUp(version: String) = Action.async(BodyParsers.parse.json) { implicit request =>
 
     def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) =
       Future.successful(validationFailed(JsError.toJson(errors)))
@@ -74,7 +74,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     request.body.validate[EmailSignUpDto].fold(onValidationFailed, onValidationPassed)
   }
 
-  def fbAuth = Action.async(BodyParsers.parse.json) { request =>
+  def fbAuth(version: String) = Action.async(BodyParsers.parse.json) { request =>
 
     def onValidationFailed(errors: Seq[(JsPath, Seq[ValidationError])]) =
       Future.successful(badRequest("Token required"))
@@ -112,7 +112,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     request.body.validate[FbTokenDto].fold(onValidationFailed, onValidationPassed)
   }
 
-  def fbSignUp = Action.async(BodyParsers.parse.json) { implicit request =>
+  def fbSignUp(version: String) = Action.async(BodyParsers.parse.json) { implicit request =>
     def onValidationSuccess(dto: FacebookSighUpDto) = {
       facebookMe(dto.token).flatMap { wsResponse =>
         wsResponse.status match {

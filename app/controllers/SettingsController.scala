@@ -11,7 +11,7 @@ import services.internal.settings.SettingsService
 class SettingsController @Inject()(val tokenStorage: TokenStorage,
                                    settingsService: SettingsService) extends BaseController {
 
-  def getSettings() = Action { request =>
+  def getSettings(version: String) = Action { request =>
     ok(settingsService.getPriceSettings)
   }
 }

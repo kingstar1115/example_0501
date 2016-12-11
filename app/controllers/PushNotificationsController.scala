@@ -14,7 +14,7 @@ class PushNotificationsController @Inject()(val tokenStorage: TokenStorage,
 
   implicit val deviceTokenReads = (__ \ 'token).read[String].map(DeviceToken.apply)
 
-  def subscribe() = authorized(parse.json) { request =>
+  def subscribe(version: String) = authorized(parse.json) { request =>
     processRequest[DeviceToken](request.body) { dto =>
       pushNotificationService.subscribeDevice(request.token.get.userInfo.id, dto.token) match {
         case true => success
@@ -23,7 +23,7 @@ class PushNotificationsController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def unsubscribe() = authorized(parse.json) { request =>
+  def unsubscribe(version: String) = authorized(parse.json) { request =>
     processRequest[DeviceToken](request.body) { dto =>
       pushNotificationService.unsubscribeDevice(request.token.get.userInfo.id, dto.token) match {
         case true => success

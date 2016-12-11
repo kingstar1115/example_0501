@@ -17,7 +17,7 @@ trait CRUDOperations[T, D] extends ApiActions {
     handleQuery(findByIdAndUserId(id, request.token.get.userInfo.id))
   }
 
-  def get(id: Int)(implicit writes: Writes[D]) = findOneById(id) { query =>
+  def get(version: String, id: Int)(implicit writes: Writes[D]) = findOneById(id) { query =>
     val db = dbConfigProvider.get.db
     db.run(query.result.headOption)
       .map { optValue =>
@@ -25,7 +25,7 @@ trait CRUDOperations[T, D] extends ApiActions {
       }
   }
 
-  def delete(id: Int) = findOneById(id) { query =>
+  def delete(version: String, id: Int) = findOneById(id) { query =>
     val db = dbConfigProvider.get.db
     db.run(query.delete).map {
       case 1 => ok("Success")
@@ -33,7 +33,7 @@ trait CRUDOperations[T, D] extends ApiActions {
     }
   }
 
-  def list(offset: Int, limit: Int)(implicit writes: Writes[D]) = authorized.async { request =>
+  def list(version: String, offset: Int, limit: Int)(implicit writes: Writes[D]) = authorized.async { request =>
     val db = dbConfigProvider.get.db
     val query = findByUser(request.token.get.userInfo.id)
     db.run(query.length.result zip query.take(limit).drop(offset)

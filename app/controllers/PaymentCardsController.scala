@@ -27,7 +27,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
-  def addPaymentCard() = authorized.async(parse.json) { request =>
+  def addPaymentCard(version: String) = authorized.async(parse.json) { request =>
     processRequestF[PaymentSource](request.body) { dto =>
       val userId = request.token.get.userInfo.id
 
@@ -59,7 +59,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def removePaymentCard(id: String) = authorized.async { request =>
+  def removePaymentCard(version: String, id: String) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val userQuery = for {
       user <- Users if user.id === userId && user.stripeId.isDefined
@@ -85,7 +85,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def listPaymentCards = authorized.async { request =>
+  def listPaymentCards(version: String) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val userQuery = for {
       user <- Users if user.id === userId && user.stripeId.isDefined
