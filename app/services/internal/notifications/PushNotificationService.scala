@@ -7,8 +7,6 @@ trait PushNotificationService {
 
   def getCacheService: CacheService
 
-  def sendJobAcceptedNotification(data: JobNotificationData, token: String): Unit
-
   def sendJobStartedNotification(data: JobNotificationData, token: String): Unit
 
   def sendJobInProgressNotification(data: JobNotificationData, token: String): Unit
