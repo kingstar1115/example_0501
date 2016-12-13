@@ -41,18 +41,6 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
       .map(_ => Logger.info("APNs service is stopped"))
   }
 
-  override def sendJobAcceptedNotification(data: JobNotificationData, token: String): Unit = {
-    sendNotification(token, data) { data =>
-      Logger.debug(s"Building job accepted notification: ${data.toString}")
-      new ApnsPayloadBuilder()
-        .addCustomProperty(JobId, data.jobId)
-        .addCustomProperty(JobStatus, data.jobStatus)
-        .setAlertBody(s"Car Wash was Accepted by ${data.agentName}.")
-        .setAlertTitle("Car wash accepted")
-        .buildWithDefaultMaximumLength()
-    }
-  }
-
   override def sendJobStartedNotification(data: JobNotificationData, token: String): Unit = {
     sendNotification(token, data) { data =>
       Logger.debug(s"Building job started notification: ${data.toString}")

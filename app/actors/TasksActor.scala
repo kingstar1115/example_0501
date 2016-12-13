@@ -85,8 +85,6 @@ class TasksActor(tookanService: TookanService,
       pushNotificationService.getUserDeviceTokens(job.userId)
         .foreach { token =>
           jobStatus match {
-            case x if x == Accepted.code =>
-              pushNotificationService.sendJobAcceptedNotification(data, token)
             case x if x == Started.code =>
               pushNotificationService.sendJobStartedNotification(data, token)
             case x if x == InProgress.code =>
