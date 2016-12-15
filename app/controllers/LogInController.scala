@@ -81,8 +81,8 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
           val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
           mailService.sendPasswordForgetEmail(user.email, recoverURL)
           db.run(Users.filter(_.id === user.id).map(_.code).update(Option(code))).map {
-            case 1 => ok("Instruction send to specified email")
-            case _ => badRequest("Oops, something went wrong", CommonError)
+            case 1 => ok("Check your email for further instructions")
+            case _ => badRequest("User not found", CommonError)
           }
       }
   }
