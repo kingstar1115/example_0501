@@ -58,7 +58,10 @@ class TookanService @Inject()(ws: WSClient,
 
   def deleteTask(jobId: Long) = {
     buildRequest(DeleteTask)
-      .post(Json.toJson(DeleteTaskDto.default(jobId)))
+      .post(Json.obj(
+        "access_token" -> config.key,
+        "job_id" -> jobId.toString
+      ))
       .map(response => response.getResponse)
   }
 
@@ -292,16 +295,6 @@ object TookanService {
         (__ \ "job_token").read[String]
       ) (AppointmentResponse.apply _)
     implicit val taskDtoWrites: Writes[AppointmentResponse] = Json.writes[AppointmentResponse]
-  }
-
-  case class DeleteTaskDto(accessToken: String,
-                           jobId: Long)
-
-  object DeleteTaskDto {
-
-    def default(jobId: Long)(implicit config: Config) = new DeleteTaskDto(config.key, jobId)
-
-    implicit val deleteTaskWrites: Format[DeleteTaskDto] = Json.format[DeleteTaskDto]
   }
 
   case class Fields(images: List[String])

@@ -66,7 +66,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def createAnonymousTask = Action.async(BodyParsers.parse.json) { request =>
+  def createAnonymousTask(version: String) = Action.async(BodyParsers.parse.json) { request =>
     processRequestF[AnonymousTaskDto](request.body) { implicit dto =>
       taskService.createTaskForAnonymous(dto) map {
         case Left(error) => badRequest(error.message)
@@ -75,7 +75,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def cancelTask(id: Long) = authorized.async { request =>
+  def cancelTask(version: String, id: Long) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val selectQuery = for {
       job <- Jobs
@@ -110,20 +110,26 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def getPendingTask = authorized.async { request =>
-    val taskQuery = for {
-      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
-      if job.jobStatus === Successful.code && job.submitted === false && job.userId === request.token.get.userInfo.id
-    } yield (job, agent, vehicle)
-    db.run(taskQuery.result.headOption).map { rowOpt =>
-      val pendingTaskOpt = rowOpt.map { row =>
+    taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
+      val pendingTask = resultSet.headOption.map { row =>
         implicit val job = row._1
         mapToDto(row)(toListDto)
       }
-      ok(pendingTaskOpt)
+      ok(pendingTask)
     }
   }
 
-  def completeTask = authorized.async(BodyParsers.parse.json) { request =>
+  def getPendingTasks = authorized.async { request =>
+    taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
+      val pendingTasks = resultSet.map { row =>
+        implicit val job = row._1
+        mapToDto(row)(toListDto)
+      }
+      ok(pendingTasks)
+    }
+  }
+
+  def completeTask(version: String) = authorized.async(BodyParsers.parse.json) { request =>
     processRequestF[CompleteTaskDto](request.body) { dto =>
 
       val userId = request.token.get.userInfo.id
@@ -171,7 +177,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def listTasks(offset: Int, limit: Int) = authorized.async { request =>
+  def listTasks(version: String, offset: Int, limit: Int) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val inStatuses = request.queryString.get("status").map(_.map(_.toInt).toSet)
     val notInStatuses = request.queryString.get("ignore").map(_.map(_.toInt).toSet)
@@ -195,7 +201,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       }
   }
 
-  def getTask(id: Long) = authorized.async { request =>
+  def getTask(version: String, id: Long) = authorized.async { request =>
     val selectQuery = for {
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.userId === request.token.get.userInfo.id && job.jobId === id
@@ -206,7 +212,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }.getOrElse(notFound))
   }
 
-  def onTaskUpdate = Action { implicit request =>
+  def onTaskUpdate(version: String) = Action { implicit request =>
     val formData = Form(mapping(
       "job_id" -> Forms.longNumber,
       "job_status" -> Forms.number
@@ -216,7 +222,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     NoContent
   }
 
-  def getAgentCoordinates(fleetId: Long) = authorized.async { request =>
+  def getAgentCoordinates(version: String, fleetId: Long) = authorized.async { request =>
     tookanService.getAgentCoordinates(fleetId).map {
       case Right(coordinates) =>
         ok(coordinates)
@@ -225,7 +231,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def getActiveTask = authorized.async { request =>
+  def getActiveTask(version: String) = authorized.async { request =>
     val selectQuery = for {
       ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if job.userId === request.token.get.userInfo.id && job.jobStatus.inSet(TaskStatuses.activeStatuses)

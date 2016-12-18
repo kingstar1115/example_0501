@@ -1,69 +1,69 @@
 # API controllers
 # Sign up
-POST          /api/v1/sign-up                          @controllers.SignUpController.emailSignUp
-POST          /api/v1/fb-auth                          @controllers.SignUpController.fbAuth
-POST          /api/v1/fb-sign-up                       @controllers.SignUpController.fbSignUp
+POST          /api/$version<v[1-2]{1}>/sign-up                          @controllers.SignUpController.emailSignUp(version)
+POST          /api/$version<v[1-2]{1}>/fb-auth                          @controllers.SignUpController.fbAuth(version)
+POST          /api/$version<v[1-2]{1}>/fb-sign-up                       @controllers.SignUpController.fbSignUp(version)
 
 
 
 # Log in
-POST          /api/v1/log-in                           @controllers.LogInController.logIn
-GET           /api/v1/log-out                          @controllers.LogInController.logOut
-POST          /api/v1/forget-password                  @controllers.LogInController.forgotPasswordV1
-POST          /api/v2/forget-password                  @controllers.LogInController.forgotPasswordV2
+POST          /api/$version<v[1-2]{1}>/log-in                           @controllers.LogInController.logIn(version)
+GET           /api/$version<v[1-2]{1}>/log-out                          @controllers.LogInController.logOut(version)
+POST          /api/$version<v[1-2]{1}>/forget-password                  @controllers.LogInController.forgotPassword(version)
 
 # Phone verification
-POST          /api/v1/phone/verify/:code               @controllers.PhoneVerificationController.verifyCode(code)
-POST          /api/v1/phone/resend                     @controllers.PhoneVerificationController.resendCode
-POST          /api/v1/phone/change                     @controllers.PhoneVerificationController.changePhoneNumber
+POST          /api/$version<v[1-2]{1}>/phone/verify/:code               @controllers.PhoneVerificationController.verifyCode(version, code)
+POST          /api/$version<v[1-2]{1}>/phone/resend                     @controllers.PhoneVerificationController.resendCode(version)
+POST          /api/$version<v[1-2]{1}>/phone/change                     @controllers.PhoneVerificationController.changePhoneNumber(version)
 
 # User profile
-POST          /api/v1/profile/change-password          @controllers.UserProfileController.changePassword
-PUT           /api/v1/profile/picture                  @controllers.UserProfileController.uploadProfilePicture
-GET           /api/v1/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(fileName)
-GET           /api/v1/profile                          @controllers.UserProfileController.getProfileInfo
-PUT           /api/v1/profile/update                   @controllers.UserProfileController.updateProfile
-PUT           /api/v1/profile/default-payment-method   @controllers.UserProfileController.updateDefaultPaymentMethod
+POST          /api/$version<v[1-2]{1}>/profile/change-password          @controllers.UserProfileController.changePassword(version)
+PUT           /api/$version<v[1-2]{1}>/profile/picture                  @controllers.UserProfileController.uploadProfilePicture(version)
+GET           /api/$version<v[1-2]{1}>/profile/picture/:fileName        @controllers.UserProfileController.getProfilePicture(version, fileName)
+GET           /api/$version<v[1-2]{1}>/profile                          @controllers.UserProfileController.getProfileInfo(version)
+PUT           /api/$version<v[1-2]{1}>/profile/update                   @controllers.UserProfileController.updateProfile(version)
+PUT           /api/$version<v[1-2]{1}>/profile/default-payment-method   @controllers.UserProfileController.updateDefaultPaymentMethod(version)
 
 #Locations
-GET           /api/v1/locations/:id                    @controllers.LocationController.get(id: Int)
-POST          /api/v1/locations/new                    @controllers.LocationController.create
-DELETE        /api/v1/locations/:id                    @controllers.LocationController.delete(id: Int)
-GET           /api/v1/locations                        @controllers.LocationController.list(offset: Int = 0, limit: Int = 10)
-PUT           /api/v1/locations/:id                    @controllers.LocationController.update(id: Int)
+GET           /api/$version<v[1-2]{1}>/locations/:id                    @controllers.LocationController.get(version, id: Int)
+POST          /api/$version<v[1-2]{1}>/locations/new                    @controllers.LocationController.create(version)
+DELETE        /api/$version<v[1-2]{1}>/locations/:id                    @controllers.LocationController.delete(version, id: Int)
+GET           /api/$version<v[1-2]{1}>/locations                        @controllers.LocationController.list(version, offset: Int = 0, limit: Int = 10)
+PUT           /api/$version<v[1-2]{1}>/locations/:id                    @controllers.LocationController.update(version, id: Int)
 
 #Tasks
-POST          /api/v1/tasks/new                        @controllers.TasksController.createTask
-POST          /api/v2/tasks/new                        @controllers.TasksController.createCustomerTask
-POST          /api/v1/tasks/anonymous/new              @controllers.TasksController.createAnonymousTask
-GET           /api/v1/tasks                            @controllers.TasksController.listTasks(offset: Int = 0, limit: Int = 10)
-POST          /api/v1/tasks/refresh                    @controllers.TasksController.onTaskUpdate
-POST          /api/v1/tasks/complete                   @controllers.TasksController.completeTask
-GET           /api/v1/tasks/pending                    @controllers.TasksController.getPendingTask
-GET           /api/v1/tasks/active                     @controllers.TasksController.getActiveTask
-GET           /api/v1/tasks/:id                        @controllers.TasksController.getTask(id: Long)
-GET           /api/v1/tasks/agents/:id/coordinates     @controllers.TasksController.getAgentCoordinates(id: Long)
-GET           /api/v1/tasks/:id/cancel                 @controllers.TasksController.cancelTask(id: Long)
+POST          /api/v1/tasks/new                                         @controllers.TasksController.createTask
+POST          /api/v2/tasks/new                                         @controllers.TasksController.createCustomerTask
+POST          /api/$version<v[2]{1}>/tasks/anonymous/new                @controllers.TasksController.createAnonymousTask(version)
+GET           /api/$version<v[1-2]{1}>/tasks                            @controllers.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
+POST          /api/$version<v[1-2]{1}>/tasks/refresh                    @controllers.TasksController.onTaskUpdate(version)
+POST          /api/$version<v[1-2]{1}>/tasks/complete                   @controllers.TasksController.completeTask(version)
+GET           /api/v1/tasks/pending                                     @controllers.TasksController.getPendingTask
+GET           /api/v2/tasks/pending                                     @controllers.TasksController.getPendingTasks
+GET           /api/$version<v[1-2]{1}>/tasks/active                     @controllers.TasksController.getActiveTask(version)
+GET           /api/$version<v[1-2]{1}>/tasks/:id                        @controllers.TasksController.getTask(version, id: Long)
+GET           /api/$version<v[1-2]{1}>/tasks/agents/:id/coordinates     @controllers.TasksController.getAgentCoordinates(version, id: Long)
+GET           /api/$version<v[1-2]{1}>/tasks/:id/cancel                 @controllers.TasksController.cancelTask(version, id: Long)
 
 #Vehicles
-GET           /api/v1/vehicles/makers                  @controllers.VehiclesController.getVehiclesMakers
-GET           /api/v1/vehicles/:id                     @controllers.VehiclesController.get(id: Int)
-POST          /api/v1/vehicles/new                     @controllers.VehiclesController.create
-DELETE        /api/v1/vehicles/:id                     @controllers.VehiclesController.delete(id: Int)
-GET           /api/v1/vehicles                         @controllers.VehiclesController.list(offset: Int = 0, limit: Int = 10)
-PUT           /api/v1/vehicles/:id                     @controllers.VehiclesController.update(id: Int)
+GET           /api/$version<v[1-2]{1}>/vehicles/makers                  @controllers.VehiclesController.getVehiclesMakers(version)
+GET           /api/$version<v[1-2]{1}>/vehicles/:id                     @controllers.VehiclesController.get(version, id: Int)
+POST          /api/$version<v[1-2]{1}>/vehicles/new                     @controllers.VehiclesController.create(version)
+DELETE        /api/$version<v[1-2]{1}>/vehicles/:id                     @controllers.VehiclesController.delete(version, id: Int)
+GET           /api/$version<v[1-2]{1}>/vehicles                         @controllers.VehiclesController.list(version, offset: Int = 0, limit: Int = 10)
+PUT           /api/$version<v[1-2]{1}>/vehicles/:id                     @controllers.VehiclesController.update(version, id: Int)
 
 #Payment Cards
-POST          /api/v1/cards/new                        @controllers.PaymentCardsController.addPaymentCard
-GET           /api/v1/cards                            @controllers.PaymentCardsController.listPaymentCards
-DELETE        /api/v1/cards/:id                        @controllers.PaymentCardsController.removePaymentCard(id: String)
+POST          /api/$version<v[1-2]{1}>/cards/new                        @controllers.PaymentCardsController.addPaymentCard(version)
+GET           /api/$version<v[1-2]{1}>/cards                            @controllers.PaymentCardsController.listPaymentCards(version)
+DELETE        /api/$version<v[1-2]{1}>/cards/:id                        @controllers.PaymentCardsController.removePaymentCard(version, id: String)
 
 #Notifications
-POST          /api/v1/notifications/subscribe          @controllers.PushNotificationsController.subscribe
-POST          /api/v1/notifications/unsubscribe        @controllers.PushNotificationsController.unsubscribe
+POST          /api/$version<v[1-2]{1}>/notifications/subscribe          @controllers.PushNotificationsController.subscribe(version)
+POST          /api/$version<v[1-2]{1}>/notifications/unsubscribe        @controllers.PushNotificationsController.unsubscribe(version)
 
 #Settings
-GET           /api/v1/settings                         @controllers.SettingsController.getSettings
+GET           /api/$version<v[1-2]{1}>/settings                         @controllers.SettingsController.getSettings(version)
 
 # Web controllers
 # Password recovery

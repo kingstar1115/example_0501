@@ -21,18 +21,18 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
-  def create = authorized.async(parse.json) { implicit request =>
+  def create(version: String) = authorized.async(parse.json) { implicit request =>
     processRequestF[LocationDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Locations.map(l => (l.userId, l.title, l.formattedAddress, l.latitude,
         l.longitude, l.address, l.apartments, l.zipCode, l.notes)) returning Locations.map(_.id) +=(userId, dto.title,
         dto.formattedAddress, dto.latitude, dto.longitude, dto.address, dto.apartments, dto.zipCode, dto.notes)
 
-      db.run(createQuery).map(locationId => created(routes.LocationController.get(locationId).absoluteURL()))
+      db.run(createQuery).map(locationId => created(routes.LocationController.get(version, locationId).absoluteURL()))
     }
   }
 
-  def update(id: Int) = authorized.async(parse.json) { request =>
+  def update(version: String, id: Int) = authorized.async(parse.json) { request =>
     val userId = request.token.get.userInfo.id
     val existQuery = for {
       l <- Locations if l.userId === userId && l.id === id
