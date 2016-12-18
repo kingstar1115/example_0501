@@ -75,6 +75,15 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
+  def createPartnershipTask(version: String) = Action.async(BodyParsers.parse.json) { request =>
+    processRequestF[PartnershipTaskDto](request.body) { implicit dto =>
+      taskService.createPartnershipTask(dto) map {
+        case Left(error) => badRequest(error.message)
+        case Right(tookanTask) => ok(tookanTask)
+      }
+    }
+  }
+
   def cancelTask(version: String, id: Long) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val selectQuery = for {
@@ -324,8 +333,10 @@ object TasksController {
     ) (TaskDto.apply _)
 
 
+  implicit val vehicleDetailsFormat = Json.format[VehicleDetailsDto]
+
   implicit val anonymousPaymentDetailsFormat = Json.format[AnonymousPaymentDetails]
-  implicit val anonymousVehicleDetailsFormat = Json.format[AnonymousVehicleDetailsDto]
+  implicit val partnershipPaymentDetailsFormat = Json.format[PartnershipPaymentDetails]
   implicit val customerPaymentDetailsReads: Reads[CustomerPaymentDetails] = (
     (__ \ "promotion").readNullable[Int] and
       (__ \ "hasInteriorCleaning").read[Boolean] and
@@ -346,7 +357,6 @@ object TasksController {
       (__ \ "vehicleId").read[Int] and
       (__ \ "paymentDetails").read[CustomerPaymentDetails]
     ) (CustomerTaskDto.apply _)
-
   implicit val anonymousTaskReads: Reads[AnonymousTaskDto] = (
     (__ \ "description").read[String] and
       (__ \ "name").read[String] and
@@ -356,9 +366,21 @@ object TasksController {
       (__ \ "latitude").read[Double] and
       (__ \ "longitude").read[Double] and
       (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
-      (__ \ "vehicle").read[AnonymousVehicleDetailsDto] and
+      (__ \ "vehicle").read[VehicleDetailsDto] and
       (__ \ "paymentDetails").read[AnonymousPaymentDetails]
     ) (AnonymousTaskDto.apply _)
+  implicit val partnershipTaskReads: Reads[PartnershipTaskDto] = (
+    (__ \ "description").read[String] and
+      (__ \ "name").read[String] and
+      (__ \ "email").readNullable[String] and
+      (__ \ "phone").read[String] and
+      (__ \ "address").read[String] and
+      (__ \ "latitude").read[Double] and
+      (__ \ "longitude").read[Double] and
+      (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
+      (__ \ "vehicle").read[VehicleDetailsDto] and
+      (__ \ "paymentDetails").read[PartnershipPaymentDetails]
+    ) (PartnershipTaskDto.apply _)
 
   case class TipDto(amount: Int,
                     cardId: Option[String],

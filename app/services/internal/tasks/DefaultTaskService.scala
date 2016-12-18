@@ -70,7 +70,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     } yield v
     db.run(vehicleQuery.result.head).flatMap { vehicle =>
       val metadata = getVehicleMetadata(vehicle, taskDto.paymentDetails.hasInteriorCleaning)
-      createTask(metadata)(pay _)(saveTask _)
+      createPaidTask(metadata)(pay _)(saveTask _)
     }
   }
 
@@ -87,14 +87,21 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createTaskForAnonymous(implicit taskDto: AnonymousTaskDto): Future[Either[ServerError, AppointmentResponse]] = {
     val metadata = getVehicleMetadata(taskDto.vehicle, taskDto.paymentDetails.hasInteriorCleaning)
-    createTask(metadata) { (price, jobId) =>
+    createPaidTask(metadata) { (price, jobId) =>
       stripeService.charge(price, taskDto.paymentDetails.token, jobId)
     } { (price, chargeId, tookanTask) =>
       Future(Right(tookanTask))
     }
   }
 
-  private def getVehicleMetadata(vehicleDto: AnonymousVehicleDetailsDto, hasInteriorCleaning: Boolean): Seq[Metadata] = {
+  override def createPartnershipTask(implicit taskDto: PartnershipTaskDto): Future[Either[ServerError, AppointmentResponse]] = {
+    val metadata = getVehicleMetadata(taskDto.vehicle, taskDto.paymentDetails.hasInteriorCleaning)
+    createTask(metadata) { (dto, tookanTask) =>
+      Future(Right(tookanTask))
+    }
+  }
+
+  private def getVehicleMetadata(vehicleDto: VehicleDetailsDto, hasInteriorCleaning: Boolean): Seq[Metadata] = {
     Seq(
       Metadata(Metadata.maker, vehicleDto.maker),
       Metadata(Metadata.model, vehicleDto.model),
@@ -105,11 +112,23 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   private def createTask(metadata: Seq[Metadata])
-                        (pay: (Int, Long) => Future[Either[ErrorResponse, Charge]])
-                        (saveTask: (Int, Option[String], AppointmentResponse) => Future[Either[ServerError, AppointmentResponse]])
+                        (onTaskCreated: (BaseTaskDto, AppointmentResponse) => Future[Either[ServerError, AppointmentResponse]])
                         (implicit dto: BaseTaskDto): Future[Either[ServerError, AppointmentResponse]] = {
+    tookanService.createAppointment(dto.name, dto.phone, dto.address, dto.description,
+      dto.dateTime, Option(dto.latitude), Option(dto.longitude), dto.email, metadata).flatMap {
+      case Left(error) =>
+        val tookanError = ServerError(error.message, Option(TookanError))
+        Future.successful(Left(tookanError))
+      case Right(task) =>
+        onTaskCreated(dto, task)
+    }
+  }
 
-    def processPayment(implicit tookanTask: AppointmentResponse) = {
+  private def createPaidTask(metadata: Seq[Metadata])
+                            (pay: (Int, Long) => Future[Either[ErrorResponse, Charge]])
+                            (saveTask: (Int, Option[String], AppointmentResponse) => Future[Either[ServerError, AppointmentResponse]])
+                            (implicit dto: BaseTaskDto): Future[Either[ServerError, AppointmentResponse]] = {
+    def onTaskCreated(dto: BaseTaskDto, tookanTask: AppointmentResponse) = {
       val basePrice = getBasePrice(dto.paymentDetails.hasInteriorCleaning)
       val price = calculatePrice(basePrice, dto.paymentDetails.promotion)
       price match {
@@ -127,15 +146,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
           saveTask(basePrice, None, tookanTask);
       }
     }
-
-    tookanService.createAppointment(dto.name, dto.phone, dto.address, dto.description,
-      dto.dateTime, Option(dto.latitude), Option(dto.longitude), dto.email, metadata).flatMap {
-      case Left(error) =>
-        val tookanError = ServerError(error.message, Option(TookanError))
-        Future.successful(Left(tookanError))
-      case Right(task) =>
-        processPayment(task)
-    }
+    createTask(metadata)(onTaskCreated _)
   }
 
   private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None): Int = {

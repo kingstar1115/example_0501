@@ -17,13 +17,14 @@ trait TasksService {
 
   def createTaskForAnonymous(implicit taskDto: AnonymousTaskDto): Future[Either[ServerError, AppointmentResponse]]
 
+  def createPartnershipTask(implicit taskDto: PartnershipTaskDto): Future[Either[ServerError, AppointmentResponse]]
+
   @Deprecated
   def createTask(dto: TaskDto, userId: Int): Future[Either[ServerError, AppointmentResponse]]
 
   def refreshTask(taskId: Long): Unit
 
   def pendingTasks(userId: Int): Future[Seq[(JobsRow, Option[AgentsRow], VehiclesRow)]]
-
 }
 
 object TasksService {
@@ -43,11 +44,14 @@ object TasksService {
                                      promotion: Option[Int],
                                      hasInteriorCleaning: Boolean) extends PaymentDetails
 
-  case class AnonymousVehicleDetailsDto(maker: String,
-                                        model: String,
-                                        year: Int,
-                                        color: String,
-                                        licPlate: Option[String])
+  case class PartnershipPaymentDetails(promotion: Option[Int],
+                                       hasInteriorCleaning: Boolean) extends PaymentDetails
+
+  case class VehicleDetailsDto(maker: String,
+                               model: String,
+                               year: Int,
+                               color: String,
+                               licPlate: Option[String])
 
 
   trait BaseTaskDto {
@@ -90,8 +94,19 @@ object TasksService {
                               latitude: Double,
                               longitude: Double,
                               dateTime: LocalDateTime,
-                              vehicle: AnonymousVehicleDetailsDto,
+                              vehicle: VehicleDetailsDto,
                               paymentDetails: AnonymousPaymentDetails) extends BaseTaskDto
+
+  case class PartnershipTaskDto(description: String,
+                                name: String,
+                                email: Option[String],
+                                phone: String,
+                                address: String,
+                                latitude: Double,
+                                longitude: Double,
+                                dateTime: LocalDateTime,
+                                vehicle: VehicleDetailsDto,
+                                paymentDetails: PartnershipPaymentDetails) extends BaseTaskDto
 
   case class TaskDto(token: Option[String],
                      cardId: Option[String],
