@@ -34,7 +34,7 @@ PUT           /api/$version<v[1-2]{1}>/locations/:id                    @control
 #Tasks
 POST          /api/v1/tasks/new                                         @controllers.TasksController.createTask
 POST          /api/v2/tasks/new                                         @controllers.TasksController.createCustomerTask
-POST          /api/$version<v[2]{1}>/tasks/anonymous/new                @controllers.TasksController.createAnonymousTask(version)
+POST          /api/$version<v[1-2]{1}>/tasks/anonymous/new              @controllers.TasksController.createAnonymousTask(version)
 GET           /api/$version<v[1-2]{1}>/tasks                            @controllers.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
 POST          /api/$version<v[1-2]{1}>/tasks/refresh                    @controllers.TasksController.onTaskUpdate(version)
 POST          /api/$version<v[1-2]{1}>/tasks/complete                   @controllers.TasksController.completeTask(version)
