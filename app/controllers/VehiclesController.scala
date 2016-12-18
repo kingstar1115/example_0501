@@ -23,7 +23,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
-  def getVehiclesMakers = Action.async {
+  def getVehiclesMakers(version: String) = Action.async {
     edmundsService.getCarMakers()
       .map { makersOpt =>
         makersOpt
@@ -32,7 +32,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
       }
   }
 
-  def create() = authorized.async(parse.json) { implicit request =>
+  def create(version: String) = authorized.async(parse.json) { implicit request =>
     processRequestF[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
@@ -40,11 +40,11 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
         dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate, userId)
 
       db.run(createQuery)
-        .map(vehiclesId => created(routes.VehiclesController.get(vehiclesId).absoluteURL()))
+        .map(vehiclesId => created(routes.VehiclesController.get(version, vehiclesId).absoluteURL()))
     }(vehicleDtoFormat)
   }
 
-  def update(id: Int) = authorized.async(parse.json) { request =>
+  def update(version: String, id: Int) = authorized.async(parse.json) { request =>
     processRequestF[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val updateQuery = Vehicles.filter(v => v.id === id && v.userId === userId && v.deleted === false)
@@ -58,7 +58,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  override def delete(id: Int) = authorized.async { request =>
+  override def delete(version: String, id: Int) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val deleteQuery = for {
       v <- Vehicles if v.userId === userId && v.id === id && v.deleted === false

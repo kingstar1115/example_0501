@@ -53,7 +53,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
   val picturesFolder = fileService.getFolder("pictures")
   val db = dbConfigProvider.get.db
 
-  def getProfileInfo = authorized.async { request =>
+  def getProfileInfo(version: String) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
 
     val userQuery = for {u <- Users if u.id === userId} yield u
@@ -64,7 +64,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def changePassword = authorized.async(BodyParsers.parse.json) { request =>
+  def changePassword(version: String) = authorized.async(BodyParsers.parse.json) { request =>
     processRequestF[PasswordChangeDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val userQuery = for {
@@ -90,7 +90,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def uploadProfilePicture = authorized.async(parse.multipartFormData) { implicit request =>
+  def uploadProfilePicture(version: String) = authorized.async(parse.multipartFormData) { implicit request =>
     request.body.file("picture").map { requestFile =>
       val token = request.token.get
       val userId = token.userInfo.id
@@ -102,7 +102,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
         val newFile = new File(picturesFolder, newFileName)
         fileService.moveFile(tempFile, newFile)
 
-        val newPictureUrl = routes.UserProfileController.getProfilePicture(newFileName).absoluteURL()
+        val newPictureUrl = routes.UserProfileController.getProfilePicture(version, newFileName).absoluteURL()
         val pictureQuery = Users.filter(_.id === userId).map(_.profilePicture)
         val updateQuery = Users.filter(_.id === userId).map(_.profilePicture).update(Some(newPictureUrl))
 
@@ -126,11 +126,11 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }.getOrElse(Future.successful(badRequest("Field picture required")))
   }
 
-  def getProfilePicture(fileName: String) = Action { request =>
+  def getProfilePicture(version: String, fileName: String) = Action { request =>
     Ok.sendFile(new File(picturesFolder, fileName))
   }
 
-  def updateProfile() = authorized.async(parse.json) { request =>
+  def updateProfile(version: String) = authorized.async(parse.json) { request =>
     processRequestF[UserUpdateDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val updateQuery = Users.filter(user => user.id === userId && user.verified === true)
@@ -142,7 +142,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def updateDefaultPaymentMethod() = authorized.async(parse.json) { request =>
+  def updateDefaultPaymentMethod(version: String) = authorized.async(parse.json) { request =>
     processRequestF[PaymentMethod](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val paymentMethodOpt = Try(PaymentMethods.withName(dto.name))

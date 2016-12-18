@@ -32,7 +32,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
   val db = dbConfigProvider.get.db
 
-  def logIn = Action.async(BodyParsers.parse.json) { request =>
+  def logIn(version: String) = Action.async(BodyParsers.parse.json) { request =>
     processRequestF[EmailLogInDto](request.body) { dto =>
       val userQuery = for {
         u <- Tables.Users if u.email === dto.email && u.userType === 0
@@ -52,20 +52,21 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  def logOut = authorized { request =>
+  def logOut(version: String) = authorized { request =>
     tokenStorage.deleteToken(request.token.get)
     ok("Success log out")
   }
 
-  def forgotPasswordV1 = Action.async(BodyParsers.parse.json) { implicit request =>
-    processRequestF[FbTokenDto](request.body) { dto =>
-      forgotPasswordInternal(dto.token)
-    }
-  }
-
-  def forgotPasswordV2 = Action.async(BodyParsers.parse.json) { implicit request =>
-    processRequestF[ForgotPasswordDto](request.body) { dto =>
-      forgotPasswordInternal(dto.email)
+  def forgotPassword(version: String) = Action.async(BodyParsers.parse.json) { implicit request =>
+    version match {
+      case "v1" =>
+        processRequestF[FbTokenDto](request.body) { dto =>
+          forgotPasswordInternal(dto.token)
+        }
+      case "v2" =>
+        processRequestF[ForgotPasswordDto](request.body) { dto =>
+          forgotPasswordInternal(dto.email)
+        }
     }
   }
 
@@ -80,8 +81,8 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
           val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
           mailService.sendPasswordForgetEmail(user.email, recoverURL)
           db.run(Users.filter(_.id === user.id).map(_.code).update(Option(code))).map {
-            case 1 => ok("Instruction send to specified email")
-            case _ => badRequest("Oops, something went wrong", CommonError)
+            case 1 => ok("Check your email for further instructions")
+            case _ => badRequest("User not found", CommonError)
           }
       }
   }

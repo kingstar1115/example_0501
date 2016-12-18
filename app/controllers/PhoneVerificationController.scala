@@ -25,7 +25,7 @@ class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProv
 
   val db = dbConfigProvider.get.db
 
-  def verifyCode(code: String) = authorized.async { request =>
+  def verifyCode(version: String, code: String) = authorized.async { request =>
     val token = request.token.get
     val user = token.userInfo
     val userQuery = for {u <- Users if u.id === user.id && u.verified === false} yield (u.phoneCode, u.phone)
@@ -49,7 +49,7 @@ class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProv
     }
   }
 
-  def resendCode = authorized.async { request =>
+  def resendCode(version: String) = authorized.async { request =>
     val phoneQuery = for {u <- Users if u.id === request.token.get.userInfo.id} yield (u.phoneCode, u.phone)
     db.run(phoneQuery.result) flatMap { r =>
       verifyService.sendVerifyCode(r.head._1.toInt, r.head._2) map {
@@ -61,7 +61,7 @@ class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProv
     }
   }
 
-  def changePhoneNumber = authorized.async(BodyParsers.parse.json) { request =>
+  def changePhoneNumber(version: String) = authorized.async(BodyParsers.parse.json) { request =>
     request.body.validate[PhoneChangeDto] match {
       case JsError(errors) => Future.successful(validationFailed(JsError.toJson(errors)))
 
