@@ -13,14 +13,11 @@ import scala.concurrent.Future
 @ImplementedBy(classOf[DefaultTaskService])
 trait TasksService {
 
-  def createTaskForCustomer(userId: Int)(implicit taskDto: CustomerTaskDto): Future[Either[ServerError, AppointmentResponse]]
+  def createTaskForCustomer(implicit appointmentTask: PaidAppointmentTask, userId: Int, vehicle: Int): Future[Either[ServerError, AppointmentResponse]]
 
-  def createTaskForAnonymous(implicit taskDto: AnonymousTaskDto): Future[Either[ServerError, AppointmentResponse]]
+  def createTaskForAnonymous(implicit appointmentTask: PaidAppointmentTask, user: User, vehicle: Vehicle): Future[Either[ServerError, AppointmentResponse]]
 
-  def createPartnershipTask(implicit taskDto: PartnershipTaskDto): Future[Either[ServerError, AppointmentResponse]]
-
-  @Deprecated
-  def createTask(dto: TaskDto, userId: Int): Future[Either[ServerError, AppointmentResponse]]
+  def createPartnershipTask(implicit appointmentTask: AppointmentTask, user: User, vehicle: Vehicle): Future[Either[ServerError, AppointmentResponse]]
 
   def refreshTask(taskId: Long): Unit
 
@@ -29,39 +26,46 @@ trait TasksService {
 
 object TasksService {
 
-  trait PaymentDetails {
-    def promotion: Option[Int]
 
-    def hasInteriorCleaning: Boolean
-  }
-
-  case class CustomerPaymentDetails(promotion: Option[Int],
-                                    hasInteriorCleaning: Boolean,
-                                    token: Option[String],
-                                    cardId: Option[String]) extends PaymentDetails
-
-  case class AnonymousPaymentDetails(token: String,
-                                     promotion: Option[Int],
-                                     hasInteriorCleaning: Boolean) extends PaymentDetails
-
-  case class PartnershipPaymentDetails(promotion: Option[Int],
-                                       hasInteriorCleaning: Boolean) extends PaymentDetails
-
-  case class VehicleDetailsDto(maker: String,
-                               model: String,
-                               year: Int,
-                               color: String,
-                               licPlate: Option[String])
-
-
-  trait BaseTaskDto {
-    def description: String
-
+  trait AbstractUser {
     def name: String
 
-    def email: Option[String]
-
     def phone: String
+
+    def email: Option[String]
+  }
+
+  case class User(name: String, phone: String, email: Option[String]) extends AbstractUser
+
+  case class PersistedUser(id: Int, name: String, phone: String, email: Option[String], stipeId: Option[String]) extends AbstractUser
+
+  trait AbstractVehicle {
+    def maker: String
+
+    def model: String
+
+    def year: Int
+
+    def color: String
+
+    def licPlate: Option[String]
+  }
+
+  case class Vehicle(maker: String, model: String, year: Int, color: String, licPlate: Option[String])
+    extends AbstractVehicle
+
+  case class PersistedVehicle(maker: String, model: String, year: Int, color: String, licPlate: Option[String], id: Int)
+    extends AbstractVehicle
+
+
+  abstract sealed class PaymentInformation
+
+  case class CustomerPaymentInformation(token: Option[String], cardId: Option[String]) extends PaymentInformation
+
+  case class AnonymousPaymentInformation(token: String) extends PaymentInformation
+
+  trait AppointmentTask {
+    def description: String
 
     def address: String
 
@@ -70,56 +74,76 @@ object TasksService {
     def longitude: Double
 
     def dateTime: LocalDateTime
-
-    def paymentDetails: PaymentDetails
   }
 
-  case class CustomerTaskDto(description: String,
-                             name: String,
-                             email: Option[String],
-                             phone: String,
-                             address: String,
-                             latitude: Double,
-                             longitude: Double,
-                             dateTime: LocalDateTime,
-                             vehicleId: Int,
-                             paymentDetails: CustomerPaymentDetails) extends BaseTaskDto
+  trait PaidAppointmentTask extends AppointmentTask {
+    def paymentInformation: PaymentInformation
+
+    def promotion: Option[Int]
+  }
 
 
-  case class AnonymousTaskDto(description: String,
-                              name: String,
-                              email: Option[String],
-                              phone: String,
-                              address: String,
-                              latitude: Double,
-                              longitude: Double,
-                              dateTime: LocalDateTime,
-                              vehicle: VehicleDetailsDto,
-                              paymentDetails: AnonymousPaymentDetails) extends BaseTaskDto
+  trait Accommodation {
+    def accommodation: Int
 
-  case class PartnershipTaskDto(description: String,
-                                name: String,
-                                email: Option[String],
-                                phone: String,
-                                address: String,
-                                latitude: Double,
-                                longitude: Double,
-                                dateTime: LocalDateTime,
-                                vehicle: VehicleDetailsDto,
-                                paymentDetails: PartnershipPaymentDetails) extends BaseTaskDto
+    def extras: Set[Int]
+  }
 
-  case class TaskDto(token: Option[String],
-                     cardId: Option[String],
-                     description: String,
-                     pickupName: String,
-                     pickupEmail: Option[String],
-                     pickupPhone: String,
-                     pickupAddress: String,
-                     pickupLatitude: Double,
-                     pickupLongitude: Double,
-                     pickupDateTime: LocalDateTime,
-                     hasInteriorCleaning: Boolean,
-                     vehicleId: Int,
-                     promotion: Option[Int])
+  trait InteriorCleaning {
+    def hasInteriorCleaning: Boolean
+  }
+
+  case class PaidCustomerTaskWithInteriorCleaning(description: String,
+                                                  address: String,
+                                                  latitude: Double,
+                                                  longitude: Double,
+                                                  dateTime: LocalDateTime,
+                                                  paymentInformation: CustomerPaymentInformation,
+                                                  promotion: Option[Int],
+                                                  hasInteriorCleaning: Boolean) extends PaidAppointmentTask with InteriorCleaning
+
+  case class PaidCustomerTaskWithAccommodations(description: String,
+                                                address: String,
+                                                latitude: Double,
+                                                longitude: Double,
+                                                dateTime: LocalDateTime,
+                                                paymentInformation: CustomerPaymentInformation,
+                                                promotion: Option[Int],
+                                                accommodation: Int,
+                                                extras: Set[Int]) extends PaidAppointmentTask with Accommodation
+
+  case class PaidAnonymousTaskWithInteriorCleaning(description: String,
+                                                   address: String,
+                                                   latitude: Double,
+                                                   longitude: Double,
+                                                   dateTime: LocalDateTime,
+                                                   paymentInformation: AnonymousPaymentInformation,
+                                                   promotion: Option[Int],
+                                                   hasInteriorCleaning: Boolean) extends PaidAppointmentTask with InteriorCleaning
+
+  case class PaidAnonymousTaskWithAccommodations(description: String,
+                                                 address: String,
+                                                 latitude: Double,
+                                                 longitude: Double,
+                                                 dateTime: LocalDateTime,
+                                                 paymentInformation: AnonymousPaymentInformation,
+                                                 promotion: Option[Int],
+                                                 accommodation: Int,
+                                                 extras: Set[Int]) extends PaidAppointmentTask with Accommodation
+
+  case class PartnershipTaskWithInteriorCleaning(description: String,
+                                                 address: String,
+                                                 latitude: Double,
+                                                 longitude: Double,
+                                                 dateTime: LocalDateTime,
+                                                 hasInteriorCleaning: Boolean) extends AppointmentTask with InteriorCleaning
+
+  case class PartnershipTaskWithAccommodations(description: String,
+                                               address: String,
+                                               latitude: Double,
+                                               longitude: Double,
+                                               dateTime: LocalDateTime,
+                                               accommodation: Int,
+                                               extras: Set[Int]) extends AppointmentTask with Accommodation
 
 }

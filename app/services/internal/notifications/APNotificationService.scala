@@ -55,7 +55,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
 
   override def sendJobInProgressNotification(data: JobNotificationData, token: String): Unit = {
     sendNotification(token, data) { data =>
-      Logger.debug(s"Building job started notification: ${data.toString}")
+      Logger.debug(s"Building job in progress notification: ${data.toString}")
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)

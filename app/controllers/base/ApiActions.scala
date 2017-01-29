@@ -30,7 +30,9 @@ trait ApiActions extends RestResponses {
 
   class AuthCheckAction extends ActionFilter[UserRequest] {
     def filter[A](userRequest: UserRequest[A]) = Future.successful {
-      userRequest.token.map(t => None).getOrElse(Some(forbidden("Provide token", NotAuthorized)))
+      userRequest.token
+        .map(_ => None)
+        .getOrElse(Some(forbidden("Provide token", NotAuthorized)))
     }
   }
 

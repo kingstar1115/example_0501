@@ -36,7 +36,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
     processRequestF[VehicleDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
-        v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) +=(dto.makerId, dto.makerName,
+        v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) += (dto.makerId, dto.makerName,
         dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate, userId)
 
       db.run(createQuery)
@@ -83,7 +83,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
   }
 
   override def toDto(vehicle: _root_.models.Tables.VehiclesRow): VehicleDto = {
-    new VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
+    VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
       vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
   }
 
