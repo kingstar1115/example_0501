@@ -61,7 +61,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       case "v3" =>
         processRequestF[CustomerTaskWithServicesDto](request.body) { dto =>
           val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
-            CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId), dto.paymentDetails.promotion, dto.service, dto.extras)
+            CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId), dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
           createTask(appointmentTask, dto.vehicleId)
         }
       case "v2" =>
@@ -91,7 +91,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       case "v3" =>
         processRequestF[AnonymousTaskWithServicesDto](request.body) { dto =>
           val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
-            AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.service, dto.extras)
+            AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.serviceDto.id, dto.serviceDto.extras)
           createTask(appointmentTask, dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
         }
       case _ =>
@@ -126,20 +126,20 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   def cancelTask(version: String, id: Long) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
     val selectQuery = for {
-      (job, paymentDetails) <- Jobs join PaymentDetails on (_.id === _.jobId)
-      if job.userId === userId && job.jobStatus.inSet(TaskStatuses.cancelableStatuses) && job.jobId === id
-    } yield (job, paymentDetails)
+      (task, paymentDetails) <- Tasks join PaymentDetails on (_.id === _.taskId)
+      if task.userId === userId && task.jobStatus.inSet(TaskStatuses.cancelableStatuses) && task.jobId === id
+    } yield (task, paymentDetails)
 
     db.run(selectQuery.result.headOption).flatMap {
       _.map { row =>
-        val job = row._1
+        val task = row._1
         val paymentDetails = row._2
 
         val refundResult = paymentDetails.chargeId.map { chargeId =>
           Logger.debug(s"Refunding charge $chargeId for customer ${request.token.get.userInfo.email}")
           stripeService.refund(chargeId).map {
             case Left(_) =>
-              Logger.debug(s"Can't refund money for job $id")
+              Logger.debug(s"Can't refund money for task $id")
               Option(chargeId)
             case Right(_) =>
               Logger.debug(s"Refunded money for task with $id id")
@@ -150,8 +150,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         refundResult.flatMap { chargeOpt =>
           tookanService.updateTaskStatus(id, TaskStatuses.Cancel)
           val updateAction = DBIO.seq(
-            Jobs.filter(_.id === job.id).map(_.jobStatus).update(TaskStatuses.Cancel.code),
-            PaymentDetails.filter(_.jobId === job.id).map(_.chargeId).update(chargeOpt)
+            Tasks.filter(_.id === task.id).map(_.jobStatus).update(TaskStatuses.Cancel.code),
+            PaymentDetails.filter(_.taskId === task.id).map(_.chargeId).update(chargeOpt)
           ).transactionally
           db.run(updateAction).map(_ => success)
         }
@@ -166,7 +166,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def getPendingTasks = authorized.async { request =>
+  def getPendingTasks(version: String) = authorized.async { request =>
     taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
       val pendingTasks = resultSet.map(row => convertToListDto(row))
       ok(pendingTasks)
@@ -178,8 +178,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
       val userId = request.token.get.userInfo.id
       val taskQuery = for {
-        job <- Jobs if job.jobId === dto.jobId && job.jobStatus === Successful.code && job.submitted === false && job.userId === userId
-      } yield job
+        task <- Tasks if task.jobId === dto.jobId && task.jobStatus === Successful.code && task.submitted === false && task.userId === userId
+      } yield task
       val userQuery = for {
         user <- Users if user.id === userId
       } yield user
@@ -190,13 +190,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             val paymentResult = tip.token
               .map { token =>
                 Logger.debug(s"Charging tip for task ${dto.jobId} from token $token")
-                stripeService.charge(tip.amount, token, dto.jobId)
+                stripeService.charge(tip.amount, token, dto.jobId, "Tip")
               }
               .getOrElse {
                 db.run(userQuery.result.head).flatMap { user =>
                   user.stripeId.map { stripeId =>
                     val paymentSource = StripeService.PaymentSource(stripeId, tip.cardId)
-                    stripeService.charge(tip.amount, paymentSource, dto.jobId)
+                    stripeService.charge(tip.amount, paymentSource, dto.jobId, "Tip")
                   }.getOrElse {
                     Future(Left(ErrorResponse("User doesn't set a payment method", VError)))
                   }
@@ -207,7 +207,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
               case Right(_) =>
                 //TODO: check update statement
                 val updateAction = DBIO.seq(
-                  PaymentDetails.filter(_.jobId in taskQuery.map(_.id)).map(_.tip).update(tip.amount),
+                  PaymentDetails.filter(_.taskId in taskQuery.map(_.id)).map(_.tip).update(tip.amount),
                   taskQuery.map(_.submitted).update(true)
                 ).transactionally
                 db.run(updateAction).map(_ => success)
@@ -233,9 +233,9 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     val submitted = request.getQueryString("submitted").map(_.toBoolean)
 
     val baseQuery = for {
-      ((job, agent), vehicle) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
-      if job.userId === userId
-    } yield (job, agent, vehicle)
+      ((task, agent), vehicle) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
+      if task.userId === userId
+    } yield (task, agent, vehicle)
     val filteredByInStatus = inStatuses.map(s => baseQuery.filter(_._1.jobStatus.inSet(s))).getOrElse(baseQuery)
     val filteredByNotInStatus = notInStatuses.map(s => filteredByInStatus.filterNot(_._1.jobStatus.inSet(s))).getOrElse(filteredByInStatus)
     val listQuery = submitted.map(s => filteredByInStatus.filter(_._1.submitted === s)).getOrElse(filteredByNotInStatus)
@@ -249,9 +249,9 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def getTask(version: String, id: Long) = authorized.async { request =>
     val selectQuery = for {
-      (((job, agent), vehicle), paymentDetails) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id) join PaymentDetails on (_._1._1.id === _.jobId)
-      if job.userId === request.token.get.userInfo.id && job.jobId === id
-    } yield (job, agent, vehicle, paymentDetails)
+      (((task, agent), vehicle), paymentDetails) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id) join PaymentDetails on (_._1._1.id === _.taskId)
+      if task.userId === request.token.get.userInfo.id && task.jobId === id
+    } yield (task, agent, vehicle, paymentDetails)
     db.run(selectQuery.result.headOption).map(_.map { row =>
       ok(convertToDetailsDto(row))
     }.getOrElse(notFound))
@@ -278,30 +278,30 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def getActiveTask(version: String) = authorized.async { request =>
     val selectQuery = for {
-      (((job, agent), vehicle), paymentDetails) <- Jobs joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id) join PaymentDetails on (_._1._1.id === _.jobId)
-      if job.userId === request.token.get.userInfo.id && job.jobStatus.inSet(TaskStatuses.activeStatuses)
-    } yield (job, agent, vehicle, paymentDetails)
+      (((task, agent), vehicle), paymentDetails) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id) join PaymentDetails on (_._1._1.id === _.taskId)
+      if task.userId === request.token.get.userInfo.id && task.jobStatus.inSet(TaskStatuses.activeStatuses)
+    } yield (task, agent, vehicle, paymentDetails)
     db.run(selectQuery.sortBy(_._1.scheduledTime.asc).result.headOption).map { rowOpt =>
       val activeTaskOpt = rowOpt.map(row => convertToDetailsDto(row))
       ok(activeTaskOpt)
     }
   }
 
-  private def convertToListDto[D](row: (JobsRow, Option[AgentsRow], VehiclesRow)) = {
+  private def convertToListDto[D](row: (TasksRow, Option[AgentsRow], VehiclesRow)) = {
     convertInternal(row._2, row._3) { (agentDto, vehicleDto) =>
-      val job = row._1
-      TaskListDto(job.jobId, job.scheduledTime.toLocalDateTime, agentDto, getJobImages(job), vehicleDto,
-        job.jobStatus, job.submitted)
+      val task = row._1
+      TaskListDto(task.jobId, task.scheduledTime.toLocalDateTime, agentDto, getJobImages(task), vehicleDto,
+        task.jobStatus, task.submitted)
     }
   }
 
-  private def convertToDetailsDto(row: (JobsRow, Option[AgentsRow], VehiclesRow, PaymentDetailsRow)) = {
+  private def convertToDetailsDto(row: (TasksRow, Option[AgentsRow], VehiclesRow, PaymentDetailsRow)) = {
     convertInternal(row._2, row._3) { (agentDto, vehicleDto) =>
-      val job = row._1
+      val task = row._1
       val paymentDetails = row._4
-      TaskDetailsDto(job.jobId, job.scheduledTime.toLocalDateTime, agentDto, getJobImages(job), vehicleDto, job.jobStatus,
-        job.submitted, job.teamName, job.jobAddress, job.jobPickupPhone, job.customerPhone, paymentDetails.paymentMethod,
-        job.hasInteriorCleaning, paymentDetails.price, job.latitude, job.longitude, paymentDetails.promotion, paymentDetails.tip)
+      TaskDetailsDto(task.jobId, task.scheduledTime.toLocalDateTime, agentDto, getJobImages(task), vehicleDto, task.jobStatus,
+        task.submitted, task.teamName, task.jobAddress, task.jobPickupPhone, task.customerPhone, paymentDetails.paymentMethod,
+        task.hasInteriorCleaning, paymentDetails.price, task.latitude, task.longitude, paymentDetails.promotion, paymentDetails.tip)
     }
   }
 
@@ -313,8 +313,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     consumer.apply(agent, vehicle)
   }
 
-  private def getJobImages(job: JobsRow) = {
-    job.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
+  private def getJobImages(task: TasksRow) = {
+    task.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
   }
 }
 
@@ -352,8 +352,6 @@ object TasksController {
                             promotion: Int,
                             tip: Int)
 
-  implicit val vehicleDetailsFormat: Format[VehicleDetailsDto] = Json.format[VehicleDetailsDto]
-
   //---------------------------------------Common-----------------------------------------------------------------------
 
   trait UserInformation {
@@ -370,6 +368,8 @@ object TasksController {
     def mapToUser: User = User.tupled(UserDto.unapply(this).get)
   }
 
+  implicit val userDtoFormat: Format[UserDto] = Json.format[UserDto]
+
   case class VehicleDetailsDto(maker: String,
                                model: String,
                                year: Int,
@@ -378,7 +378,8 @@ object TasksController {
     def mapToVehicle: Vehicle = Vehicle.tupled(VehicleDetailsDto.unapply(this).get)
   }
 
-  implicit val userDtoFormat: Format[UserDto] = Json.format[UserDto]
+  implicit val vehicleDetailsFormat: Format[VehicleDetailsDto] = Json.format[VehicleDetailsDto]
+
 
   case class ServiceDto(id: Int, extras: Set[Int])
 
@@ -427,7 +428,7 @@ object TasksController {
     .filter(ValidationError("Token or card id must be provided"))(dto => dto.token.isDefined || dto.cardId.isDefined)
 
   case class CustomerTaskWithServicesDto(description: String, address: String, latitude: Double, longitude: Double,
-                                         dateTime: LocalDateTime, vehicleId: Int, service: Int, extras: Set[Int],
+                                         dateTime: LocalDateTime, vehicleId: Int, service: ServiceDto,
                                          paymentDetails: CustomerPaymentDetails)
 
   implicit val customerTaskWithServicesReads: Reads[CustomerTaskWithServicesDto] = (
@@ -437,8 +438,7 @@ object TasksController {
       (__ \ "longitude").read[Double] and
       (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
       (__ \ "vehicleId").read[Int] and
-      (__ \ "service").read[Int] and
-      (__ \ "extras").read[Set[Int]] and
+      (__ \ "service").read[ServiceDto] and
       (__ \ "paymentDetails").read[CustomerPaymentDetails]
     ) (CustomerTaskWithServicesDto.apply _)
 
@@ -474,7 +474,7 @@ object TasksController {
 
   case class AnonymousTaskWithServicesDto(description: String, userDto: UserDto, address: String, latitude: Double,
                                           longitude: Double, dateTime: LocalDateTime, vehicleDto: VehicleDetailsDto,
-                                          service: Int, extras: Set[Int], paymentDetails: AnonymousPaymentDetails)
+                                          serviceDto: ServiceDto, paymentDetails: AnonymousPaymentDetails)
 
   implicit val anonymousTaskWithServicesReads: Reads[AnonymousTaskWithServicesDto] = (
     (__ \ "description").read[String] and
@@ -484,8 +484,7 @@ object TasksController {
       (__ \ "longitude").read[Double] and
       (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
       (__ \ "vehicle").read[VehicleDetailsDto] and
-      (__ \ "service").read[Int] and
-      (__ \ "extras").read[Set[Int]] and
+      (__ \ "service").read[ServiceDto] and
       (__ \ "paymentDetails").read[AnonymousPaymentDetails]
     ) (AnonymousTaskWithServicesDto.apply _)
 
@@ -566,33 +565,6 @@ object TasksController {
       (__ \ "promotion").readNullable[Int]
         .filter(ValidationError("Value must be greater than 0"))(_.map(_ > 0).getOrElse(true))
     ) (TaskDto.apply _)
-
-  //  implicit val customerTaskWithServicesReads: Reads[CustomerTaskWithServicesDto] = (
-  //    (__ \ "description").read[String] and
-  //      (__ \ "address").read[String] and
-  //      (__ \ "latitude").read[Double] and
-  //      (__ \ "longitude").read[Double] and
-  //      (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
-  //      (__ \ "vehicleId").read[Int] and
-  //      (__ \ "paymentDetails").read[CustomerPaymentDetails] and
-  //      (__ \ "accommodation").read[Int] and
-  //      (__ \ "extras").read[Set[Int]]
-  //    ) (CustomerTaskWithServicesDto.apply _)
-
-  //  implicit val anonymousTaskWithServicesReads: Reads[AnonymousTaskWithServicesDto] = (
-  //    (__ \ "description").read[String] and
-  //      (__ \ "name").read[String] and
-  //      (__ \ "email").readNullable[String] and
-  //      (__ \ "phone").read[String] and
-  //      (__ \ "address").read[String] and
-  //      (__ \ "latitude").read[Double] and
-  //      (__ \ "longitude").read[Double] and
-  //      (__ \ "dateTime").read[LocalDateTime](dateTimeReads) and
-  //      (__ \ "vehicle").read[VehicleDetailsDto] and
-  //      (__ \ "paymentDetails").read[AnonymousPaymentDetails] and
-  //      (__ \ "accommodation").read[Int] and
-  //      (__ \ "extras").read[Set[Int]]
-  //    ) (AnonymousTaskWithServicesDto.apply _)
 
   case class TipDto(amount: Int,
                     cardId: Option[String],

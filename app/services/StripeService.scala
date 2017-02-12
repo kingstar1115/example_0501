@@ -6,14 +6,14 @@ import javax.inject.{Inject, Singleton}
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model._
-import commons.enums.{ErrorType, StripeError, InternalSError}
+import commons.enums.{ErrorType, InternalSError, StripeError}
 import play.api.Configuration
 import services.StripeService._
 
+import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
 
 @Singleton
 class StripeService @Inject()(configuration: Configuration) {
@@ -74,8 +74,8 @@ class StripeService @Inject()(configuration: Configuration) {
     process(customer.getSources.retrieve(cardId).delete)
   }
 
-  def charge(amount: Int, paymentSource: PaymentSource, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, jobId) { parameters =>
+  def charge(amount: Int, paymentSource: PaymentSource, jobId: Long, description: String): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, jobId, description) { parameters =>
       parameters.put("customer", paymentSource.customerId)
       paymentSource.sourceId match {
         case Some(source) => parameters.put("source", source)
@@ -84,19 +84,20 @@ class StripeService @Inject()(configuration: Configuration) {
     }
   }
 
-  def charge(amount: Int, source: String, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, jobId) { parameters =>
+  def charge(amount: Int, source: String, jobId: Long, description: String): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, jobId, description) { parameters =>
       parameters.put("source", source)
     }
   }
 
-  private def chargeInternal(amount: Int, jobId: Long)(addParameters: util.HashMap[String, Object] => Unit) = {
+  private def chargeInternal(amount: Int, jobId: Long, description: String)(addParameters: util.HashMap[String, Object] => Unit) = {
     val metadata = new util.HashMap[String, String]() {
       put("jobId", jobId.toString)
     }
     val params = new util.HashMap[String, Object]() {
       put("amount", new Integer(amount))
       put("currency", "usd")
+      put("description", description)
       put("metadata", metadata)
     }
     addParameters(params)

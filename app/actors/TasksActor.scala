@@ -39,14 +39,14 @@ class TasksActor(tookanService: TookanService,
               case Right(team) =>
                 val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
                 val taskSelectQuery = for {
-                  job <- Jobs if job.jobId === jobId
+                  job <- Tasks if job.jobId === jobId
                 } yield job
 
                 db.run(taskSelectQuery.result.head).map { taskRow =>
                   task.jobStatus match {
                     case Deleted.code =>
                       Logger.debug(s"Deleting task with id: ${taskRow.id}")
-                      db.run(Jobs.filter(_.id === taskRow.id).delete)
+                      db.run(Tasks.filter(_.id === taskRow.id).delete)
                     case _ =>
                       update(taskRow, task, agentId, team.teamName)
                   }
@@ -58,11 +58,11 @@ class TasksActor(tookanService: TookanService,
     }
   }
 
-  private def update(taskRow: JobsRow, task: AppointmentDetails, agentId: Option[Int], teamName: String) = {
+  private def update(taskRow: TasksRow, task: AppointmentDetails, agentId: Option[Int], teamName: String) = {
     Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${task.jobStatus}")
 
     val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
-    val taskUpdateQuery = Jobs.filter(_.jobId === task.jobId)
+    val taskUpdateQuery = Tasks.filter(_.jobId === task.jobId)
       .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
         job.jobPickupPhone, job.customerPhone, job.teamName))
       .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
@@ -75,13 +75,13 @@ class TasksActor(tookanService: TookanService,
     }
   }
 
-  def sendJobStatusChangeNotification(job: JobsRow, agentId: Int, jobStatus: Int) = {
+  def sendJobStatusChangeNotification(job: TasksRow, agentId: Int, jobStatus: Int) = {
     val db = dbConfigProvider.get.db
     val agentQuery = for {
       agent <- Agents if agent.id === agentId
     } yield agent.name
     db.run(agentQuery.result.head).map { agentName =>
-      val data = new JobNotificationData(job.jobId, agentName, jobStatus, job.userId)
+      val data = JobNotificationData(job.jobId, agentName, jobStatus, job.userId)
       pushNotificationService.getUserDeviceTokens(job.userId)
         .foreach { token =>
           jobStatus match {
@@ -103,7 +103,7 @@ class TasksActor(tookanService: TookanService,
     def saveAgent(implicit agent: Agent): Future[Option[Int]] = {
       val insertQuery = (
         Agents.map(agent => (agent.fleetId, agent.name, agent.fleetImage, agent.phone))
-          returning Agents.map(_.id) +=(agent.fleetId, agent.name.trim, agent.image, agent.phone)
+          returning Agents.map(_.id) += (agent.fleetId, agent.name.trim, agent.image, agent.phone)
         )
       db.run(insertQuery).map(id => Some(id))
     }
@@ -111,7 +111,7 @@ class TasksActor(tookanService: TookanService,
     def updateAgent(id: Int)(implicit agent: Agent) = {
       val updateQuery = Agents.filter(_.id === id).map(agent => (agent.name, agent.fleetImage, agent.phone))
         .update((agent.name.trim, agent.image, agent.phone))
-      db.run(updateQuery).map(updatedCount => Option(id))
+      db.run(updateQuery).map(_ => Option(id))
     }
 
     def loadAgent(fleetId: Long) = {

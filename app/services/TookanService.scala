@@ -5,7 +5,6 @@ import java.time.format.DateTimeFormatter
 import javax.inject.{Inject, Singleton}
 
 import commons.enums.TaskStatuses.TaskStatus
-import models.Tables.VehiclesRow
 import play.api.Configuration
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
@@ -193,8 +192,8 @@ object TookanService {
     val model: String = "Model"
     val year: String = "Year"
     val color: String = "Color"
-    val interior: String = "Interior"
-    val licPlate: String = "Lic_Plate"
+    val plate: String = "Plate"
+    val services: String = "Services"
   }
 
   case class AppointmentTask(customerEmail: Option[String],
@@ -243,12 +242,12 @@ object TookanService {
         pickupDateTime.plusHours(1L),
         PST,
         metadata,
-        false,
-        false,
+        hasPickUp = false,
+        hasDelivery = false,
         1,
-        true,
+        trackingLink = true,
         config.teamId,
-        true,
+        autoAssignment = true,
         None,
         Seq.empty[String],
         Option(config.key),
