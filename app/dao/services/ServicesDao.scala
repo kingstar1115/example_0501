@@ -1,8 +1,10 @@
 package dao.services
 
 import com.google.inject.ImplementedBy
-import models.Tables.{Extras, ExtrasRow, Services, ServicesRow}
+import models.Tables._
 import slick.lifted.{Query, Rep}
+
+import scala.concurrent.Future
 
 @ImplementedBy(classOf[DefaultServicesDao])
 trait ServicesDao {
@@ -14,4 +16,6 @@ trait ServicesDao {
   def getExteriorCleaning: Query[Services, ServicesRow, Seq]
 
   def getExteriorAndInteriorCleaning: Query[Services, ServicesRow, Seq]
+
+  def loadAllWithExtras: Future[(Seq[(ServicesRow, Option[ServicesExtrasRow])], Seq[ExtrasRow])]
 }

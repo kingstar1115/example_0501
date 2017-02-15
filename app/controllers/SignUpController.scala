@@ -98,7 +98,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
           }
 
           def onUserNotExists = {
-            val responseDto = new FBSighUpResponseDto(fbDto.firstName, fbDto.lastName, fbDto.email)
+            val responseDto = FBSighUpResponseDto(fbDto.firstName, fbDto.lastName, fbDto.email)
             ok(responseDto)
           }
 

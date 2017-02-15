@@ -1,10 +1,18 @@
 package dao.services
 
+import javax.inject.Inject
+
+import dao.services.DefaultServicesDao._
 import models.Tables.{Services, _}
+import play.api.db.slick.DatabaseConfigProvider
 import slick.driver.PostgresDriver.api._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
-class DefaultServicesDao extends ServicesDao {
+class DefaultServicesDao @Inject()(dbConfigProvider: DatabaseConfigProvider) extends ServicesDao {
+
+  private val db = dbConfigProvider.get.db
 
   val exteriorCleaning = "EXTERIOR_CLEANING"
   val exteriorAndInteriorCleaning = "EXTERIOR_AND_INTERIOR_CLEANING"
@@ -31,4 +39,20 @@ class DefaultServicesDao extends ServicesDao {
   private def getByKey(key: String) = {
     Services.filter(_.key === key)
   }
+
+  def loadAllWithExtras: Future[(Seq[(ServicesRow, Option[ServicesExtrasRow])], Seq[ExtrasRow])] = {
+    for {
+      services <- db.run(Services.withExtras.result)
+      extras <- db.run(Extras.result)
+    } yield (services, extras)
+  }
+}
+
+object DefaultServicesDao {
+
+  implicit class ServicesExtension[R[_]](query: Query[Services, ServicesRow, R]) {
+    def withExtras: Query[(Services, Rep[Option[ServicesExtras]]), (ServicesRow, Option[ServicesExtrasRow]), R] =
+      query.joinLeft(ServicesExtras).on(_.id === _.serviceId)
+  }
+
 }

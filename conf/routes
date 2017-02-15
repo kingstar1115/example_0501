@@ -29,48 +29,51 @@ GET           /api/$version<v[1-3]>/locations/:id                         @contr
 POST          /api/$version<v[1-3]>/locations/new                         @controllers.LocationController.create(version)
 DELETE        /api/$version<v[1-3]>/locations/:id                         @controllers.LocationController.delete(version, id: Int)
 GET           /api/$version<v[1-3]>/locations                             @controllers.LocationController.list(version, offset: Int = 0, limit: Int = 10)
-PUT           /api/$version<v[1-3]>/locations/:id                         @controllers.LocationController.update(version, id: Int)
+PUT           /api/$version<v[1-3]>/locations/:id                       @controllers.LocationController.update(version, id: Int)
 
 #Tasks
-POST          /api/$version<v[1-3]>/tasks/new                             @controllers.TasksController.createCustomerTask(version)
-POST          /api/$version<v[2-3]>/tasks/anonymous/new                   @controllers.TasksController.createAnonymousTask(version)
-POST          /api/$version<v[2-3]>/tasks/partnership/new                 @controllers.TasksController.createPartnershipTask(version)
-GET         /api/$version<v[1-3]>/tasks                               @controllers.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
-POST        /api/$version<v[1-3]>/tasks/refresh                       @controllers.TasksController.onTaskUpdate(version)
-POST        /api/$version<v[1-3]>/tasks/complete                      @controllers.TasksController.completeTask(version)
-GET         /api/v1/tasks/pending                                     @controllers.TasksController.getPendingTask
-GET         /api/$version<v[2-3]>/tasks/pending                       @controllers.TasksController.getPendingTasks(version)
-GET         /api/$version<v[1-3]>/tasks/active                        @controllers.TasksController.getActiveTask(version)
-GET         /api/$version<v[1-3]>/tasks/:id                           @controllers.TasksController.getTask(version, id: Long)
-GET         /api/$version<v[1-3]>/tasks/agents/:id/coordinates        @controllers.TasksController.getAgentCoordinates(version, id: Long)
-GET         /api/$version<v[1-3]>/tasks/:id/cancel                    @controllers.TasksController.cancelTask(version, id: Long)
+POST          /api/$version<v[1-3]>/tasks/new                           @controllers.TasksController.createCustomerTask(version)
+POST          /api/$version<v[2-3]>/tasks/anonymous/new                 @controllers.TasksController.createAnonymousTask(version)
+POST          /api/$version<v[2-3]>/tasks/partnership/new               @controllers.TasksController.createPartnershipTask(version)
+GET           /api/$version<v[1-3]>/tasks                               @controllers.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
+POST          /api/$version<v[1-3]>/tasks/refresh                       @controllers.TasksController.onTaskUpdate(version)
+POST          /api/$version<v[1-3]>/tasks/complete                      @controllers.TasksController.completeTask(version)
+GET           /api/v1/tasks/pending                                     @controllers.TasksController.getPendingTask
+GET           /api/$version<v[2-3]>/tasks/pending                       @controllers.TasksController.getPendingTasks(version)
+GET           /api/$version<v[1-3]>/tasks/active                        @controllers.TasksController.getActiveTask(version)
+GET           /api/$version<v[1-3]>/tasks/:id                           @controllers.TasksController.getTask(version, id: Long)
+GET           /api/$version<v[1-3]>/tasks/agents/:id/coordinates        @controllers.TasksController.getAgentCoordinates(version, id: Long)
+GET           /api/$version<v[1-3]>/tasks/:id/cancel                    @controllers.TasksController.cancelTask(version, id: Long)
 
 #Vehicles
-GET           /api/$version<v[1-3]>/vehicles/makers                       @controllers.VehiclesController.getVehiclesMakers(version)
-GET           /api/$version<v[1-3]>/vehicles/:id                          @controllers.VehiclesController.get(version, id: Int)
-POST          /api/$version<v[1-3]>/vehicles/new                          @controllers.VehiclesController.create(version)
-DELETE        /api/$version<v[1-3]>/vehicles/:id                          @controllers.VehiclesController.delete(version, id: Int)
+GET           /api/$version<v[1-3]>/vehicles/makers                     @controllers.VehiclesController.getVehiclesMakers(version)
+GET           /api/$version<v[1-3]>/vehicles/:id                        @controllers.VehiclesController.get(version, id: Int)
+POST          /api/$version<v[1-3]>/vehicles/new                        @controllers.VehiclesController.create(version)
+DELETE        /api/$version<v[1-3]>/vehicles/:id                        @controllers.VehiclesController.delete(version, id: Int)
 GET           /api/$version<v[1-3]>/vehicles                              @controllers.VehiclesController.list(version, offset: Int = 0, limit: Int = 10)
 PUT           /api/$version<v[1-3]>/vehicles/:id                          @controllers.VehiclesController.update(version, id: Int)
 
 #Payment Cards
 POST          /api/$version<v[1-3]>/cards/new                             @controllers.PaymentCardsController.addPaymentCard(version)
 GET           /api/$version<v[1-3]>/cards                                 @controllers.PaymentCardsController.listPaymentCards(version)
-DELETE        /api/$version<v[1-3]>/cards/:id                             @controllers.PaymentCardsController.removePaymentCard(version, id: String)
+DELETE        /api/$version<v[1-3]>/cards/:id                           @controllers.PaymentCardsController.removePaymentCard(version, id: String)
 
 #Notifications
-POST          /api/$version<v[1-3]>/notifications/subscribe               @controllers.PushNotificationsController.subscribe(version)
-POST          /api/$version<v[1-3]>/notifications/unsubscribe             @controllers.PushNotificationsController.unsubscribe(version)
+POST          /api/$version<v[1-3]>/notifications/subscribe             @controllers.PushNotificationsController.subscribe(version)
+POST          /api/$version<v[1-3]>/notifications/unsubscribe           @controllers.PushNotificationsController.unsubscribe(version)
 
 #Settings
-GET           /api/$version<v[1-3]>/settings                              @controllers.SettingsController.getSettings(version)
+GET           /api/$version<v[1-3]>/settings                            @controllers.SettingsController.getSettings(version)
+
+#Services
+GET           /api/$version<v[3]>/services                              @controllers.ServicesController.getServices(version)
 
 # Web controllers
 # Password recovery
-GET           /password-recover/success                                   @controllers.PasswordRecoveryController.successPage
-GET           /password-recover/not-found                                 @controllers.PasswordRecoveryController.notFound
-GET           /password-recover/:code                                     @controllers.PasswordRecoveryController.getRecoverPasswordPage(code: String)
-POST          /password-recover                                           @controllers.PasswordRecoveryController.submitForm
+GET           /password-recover/success                                 @controllers.PasswordRecoveryController.successPage
+GET           /password-recover/not-found                               @controllers.PasswordRecoveryController.notFound
+GET           /password-recover/:code                                   @controllers.PasswordRecoveryController.getRecoverPasswordPage(code: String)
+POST          /password-recover                                         @controllers.PasswordRecoveryController.submitForm
 
 # Home
 GET           /                                                           @controllers.Application.index
