@@ -18,6 +18,6 @@ class ServicesController @Inject()(val tokenStorage: TokenStorage,
   implicit val servicesWrites: Writes[ServicesWithExtrasDto] = Json.writes[ServicesWithExtrasDto]
 
   def getServices(version: String) = authorized.async { _ =>
-    servicesService.loadServicesWithExtras().map(ok(_))
+    servicesService.getAllServicesWithExtras().map(ok(_))
   }
 }

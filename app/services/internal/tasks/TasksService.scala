@@ -83,8 +83,8 @@ object TasksService {
   }
 
 
-  trait Accommodation {
-    def accommodation: Int
+  trait ServicesInformation {
+    def serviceId: Int
 
     def extras: Set[Int]
   }
@@ -109,8 +109,8 @@ object TasksService {
                                                 dateTime: LocalDateTime,
                                                 paymentInformation: CustomerPaymentInformation,
                                                 promotion: Option[Int],
-                                                accommodation: Int,
-                                                extras: Set[Int]) extends PaidAppointmentTask with Accommodation
+                                                serviceId: Int,
+                                                extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation
 
   case class PaidAnonymousTaskWithInteriorCleaning(description: String,
                                                    address: String,
@@ -128,8 +128,8 @@ object TasksService {
                                                  dateTime: LocalDateTime,
                                                  paymentInformation: AnonymousPaymentInformation,
                                                  promotion: Option[Int],
-                                                 accommodation: Int,
-                                                 extras: Set[Int]) extends PaidAppointmentTask with Accommodation
+                                                 serviceId: Int,
+                                                 extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation
 
   case class PartnershipTaskWithInteriorCleaning(description: String,
                                                  address: String,
@@ -143,7 +143,7 @@ object TasksService {
                                                latitude: Double,
                                                longitude: Double,
                                                dateTime: LocalDateTime,
-                                               accommodation: Int,
-                                               extras: Set[Int]) extends AppointmentTask with Accommodation
+                                               serviceId: Int,
+                                               extras: Set[Int]) extends AppointmentTask with ServicesInformation
 
 }

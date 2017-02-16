@@ -10,7 +10,6 @@ import com.stripe.model.Charge
 import commons.ServerError
 import commons.enums.TaskStatuses.Successful
 import commons.enums.{PaymentMethods, StripeError, TookanError}
-import dao.services.ServicesDao
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -20,7 +19,7 @@ import services.internal.notifications.PushNotificationService
 import services.internal.services.ServicesService
 import services.internal.settings.SettingsService
 import services.internal.tasks.DefaultTaskService._
-import services.internal.tasks.TasksService.{AppointmentTask, _}
+import services.internal.tasks.TasksService.{AbstractUser, AppointmentTask, _}
 import services.internal.users.UsersService
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
@@ -35,8 +34,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
                                    dbConfigProvider: DatabaseConfigProvider,
                                    system: ActorSystem,
                                    pushNotificationService: PushNotificationService,
-                                   accommodationDao: ServicesDao,
-                                   accommodationsService: ServicesService,
+                                   servicesService: ServicesService,
                                    usersService: UsersService) extends TasksService {
 
   val db = dbConfigProvider.get.db
@@ -130,11 +128,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
       def charge(response: AppointmentResponse, basePrice: Int, price: Int) = {
         Logger.debug(s"Charging $price from user for task ${response.jobId}")
-        val stripeId = user match {
-          case persistedUser: PersistedUser => persistedUser.stipeId
-          case _ => None
-        }
-        pay(price, response.jobId, stripeId, paidAppointmentTask.paymentInformation).flatMap {
+        pay(price, response.jobId, getStripeId(user), paidAppointmentTask.paymentInformation).flatMap {
           case Left(error) =>
             tookanService.deleteTask(response.jobId)
               .map(_ => Left(ServerError(error.message, Option(error.errorType))))
@@ -167,28 +161,33 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
+  private def getStripeId[U <: AbstractUser](user: U): Option[String] = {
+    user match {
+      case persistedUser: PersistedUser => persistedUser.stipeId
+      case _ => None
+    }
+  }
+
   private def getServiceInformation(appointmentTask: AppointmentTask): Future[ServiceInformation] = {
     //TODO: improve error handling
     appointmentTask match {
-      case dto: Accommodation =>
-        db.run(accommodationDao.findByIdWithExtras(dto.accommodation, dto.extras).result).map { resultSet =>
-          val service = resultSet.head._1
-          val extras: Seq[(String, Int)] = resultSet.filter(_._2.isDefined)
+      case dto: ServicesInformation =>
+        servicesService.getServiceWithExtras(dto.serviceId, dto.extras).map { resultSet =>
+          val serviceRow = resultSet.head._1
+          val extrasTupleSeq = resultSet.filter(_._2.isDefined)
             .map(_._2.get)
             .map(extra => (extra.name, extra.price))
-          val services = (Seq((service.name, service.price)) ++ extras) map Service.tupled
-          ServiceInformation(services, accommodationsService.hasInteriorCleaning(service))
+          val services = (Seq((serviceRow.name, serviceRow.price)) ++ extrasTupleSeq) map Service.tupled
+          ServiceInformation(services, servicesService.hasInteriorCleaning(serviceRow))
         }
       case dto: InteriorCleaning =>
-        val accommodations = if (dto.hasInteriorCleaning)
-          db.run(accommodationDao.getExteriorAndInteriorCleaning
-            .map(accommodation => (accommodation.name, accommodation.price)).result)
+        val serviceTuple = if (dto.hasInteriorCleaning)
+          servicesService.getExteriorAndInteriorCleaningService.map(service => (service.name, service.price))
         else
-          db.run(accommodationDao.getExteriorCleaning
-            .map(accommodation => (accommodation.name, accommodation.price)).result)
+          servicesService.getExteriorCleaningService.map(service => (service.name, service.price))
 
-        accommodations.map(_.map(Service.tupled))
-          .map(services => ServiceInformation(services, dto.hasInteriorCleaning))
+        serviceTuple.map(Service.tupled)
+          .map(service => ServiceInformation(Seq(service), dto.hasInteriorCleaning))
     }
   }
 

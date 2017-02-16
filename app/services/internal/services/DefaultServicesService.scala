@@ -12,12 +12,22 @@ import scala.concurrent.Future
 
 class DefaultServicesService @Inject()(servicesDao: ServicesDao) extends ServicesService {
 
-  val exteriorAndInteriorCleaning = "EXTERIOR_AND_INTERIOR_CLEANING"
+  override def getExteriorCleaningService: Future[ServicesRow] = {
+    servicesDao.findByKey(exteriorCleaning)
+  }
+
+  override def getExteriorAndInteriorCleaningService: Future[ServicesRow] = {
+    servicesDao.findByKey(exteriorAndInteriorCleaning)
+  }
+
+  override def getServiceWithExtras(id: Int, extras: Set[Int]): Future[Seq[(ServicesRow, Option[ExtrasRow])]] = {
+    servicesDao.findByIdWithExtras(id, extras)
+  }
 
   override def hasInteriorCleaning(service: ServicesRow): Boolean =
     service.key.exists(_.equals(exteriorAndInteriorCleaning))
 
-  override def loadServicesWithExtras(): Future[ServicesWithExtrasDto] = {
+  override def getAllServicesWithExtras(): Future[ServicesWithExtrasDto] = {
     servicesDao.loadAllWithExtras
       .map(ServicesWithExtras.tupled)
       .map { serviceWithExtras =>
@@ -31,12 +41,16 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao) extends Service
         ServicesWithExtrasDto(servicesDto, extrasDto)
       }
   }
+
 }
 
 object DefaultServicesService {
 
+  val exteriorCleaning = "EXTERIOR_CLEANING"
+  val exteriorAndInteriorCleaning = "EXTERIOR_AND_INTERIOR_CLEANING"
+
   implicit class ExtExtrasRow(extra: ExtrasRow) {
-    def convertToExtraDto = ExtraDto(extra.id, extra.name, extra.price)
+    def convertToExtraDto = ExtraDto(extra.id, extra.name, extra.description, extra.price)
   }
 
   implicit class ExtServicesRow(service: ServicesRow) {
