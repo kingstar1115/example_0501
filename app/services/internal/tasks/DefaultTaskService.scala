@@ -19,7 +19,7 @@ import services.internal.notifications.PushNotificationService
 import services.internal.services.ServicesService
 import services.internal.settings.SettingsService
 import services.internal.tasks.DefaultTaskService._
-import services.internal.tasks.TasksService.{AbstractUser, AppointmentTask, _}
+import services.internal.tasks.TasksService.{AbstractUser, AbstractVehicle, AppointmentTask, _}
 import services.internal.users.UsersService
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
@@ -37,7 +37,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
                                    servicesService: ServicesService,
                                    usersService: UsersService) extends TasksService {
 
-  val db = dbConfigProvider.get.db
+  private val db = dbConfigProvider.get.db
 
   def pay[T <: PaymentInformation](price: Int, jobId: Long, stripeId: Option[String] = None, paymentInformation: T)(implicit serviceInformation: ServiceInformation): Future[Either[ErrorResponse, Charge]] = {
     val description = serviceInformation.services.map(_.name).mkString("; ")
@@ -102,7 +102,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   override def createPartnershipTask(implicit appointmentTask: AppointmentTask, user: User, vehicle: Vehicle): Future[Either[ServerError, AppointmentResponse]] = {
     def onTaskCreated[T <: AppointmentTask](task: T, response: AppointmentResponse) = Future(Right(response))
 
-    getServiceInformation(appointmentTask).flatMap { serviceInformation =>
+    getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
       createTask(user, vehicle, serviceInformation)(onTaskCreated)
     }
   }
@@ -124,7 +124,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   private def createPaidTask[V <: AbstractVehicle, U <: AbstractUser](user: U, vehicle: V)
                                                                      (saveTask: (TempData, AppointmentResponse) => Future[Either[ServerError, AppointmentResponse]])
                                                                      (implicit paidAppointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    getServiceInformation(paidAppointmentTask).flatMap { implicit serviceInformation =>
+    getServiceInformation(paidAppointmentTask, vehicle).flatMap { implicit serviceInformation =>
 
       def charge(response: AppointmentResponse, basePrice: Int, price: Int) = {
         Logger.debug(s"Charging $price from user for task ${response.jobId}")
@@ -145,7 +145,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       }
 
       def onTaskCreated(dto: PaidAppointmentTask, response: AppointmentResponse) = {
-        getServiceInformation(dto).flatMap { serviceInformation =>
+        getServiceInformation(dto, vehicle).flatMap { serviceInformation =>
           val basePrice = serviceInformation.services.map(_.price).sum
           val price = calculatePrice(basePrice, dto.promotion)
           price match {
@@ -168,26 +168,35 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  private def getServiceInformation(appointmentTask: AppointmentTask): Future[ServiceInformation] = {
+  private def getServiceInformation[V <: AbstractVehicle](appointmentTask: AppointmentTask, vehicle: V): Future[ServiceInformation] = {
     //TODO: improve error handling
     appointmentTask match {
       case dto: ServicesInformation =>
-        servicesService.getServiceWithExtras(dto.serviceId, dto.extras).map { resultSet =>
-          val serviceRow = resultSet.head._1
-          val extrasTupleSeq = resultSet.filter(_._2.isDefined)
-            .map(_._2.get)
-            .map(extra => (extra.name, extra.price))
-          val services = (Seq((serviceRow.name, serviceRow.price)) ++ extrasTupleSeq) map Service.tupled
+        val servicesFuture = for {
+          serviceWithExtras <- servicesService.getServiceWithExtras(dto.serviceId, dto.extras)
+          servicePrice <- servicesService.getServicePrice(serviceWithExtras.service, vehicle.maker, vehicle.model, vehicle.year)
+        } yield (serviceWithExtras, servicePrice)
+
+        servicesFuture.map { tuple =>
+          val serviceRow = tuple._1.service
+          val extrasTuple = tuple._1.extras.map(extra => (extra.name, extra.price))
+          val services = (Seq((serviceRow.name, tuple._2)) ++ extrasTuple) map Service.tupled
           ServiceInformation(services, servicesService.hasInteriorCleaning(serviceRow))
         }
-      case dto: InteriorCleaning =>
-        val serviceTuple = if (dto.hasInteriorCleaning)
-          servicesService.getExteriorAndInteriorCleaningService.map(service => (service.name, service.price))
-        else
-          servicesService.getExteriorCleaningService.map(service => (service.name, service.price))
 
-        serviceTuple.map(Service.tupled)
-          .map(service => ServiceInformation(Seq(service), dto.hasInteriorCleaning))
+      case dto: InteriorCleaning =>
+        val serviceFuture = if (dto.hasInteriorCleaning)
+          servicesService.getExteriorAndInteriorCleaningService
+        else
+          servicesService.getExteriorCleaningService
+
+        (for {
+          serviceRow <- serviceFuture
+          servicePrice <- servicesService.getServicePrice(serviceRow, vehicle.maker, vehicle.model, vehicle.year)
+        } yield (serviceRow, servicePrice)).map { tuple =>
+          val service = Service(tuple._1.name, tuple._2)
+          ServiceInformation(Seq(service), dto.hasInteriorCleaning)
+        }
     }
   }
 

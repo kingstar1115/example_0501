@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import controllers.base.BaseController
 import play.api.libs.json.{Json, Writes}
+import play.api.mvc.Action
 import security.TokenStorage
 import services.internal.services.ServicesService
 import services.internal.services.ServicesService._
@@ -17,7 +18,11 @@ class ServicesController @Inject()(val tokenStorage: TokenStorage,
   implicit val serviceWrites: Writes[ServiceDto] = Json.writes[ServiceDto]
   implicit val servicesWrites: Writes[ServicesWithExtrasDto] = Json.writes[ServicesWithExtrasDto]
 
-  def getServices(version: String) = authorized.async { _ =>
-    servicesService.getAllServicesWithExtras().map(ok(_))
+  def getServicesForRegisteredCustomer(version: String, vehicleId: Int) = authorized.async { _ =>
+    servicesService.getAllServicesWithExtras(vehicleId).map(ok(_))
+  }
+
+  def getServices(version: String, make: String, model: String, year: Int) = Action.async { _ =>
+    servicesService.getAllServicesWithExtras(make, model, year).map(ok(_))
   }
 }

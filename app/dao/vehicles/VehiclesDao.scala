@@ -2,11 +2,12 @@ package dao.vehicles
 
 import com.google.inject.ImplementedBy
 import models.Tables._
-import slick.lifted.Query
 
-@ImplementedBy(classOf[DefaultVehicleDao])
+import scala.concurrent.Future
+
+@ImplementedBy(classOf[SlickVehicleDao])
 trait VehiclesDao {
 
-  def findById(id: Int): Query[Vehicles, VehiclesRow, Seq]
+  def findById(id: Int): Future[VehiclesRow]
 
 }

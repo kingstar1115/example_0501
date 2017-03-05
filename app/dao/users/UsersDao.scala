@@ -4,11 +4,13 @@ import com.google.inject.ImplementedBy
 import models.Tables._
 import slick.lifted.Query
 
+import scala.concurrent.Future
 
-@ImplementedBy(classOf[DefaultUserDao])
+
+@ImplementedBy(classOf[SlickUserDao])
 trait UsersDao {
 
   def findById(id: Int): Query[Users, UsersRow, Seq]
 
-  def findByIdWithVehicle(id: Int, vehicleId: Int): Query[(Users, Vehicles), (UsersRow, VehiclesRow), Seq]
+  def findByIdWithVehicle(id: Int, vehicleId: Int): Future[(UsersRow, VehiclesRow)]
 }

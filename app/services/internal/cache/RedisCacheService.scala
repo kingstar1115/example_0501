@@ -4,7 +4,6 @@ import javax.inject.{Inject, Singleton}
 
 import org.sedis.Pool
 import play.api.libs.json.{Json, Reads, Writes}
-import security.AuthToken
 
 import scala.util.{Failure, Success, Try}
 
@@ -24,7 +23,7 @@ class RedisCacheService @Inject()(sedisPool: Pool) extends CacheService {
         client.get(key).map(value => Some(Json.parse(value).as[T])).getOrElse(None)
       } match {
         case Success(value) => value
-        case Failure(e) => None
+        case Failure(_) => None
       }
     }
   }
