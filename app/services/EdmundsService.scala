@@ -35,8 +35,8 @@ class EdmundsService @Inject()(ws: WSClient,
   }
 
   def getCarStyle(make: String, model: String, year: Int): Future[Option[Style]] = {
-    val styles = s"$make/$model/$year/styles"
-    ws.buildUrl(styles)
+    val uri = s"$make/$model/$year/styles".replace(" ", "_")
+    ws.buildUrl(uri)
       .withParameters(("view", "full"))
       .get
       .map { wsResponse =>
@@ -57,7 +57,7 @@ class EdmundsService @Inject()(ws: WSClient,
 
   implicit class WSClientExt(ws: WSClient) {
 
-    def buildUrl(path: String) = {
+    def buildUrl(path: String): WSRequest = {
       ws.url(vehicleApiUrl.concat(path))
     }
 
