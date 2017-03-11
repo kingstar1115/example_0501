@@ -5,6 +5,7 @@ import javax.inject.Inject
 import dao.settings.SettingsDao
 import play.api.Logger
 import services.internal.cache.CacheService
+import services.internal.services.ServicesService
 import services.internal.settings.SettingsService._
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -12,23 +13,23 @@ import scala.concurrent.Future
 import scala.util.Try
 
 class DefaultSettingsService @Inject()(cacheService: CacheService,
-                                       settingsDao: SettingsDao) extends SettingsService {
+                                       settingsDao: SettingsDao,
+                                       servicesService: ServicesService) extends SettingsService {
 
-  initializeSettings()
-
-  override def initializeSettings(): Unit = {
-    Logger.info("Initializing project settings")
-    settingsDao.loadAll.map { settings =>
-      val priceSettings = PriceSettings(
-        settings.find(_.key == "carWashing").get.value.toInt,
-        settings.find(_.key == "interiorCleaning").get.value.toInt
-      )
-      cacheService.set(pricesSettingsKey, priceSettings)
+  override def getPriceSettings: Future[PriceSettings] = {
+    val servicesFuture = for {
+      exteriorCleaning <- servicesService.getExteriorCleaningService
+      exteriorAndInterior <- servicesService.getExteriorAndInteriorCleaningService
+    } yield (exteriorCleaning, exteriorAndInterior)
+    servicesFuture.map { tuple =>
+      val carWashingPrice = tuple._1.price
+      val interiorCleaningPrice = tuple._2.price - carWashingPrice
+      PriceSettings(carWashingPrice, interiorCleaningPrice)
     }
   }
 
-  override def getPriceSettings: PriceSettings = {
-    cacheService.get[PriceSettings](pricesSettingsKey).get
+  override def getBasePrice: Future[BasePrice] = {
+    servicesService.getExteriorCleaningService.map(_.price).map(BasePrice.apply)
   }
 
   override def getIntValue(key: String, defaultValue: Int): Future[Int] = {
