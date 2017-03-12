@@ -1,6 +1,7 @@
 package services.internal.services
 
 import com.google.inject.ImplementedBy
+import commons.ServerError
 import dao.services.ServicesDao.ServiceWithExtras
 import models.Tables.{ExtrasRow, ServicesExtrasRow, ServicesRow}
 import services.internal.services.ServicesService.ServicesWithExtrasDto
@@ -18,7 +19,7 @@ trait ServicesService {
 
   def hasInteriorCleaning(service: ServicesRow): Boolean
 
-  def getAllServicesWithExtras(vehicleId: Int): Future[ServicesWithExtrasDto]
+  def getAllServicesWithExtras(vehicleId: Int, userId: Int): Future[Either[ServerError, ServicesWithExtrasDto]]
 
   def getAllServicesWithExtras(make: String, model: String, year: Int): Future[ServicesWithExtrasDto]
 

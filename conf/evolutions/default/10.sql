@@ -1,0 +1,6 @@
+# --- !Ups
+
+ALTER TABLE services
+  ADD COLUMN enabled BOOLEAN DEFAULT TRUE;
+
+UPDATE services SET enabled = FALSE WHERE key = 'INTERIOR_CLEANING'

@@ -17,9 +17,14 @@ class DefaultVehicleService @Inject()(vehicleDao: VehiclesDao,
 
   override def findById(id: Int): Future[VehiclesRow] = vehicleDao.findById(id)
 
-  override def addAdditionalPrice(id: Int): Future[Boolean] = {
-    addAdditionalPriceInternal(vehicleDao.findById(id)
-      .flatMap(vehicle => edmundsService.getCarStyle(vehicle.makerNiceName, vehicle.modelNiceName, vehicle.year))
+  override def addAdditionalPrice(id: Int, userId: Int): Future[Boolean] = {
+    addAdditionalPriceInternal(vehicleDao.findByIdAndUser(id, userId)
+      .flatMap {
+        case Some(vehicle) =>
+          edmundsService.getCarStyle(vehicle.makerNiceName, vehicle.modelNiceName, vehicle.year)
+        case None =>
+          throw new IllegalArgumentException("Can't find car for this user")
+      }
     )
   }
 

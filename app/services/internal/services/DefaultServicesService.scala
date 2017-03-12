@@ -2,6 +2,8 @@ package services.internal.services
 
 import javax.inject.Inject
 
+import commons.ServerError
+import commons.enums.BadRequest
 import dao.services.ServicesDao
 import dao.services.ServicesDao.ServiceWithExtras
 import models.Tables._
@@ -31,47 +33,51 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
   override def hasInteriorCleaning(service: ServicesRow): Boolean =
     service.key.exists(_.equals(exteriorAndInteriorCleaning))
 
-  override def getAllServicesWithExtras(vehicleId: Int): Future[ServicesWithExtrasDto] = {
-    loadServicesWithExtras(vehiclesService.addAdditionalPrice(vehicleId))
+  override def getAllServicesWithExtras(vehicleId: Int, userId: Int): Future[Either[ServerError, ServicesWithExtrasDto]] = {
+    vehiclesService.addAdditionalPrice(vehicleId, userId)
+      .flatMap(addAdditionalPrice => loadServicesWithExtras(addAdditionalPrice).map(Right(_)))
+      .recover {
+        case e: IllegalArgumentException => Left(ServerError(e.getMessage, Some(BadRequest)))
+      }
   }
 
   override def getAllServicesWithExtras(make: String, model: String, year: Int) = {
-    loadServicesWithExtras(vehiclesService.addAdditionalPrice(make, model, year))
+    vehiclesService.addAdditionalPrice(make, model, year)
+      .flatMap(addAdditionalPrice => loadServicesWithExtras(addAdditionalPrice))
   }
 
-  private def loadServicesWithExtras(addAdditionalPrice: => Future[Boolean]) = {
-    val servicesFuture: Future[(ServicesWithExtras, Boolean)] = for {
-      services <- servicesDao.loadAllWithExtras.map(ServicesWithExtras.tupled)
-      addAdditionalCost <- addAdditionalPrice
-    } yield (services, addAdditionalCost)
-
-    servicesFuture.flatMap { tuple =>
-      val serviceWithExtras = tuple._1
-      val extrasDto = serviceWithExtras.extras.map(_.convertToExtraDto)
-      convertServices(serviceWithExtras.services, tuple._2)
-        .map(servicesDto => ServicesWithExtrasDto(servicesDto, extrasDto))
-    }
+  private def loadServicesWithExtras(addAdditionalPrice: Boolean): Future[ServicesWithExtrasDto] = {
+    servicesDao.loadAllWithExtras.map(ServicesWithExtras.tupled)
+      .flatMap { serviceWithExtras =>
+        val extrasDto = serviceWithExtras.extras.map(_.convertToExtraDto)
+        convertServices(serviceWithExtras.services, addAdditionalPrice)
+          .map(servicesDto => ServicesWithExtrasDto(servicesDto, extrasDto))
+      }
   }
 
-  private def convertServices(services: Seq[(ServicesRow, Option[ServicesExtrasRow])], addAdditionalCost: Boolean): Future[Seq[ServiceDto]] = {
-    val dtos = services.groupBy(_._1)
-      .map { entry =>
-        val extraIds = entry._2.flatMap(_._2).map(_.extraId).toSet
-        entry._1.convertToServiceDto(extraIds, addAdditionalCost)
-      }.toSeq
-    Future.sequence(dtos)
+  private def convertServices(services: Seq[(ServicesRow, Option[ServicesExtrasRow])], addAdditionalPrice: Boolean): Future[Seq[ServiceDto]] = {
+    settingsService.getIntValue(SettingsService.serviceAdditionalCost, defaultAdditionalCost)
+      .flatMap { additionalPrice =>
+        val dtos = services.groupBy(_._1)
+          .map { entry =>
+            val extraIds = entry._2.flatMap(_._2).map(_.extraId).toSet
+            entry._1.convertToServiceDto(extraIds, addAdditionalPrice, additionalPrice)
+          }.toSeq
+        Future.sequence(dtos)
+      }
   }
 
   override def getServicePrice(service: ServicesRow, make: String, model: String, year: Int): Future[Int] = {
-    getServicePriceInternal(service, vehiclesService.addAdditionalPrice(make, model, year))
+    settingsService.getIntValue(SettingsService.serviceAdditionalCost, defaultAdditionalCost)
+      .flatMap(additionalPrice => getServicePriceInternal(service, vehiclesService.addAdditionalPrice(make, model, year), additionalPrice))
+
   }
 
-  private def getServicePriceInternal(service: ServicesRow, addAdditionalPrice: => Future[Boolean]) = {
+  private def getServicePriceInternal(service: ServicesRow, addAdditionalPrice: => Future[Boolean], additionalPrice: Int) = {
     if (service.isCarDependentPrice) {
       addAdditionalPrice.flatMap {
         case true =>
-          settingsService.getIntValue(SettingsService.serviceAdditionalCost, defaultAdditionalCost)
-            .map(additionalCost => service.price + additionalCost)
+          Future.successful(service.price + additionalPrice)
         case _ =>
           Future.successful(service.price)
       }
@@ -85,10 +91,14 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
   }
 
   implicit class ExtServicesRow(service: ServicesRow) {
-    def convertToServiceDto(extrasIds: Set[Int], addAdditionalCost: Boolean): Future[ServiceDto] = {
-      getServicePriceInternal(service, Future.successful(addAdditionalCost))
+    def convertToServiceDto(extrasIds: Set[Int], addAdditionalPrice: Boolean, additionalPrice: Int): Future[ServiceDto] = {
+      getServicePriceInternal(service, Future.successful(addAdditionalPrice), additionalPrice)
         .map(price => ServiceDto(service.id, service.name, service.description, price, extrasIds))
     }
   }
+
+}
+
+object DefaultServicesService {
 
 }

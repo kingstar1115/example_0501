@@ -9,7 +9,7 @@ import scala.concurrent.Future
 trait VehiclesService {
   def findById(id: Int): Future[VehiclesRow]
 
-  def addAdditionalPrice(id: Int): Future[Boolean]
+  def addAdditionalPrice(id: Int, userId: Int): Future[Boolean]
 
   def addAdditionalPrice(maker: String, model: String, year: Int): Future[Boolean]
 }

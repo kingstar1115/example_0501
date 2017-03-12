@@ -18,8 +18,14 @@ class ServicesController @Inject()(val tokenStorage: TokenStorage,
   implicit val serviceWrites: Writes[ServiceDto] = Json.writes[ServiceDto]
   implicit val servicesWrites: Writes[ServicesWithExtrasDto] = Json.writes[ServicesWithExtrasDto]
 
-  def getServicesForRegisteredCustomer(version: String, vehicleId: Int) = authorized.async { _ =>
-    servicesService.getAllServicesWithExtras(vehicleId).map(ok(_))
+  def getServicesForRegisteredCustomer(version: String, vehicleId: Int) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    servicesService.getAllServicesWithExtras(vehicleId, userId).map {
+      case Right(services) =>
+        ok(services)
+      case Left(error) =>
+        badRequest(error)
+    }
   }
 
   def getServices(version: String, make: String, model: String, year: Int) = Action.async { _ =>

@@ -36,7 +36,7 @@ class SlickServicesDao @Inject()(dbConfigProvider: DatabaseConfigProvider) exten
 
   def loadAllWithExtras: Future[(Seq[(ServicesRow, Option[ServicesExtrasRow])], Seq[ExtrasRow])] = {
     for {
-      services <- db.run(Services.withExtras.result)
+      services <- db.run(Services.filter(_.enabled === true).withExtras.sortBy(_._1.createdDate).result)
       extras <- db.run(Extras.result)
     } yield (services, extras)
   }

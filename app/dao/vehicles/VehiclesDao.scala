@@ -10,4 +10,5 @@ trait VehiclesDao {
 
   def findById(id: Int): Future[VehiclesRow]
 
+  def findByIdAndUser(id: Int, userId: Int): Future[Option[VehiclesRow]]
 }
