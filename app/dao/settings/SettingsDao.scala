@@ -1,14 +1,13 @@
 package dao.settings
 
 import com.google.inject.ImplementedBy
-import models.Tables.SettingsRow
+import dao.EntityDao
+import models.Tables._
 
 import scala.concurrent.Future
 
 @ImplementedBy(classOf[SlickSettingsDao])
-trait SettingsDao {
-
-  def loadAll: Future[Seq[SettingsRow]]
+trait SettingsDao extends EntityDao[Settings, SettingsRow] {
 
   def findByKey(key: String): Future[Option[SettingsRow]]
 

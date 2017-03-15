@@ -1,16 +1,14 @@
 package dao.services
 
 import com.google.inject.ImplementedBy
+import dao.EntityDao
 import dao.services.ServicesDao._
 import models.Tables._
-import slick.lifted.Query
 
 import scala.concurrent.Future
 
 @ImplementedBy(classOf[SlickServicesDao])
-trait ServicesDao {
-
-  def findById(id: Int): Query[Services, ServicesRow, Seq]
+trait ServicesDao extends EntityDao[Services, ServicesRow] {
 
   def findByKey(key: String): Future[ServicesRow]
 

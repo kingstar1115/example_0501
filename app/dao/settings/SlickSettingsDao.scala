@@ -5,19 +5,16 @@ import javax.inject.Inject
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import slick.driver.PostgresDriver.api._
+import slick.lifted.TableQuery
 
 import scala.concurrent.Future
 
 
-class SlickSettingsDao @Inject()(dbConfigProvider: DatabaseConfigProvider) extends SettingsDao {
+class SlickSettingsDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends SettingsDao {
 
-  private val db = dbConfigProvider.get.db
-
-  override def loadAll: Future[Seq[SettingsRow]] = {
-    db.run(Settings.result)
-  }
+  override def query: TableQuery[Settings] = Settings
 
   override def findByKey(key: String): Future[Option[SettingsRow]] = {
-    db.run(Settings.filter(_.key === key).result.headOption)
+    run(filter(_.key === key).result.headOption)
   }
 }

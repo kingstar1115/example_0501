@@ -7,28 +7,25 @@ import dao.services.SlickServicesDao._
 import models.Tables.{Services, _}
 import play.api.db.slick.DatabaseConfigProvider
 import slick.driver.PostgresDriver.api._
+import slick.lifted.TableQuery
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class SlickServicesDao @Inject()(dbConfigProvider: DatabaseConfigProvider) extends ServicesDao {
+class SlickServicesDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends ServicesDao {
 
-  private val db = dbConfigProvider.get.db
-
-  def findById(id: Int): Query[Services, ServicesRow, Seq] = {
-    Services.filter(_.id === id)
-  }
+  override def query: TableQuery[Services] = Services
 
   override def findByKey(key: String): Future[ServicesRow] = {
-    db.run(Services.filter(_.key === key).result.head)
+    run(filter(_.key === key).result.head)
   }
 
   def findByIdWithExtras(id: Int, extras: Set[Int]): Future[ServiceWithExtras] = {
     val extrasQuery = ServicesExtras.filter(_.extraId inSet extras).join(Extras).on(_.extraId === _.id)
-    val query = findById(id)
+    val query = findByIdQuery(id)
       .joinLeft(extrasQuery).on(_.id === _._1.serviceId)
       .map(result => (result._1, result._2.map(_._2)))
-    db.run(query.result).map { resultSet =>
+    run(query.result).map { resultSet =>
       val extras = resultSet.flatMap(_._2)
       ServiceWithExtras(resultSet.head._1, extras)
     }
@@ -36,8 +33,8 @@ class SlickServicesDao @Inject()(dbConfigProvider: DatabaseConfigProvider) exten
 
   def loadAllWithExtras: Future[(Seq[(ServicesRow, Option[ServicesExtrasRow])], Seq[ExtrasRow])] = {
     for {
-      services <- db.run(Services.filter(_.enabled === true).withExtras.sortBy(_._1.createdDate).result)
-      extras <- db.run(Extras.result)
+      services <- run(filter(_.enabled === true).withExtras.sortBy(_._1.createdDate).result)
+      extras <- run(Extras.result)
     } yield (services, extras)
   }
 }
