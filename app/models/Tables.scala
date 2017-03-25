@@ -14,7 +14,7 @@ trait Tables {
   import slick.jdbc.{GetResult => GR}
 
   /** DDL for all tables. Call .create to execute. */
-  lazy val schema: profile.SchemaDescription = Array(Agents.schema, Extras.schema, Locations.schema, PaymentDetails.schema, Services.schema, ServicesExtras.schema, Settings.schema, Tasks.schema, TaskServices.schema, Users.schema, Vehicles.schema).reduceLeft(_ ++ _)
+  lazy val schema: profile.SchemaDescription = Array(Agents.schema, DaySlots.schema, Extras.schema, Locations.schema, PaymentDetails.schema, Services.schema, ServicesExtras.schema, Settings.schema, Tasks.schema, TaskServices.schema, TimeSlots.schema, Users.schema, Vehicles.schema).reduceLeft(_ ++ _)
   @deprecated("Use .schema instead of .ddl", "3.0")
   def ddl = schema
 
@@ -55,6 +55,32 @@ trait Tables {
               }
   /** Collection-like TableQuery object for table Agents */
   lazy val Agents = new TableQuery(tag => new Agents(tag))
+
+  /** Entity class storing rows of table DaySlots
+   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
+   *  @param createdDate Database column created_date SqlType(timestamp)
+   *  @param date Database column date SqlType(date) */
+  case class DaySlotsRow(id: Int, createdDate: java.sql.Timestamp, date: java.sql.Date) extends Entity
+  /** GetResult implicit for fetching DaySlotsRow objects using plain SQL queries */
+  implicit def GetResultDaySlotsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[java.sql.Date]): GR[DaySlotsRow] = GR{
+    prs => import prs._
+    DaySlotsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[java.sql.Date]))
+  }
+  /** Table description of table day_slots. Objects of this class serve as prototypes for rows in queries. */
+  class DaySlots(_tableTag: Tag) extends BaseTable[DaySlotsRow](_tableTag, "day_slots") {
+                def * = (id, createdDate, date) <> (DaySlotsRow.tupled, DaySlotsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(date)).shaped.<>({r=>import r._; _1.map(_=> DaySlotsRow.tupled((_1.get, _2.get, _3.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+
+    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
+    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column created_date SqlType(timestamp) */
+    val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
+    /** Database column date SqlType(date) */
+    val date: Rep[java.sql.Date] = column[java.sql.Date]("date")
+              }
+  /** Collection-like TableQuery object for table DaySlots */
+  lazy val DaySlots = new TableQuery(tag => new DaySlots(tag))
 
   /** Entity class storing rows of table Extras
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -312,18 +338,19 @@ trait Tables {
    *  @param teamName Database column team_name SqlType(varchar), Length(255,true), Default(None)
    *  @param hasInteriorCleaning Database column has_interior_cleaning SqlType(bool)
    *  @param latitude Database column latitude SqlType(numeric)
-   *  @param longitude Database column longitude SqlType(numeric) */
-  case class TasksRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal) extends Entity
+   *  @param longitude Database column longitude SqlType(numeric)
+   *  @param timeSlotId Database column time_slot_id SqlType(int4), Default(None) */
+  case class TasksRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, timeSlotId: Option[Int] = None) extends Entity
   /** GetResult implicit for fetching TasksRow objects using plain SQL queries */
   implicit def GetResultTasksRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[Option[String]], e4: GR[Boolean], e5: GR[Option[Int]], e6: GR[scala.math.BigDecimal]): GR[TasksRow] = GR{
     prs => import prs._
-    TasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal]))
+    TasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<?[Int]))
   }
   /** Table description of table tasks. Objects of this class serve as prototypes for rows in queries. */
   class Tasks(_tableTag: Tag) extends BaseTable[TasksRow](_tableTag, "tasks") {
-                def * = (id, createdDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, jobAddress, jobPickupPhone, customerPhone, teamName, hasInteriorCleaning, latitude, longitude) <> (TasksRow.tupled, TasksRow.unapply)
+                def * = (id, createdDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, jobAddress, jobPickupPhone, customerPhone, teamName, hasInteriorCleaning, latitude, longitude, timeSlotId) <> (TasksRow.tupled, TasksRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(latitude), Rep.Some(longitude)).shaped.<>({r=>import r._; _1.map(_=> TasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(latitude), Rep.Some(longitude), timeSlotId).shaped.<>({r=>import r._; _1.map(_=> TasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get, _18)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -359,9 +386,13 @@ trait Tables {
     val latitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("latitude")
     /** Database column longitude SqlType(numeric) */
     val longitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("longitude")
+    /** Database column time_slot_id SqlType(int4), Default(None) */
+    val timeSlotId: Rep[Option[Int]] = column[Option[Int]]("time_slot_id", O.Default(None))
 
     /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
     lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+    /** Foreign key referencing TimeSlots (database name tasks_time_slot_id_fkey) */
+    lazy val timeSlotsFk = foreignKey("tasks_time_slot_id_fkey", timeSlotId, TimeSlots)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing Users (database name jobs_user_id_fkey) */
     lazy val usersFk = foreignKey("jobs_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing Vehicles (database name jobs_vehicle_id_fkey) */
@@ -407,6 +438,47 @@ trait Tables {
               }
   /** Collection-like TableQuery object for table TaskServices */
   lazy val TaskServices = new TableQuery(tag => new TaskServices(tag))
+
+  /** Entity class storing rows of table TimeSlots
+   *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
+   *  @param createdDate Database column created_date SqlType(timestamp)
+   *  @param capacity Database column capacity SqlType(int4)
+   *  @param bookingsCount Database column bookings_count SqlType(int4), Default(0)
+   *  @param startTime Database column start_time SqlType(time)
+   *  @param endTime Database column end_time SqlType(time)
+   *  @param daySlotId Database column day_slot_id SqlType(int4) */
+  case class TimeSlotsRow(id: Int, createdDate: java.sql.Timestamp, capacity: Int, bookingsCount: Int = 0, startTime: java.sql.Time, endTime: java.sql.Time, daySlotId: Int) extends Entity
+  /** GetResult implicit for fetching TimeSlotsRow objects using plain SQL queries */
+  implicit def GetResultTimeSlotsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[java.sql.Time]): GR[TimeSlotsRow] = GR{
+    prs => import prs._
+    TimeSlotsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Int], <<[Int], <<[java.sql.Time], <<[java.sql.Time], <<[Int]))
+  }
+  /** Table description of table time_slots. Objects of this class serve as prototypes for rows in queries. */
+  class TimeSlots(_tableTag: Tag) extends BaseTable[TimeSlotsRow](_tableTag, "time_slots") {
+                def * = (id, createdDate, capacity, bookingsCount, startTime, endTime, daySlotId) <> (TimeSlotsRow.tupled, TimeSlotsRow.unapply)
+    /** Maps whole row to an option. Useful for outer joins. */
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(capacity), Rep.Some(bookingsCount), Rep.Some(startTime), Rep.Some(endTime), Rep.Some(daySlotId)).shaped.<>({r=>import r._; _1.map(_=> TimeSlotsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+
+    /** Database column id SqlType(serial), AutoInc, PrimaryKey */
+    val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
+    /** Database column created_date SqlType(timestamp) */
+    val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
+    /** Database column capacity SqlType(int4) */
+    val capacity: Rep[Int] = column[Int]("capacity")
+    /** Database column bookings_count SqlType(int4), Default(0) */
+    val bookingsCount: Rep[Int] = column[Int]("bookings_count", O.Default(0))
+    /** Database column start_time SqlType(time) */
+    val startTime: Rep[java.sql.Time] = column[java.sql.Time]("start_time")
+    /** Database column end_time SqlType(time) */
+    val endTime: Rep[java.sql.Time] = column[java.sql.Time]("end_time")
+    /** Database column day_slot_id SqlType(int4) */
+    val daySlotId: Rep[Int] = column[Int]("day_slot_id")
+
+    /** Foreign key referencing DaySlots (database name time_slots_day_slot_id_fkey) */
+    lazy val daySlotsFk = foreignKey("time_slots_day_slot_id_fkey", daySlotId, DaySlots)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+              }
+  /** Collection-like TableQuery object for table TimeSlots */
+  lazy val TimeSlots = new TableQuery(tag => new TimeSlots(tag))
 
   /** Entity class storing rows of table Users
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey

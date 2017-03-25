@@ -7,7 +7,7 @@ import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.Future
 
-trait EntityDao[T <: BaseTable[E], E <: Entity] extends BaseQuery[T, E] {
+trait EntityDao[T <: BaseTable[E], E <: Entity] extends QueryObject[T, E] {
 
   private val db = dbConfigProvider.get.db
 
@@ -15,7 +15,14 @@ trait EntityDao[T <: BaseTable[E], E <: Entity] extends BaseQuery[T, E] {
 
   def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = db.run(a)
 
+  def runTransactionally[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]): Future[R] = db.run(a.transactionally)
+
   def findById(id: Int): Future[E] = run(findByIdQuery(id).result.head)
+
+  def update(entity: E) = {
+    val updateAction = findByIdQuery(entity.id).update(entity).transactionally
+    run(updateAction)
+  }
 
   def loadAll: Future[Seq[E]] = run(query.result)
 }

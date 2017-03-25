@@ -2,15 +2,16 @@ package dao.settings
 
 import javax.inject.Inject
 
+import dao.SlickDriver
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
-import slick.driver.PostgresDriver.api._
-import slick.lifted.TableQuery
 
 import scala.concurrent.Future
 
 
-class SlickSettingsDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends SettingsDao {
+class SlickSettingsDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends SettingsDao with SlickDriver {
+
+  import profile.api._
 
   override def query: TableQuery[Settings] = Settings
 
