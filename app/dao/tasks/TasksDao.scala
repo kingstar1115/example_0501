@@ -9,6 +9,6 @@ import scala.concurrent.Future
 @ImplementedBy(classOf[SlickTasksDao])
 trait TasksDao extends EntityDao[Tasks, TasksRow] {
 
-  def getTaskWithoutTimeSlots(offset: Int, limit: Int): Future[(Seq[TasksRow], Int)]
+  def getTaskWithoutTimeSlots(offset: Int, limit: Int): Future[(Seq[TasksRow])]
 
 }

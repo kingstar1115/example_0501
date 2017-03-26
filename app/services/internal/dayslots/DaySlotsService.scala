@@ -12,7 +12,9 @@ trait DaySlotsService {
 
   def findByDate(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]]
 
+  def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]]
+
   def createDaySlotWithTimeSlots(date: Date): Future[(DaySlotsRow, Seq[TimeSlotsRow])]
 
-  def bookTimeSlot(task: TasksRow, timeSlot: TimeSlotsRow)
+  def bookTimeSlot(task: TasksRow, timeSlot: TimeSlotsRow, skipCapacityValidation: Boolean = true): Future[Int]
 }

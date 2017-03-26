@@ -3,10 +3,11 @@ package services.internal.dayslots
 import java.sql.{Date => SQLDate}
 import javax.inject.Inject
 
-import commons.utils.codegen.TimeUtils
+import commons.utils.TimeUtils
 import dao.SlickDriver
 import dao.dayslots.{DaySlotQueryObject, DaySlotsDao, TimeSlotQueryObject}
 import dao.tasks.{TaskQueryObject, TasksDao}
+import models.Tables
 import models.Tables._
 import services.internal.dayslots.DefaultDaySlotService._
 import services.internal.settings.SettingsService
@@ -24,6 +25,10 @@ class DefaultDaySlotService @Inject()(daySlotsDao: DaySlotsDao,
 
   override def findByDate(date: SQLDate): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
     daySlotsDao.findByDateWithTimeSlots(date)
+  }
+
+  override def findByDates(dates: Set[SQLDate]): Future[Seq[Tables.DaySlotsRow]] = {
+    daySlotsDao.findByDates(dates)
   }
 
   override def createDaySlotWithTimeSlots(date: SQLDate): Future[(DaySlotsRow, Seq[TimeSlotsRow])] = {
@@ -49,15 +54,17 @@ class DefaultDaySlotService @Inject()(daySlotsDao: DaySlotsDao,
     }
   }
 
-  override def bookTimeSlot(task: TasksRow, timeSlot: TimeSlotsRow): Unit = {
+  override def bookTimeSlot(task: TasksRow, timeSlot: TimeSlotsRow, validateCapacity: Boolean = true): Future[Int] = {
     val bookingsCount = timeSlot.bookingsCount + 1
-    if (bookingsCount > timeSlot.capacity) {
-      throw new IllegalArgumentException("Time slot bookings reached maximum capacity")
+    if (validateCapacity) {
+      if (bookingsCount > timeSlot.capacity) {
+        throw new IllegalArgumentException("Time slot bookings reached maximum capacity")
+      }
     }
     val updateAction = for {
-      timeSlotsUpdateCount <- timeSlotQueryObject.updateQuery(timeSlot.copy(bookingsCount = bookingsCount))
+      _ <- timeSlotQueryObject.updateQuery(timeSlot.copy(bookingsCount = bookingsCount))
       tasksUpdateCount <- taskQueryObject.updateQuery(task.copy(timeSlotId = Some(timeSlot.id)))
-    } yield timeSlotsUpdateCount + tasksUpdateCount
+    } yield tasksUpdateCount
     daySlotsDao.run(updateAction)
   }
 }

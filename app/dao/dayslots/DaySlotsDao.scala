@@ -11,5 +11,7 @@ import scala.concurrent.Future
 @ImplementedBy(classOf[SlickDaySlotsDao])
 trait DaySlotsDao extends EntityDao[DaySlots, DaySlotsRow] {
 
+  def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]]
+
   def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]]
 }

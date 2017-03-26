@@ -6,7 +6,6 @@ import dao.SlickDriver
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
@@ -16,12 +15,10 @@ class SlickTasksDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) exte
 
   override def query: TableQuery[Tasks] = Tasks
 
-  override def getTaskWithoutTimeSlots(offset: Int, limit: Int): Future[(Seq[TasksRow], Int)] = {
-    val tasksWithoutTimeSlotsQuery = filter(_.timeSlotId.isEmpty)
-    val action = for {
-      tasks <- tasksWithoutTimeSlotsQuery.drop(offset).take(limit).result
-      totalCount <- tasksWithoutTimeSlotsQuery.length.result
-    } yield (tasks, totalCount)
-    run(action)
+  override def getTaskWithoutTimeSlots(offset: Int, limit: Int): Future[(Seq[TasksRow])] = {
+    val tasksWithoutTimeSlotsQuery = query.filter(_.timeSlotId.isEmpty)
+      .drop(offset).take(limit)
+      .sortBy(_.scheduledTime.asc)
+    run(tasksWithoutTimeSlotsQuery.result)
   }
 }

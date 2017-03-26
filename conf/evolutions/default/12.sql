@@ -13,7 +13,7 @@ CREATE TABLE time_slots (
   bookings_count INT       NOT NULL DEFAULT 0,
   start_time     TIME      NOT NULL,
   end_time       TIME      NOT NULL,
-  day_slot_id    INT       NOT NULL REFERENCES day_slots (id)
+  day_slot_id    INT       NOT NULL REFERENCES day_slots (id) ON DELETE CASCADE
 );
 
 ALTER TABLE tasks

@@ -18,6 +18,11 @@ class SlickDaySlotsDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) e
 
   private val daySlotQueryObject = new DaySlotQueryObject
 
+  override def findByDates(dates: Set[Date]) = {
+    val daySlotQuery = daySlotQueryObject.filter(_.date inSet dates).sortBy(_.date.asc)
+    run(daySlotQuery.result)
+  }
+
   override def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
     val daySlotsWithTimeSlotsQuery = daySlotQueryObject.withTimeSlots.filter(_._1.date === date)
     run(daySlotsWithTimeSlotsQuery.result).map { resultSet =>

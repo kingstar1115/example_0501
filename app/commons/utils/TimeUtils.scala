@@ -1,6 +1,7 @@
-package commons.utils.codegen
+package commons.utils
 
 import java.sql.{Time, Timestamp, Date => SqlDate}
+import java.time.LocalDate
 import java.util.Date
 
 
@@ -10,8 +11,12 @@ trait TimeUtils {
 
   def currentTime(): Time = new Time(new Date().getTime)
 
+  def currentDate: SqlDate = SqlDate.valueOf(LocalDate.now())
+
   implicit class DateExt(date: SqlDate) {
     def toSqlTimestamp: Timestamp = Timestamp.valueOf(date.toLocalDate.atStartOfDay)
+
+    def addDays(daysToAdd: Int): SqlDate = SqlDate.valueOf(date.toLocalDate.plusDays(daysToAdd))
   }
 
   implicit class TimestampExt(timestamp: Timestamp) {
