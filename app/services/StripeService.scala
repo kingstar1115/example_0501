@@ -74,37 +74,43 @@ class StripeService @Inject()(configuration: Configuration) {
     process(customer.getSources.retrieve(cardId).delete)
   }
 
-  def charge(amount: Int, paymentSource: PaymentSource, jobId: Long, description: String): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, jobId, description) { parameters =>
+  def charge(amount: Int, paymentSource: PaymentSource, description: String): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, description)({ parameters =>
       parameters.put("customer", paymentSource.customerId)
       paymentSource.sourceId match {
         case Some(source) => parameters.put("source", source)
         case _ =>
       }
-    }
+    })
   }
 
-  def charge(amount: Int, source: String, jobId: Long, description: String): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, jobId, description) { parameters =>
+  def charge(amount: Int, source: String, description: String): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, description)({ parameters =>
       parameters.put("source", source)
-    }
+    })
   }
 
-  private def chargeInternal(amount: Int, jobId: Long, description: String)(addParameters: util.HashMap[String, Object] => Unit) = {
-    val metadata = new util.HashMap[String, String]() {
-      put("jobId", jobId.toString)
-    }
+  private def chargeInternal(amount: Int, description: String)(addParameters: (util.HashMap[String, Object]) => Unit) = {
     val params = new util.HashMap[String, Object]() {
       put("amount", new Integer(amount))
       put("currency", "usd")
       put("description", description)
-      put("metadata", metadata)
     }
     addParameters(params)
     process(Charge.create(params))
   }
 
-  def refund(chargeId: String) = {
+  def updateChargeMetadata(charge: Charge, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
+    val metadata = new util.HashMap[String, String]() {
+      put("jobId", jobId.toString)
+    }
+    val params = new util.HashMap[String, Object]() {
+      put("metadata", metadata)
+    }
+    process(charge.update(params))
+  }
+
+  def refund(chargeId: String): Future[Either[ErrorResponse, Refund]] = {
     val params = new util.HashMap[String, Object]() {
       put("charge", chargeId)
     }

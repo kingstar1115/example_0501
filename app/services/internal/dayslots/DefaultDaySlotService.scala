@@ -5,7 +5,7 @@ import javax.inject.Inject
 
 import commons.utils.TimeUtils
 import dao.SlickDriver
-import dao.dayslots.{DaySlotQueryObject, DaySlotsDao, TimeSlotQueryObject}
+import dao.dayslots.{DaySlotQueryObject, BookingDao, TimeSlotQueryObject}
 import dao.tasks.{TaskQueryObject, TasksDao}
 import models.Tables
 import models.Tables._
@@ -15,7 +15,7 @@ import services.internal.settings.SettingsService
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class DefaultDaySlotService @Inject()(daySlotsDao: DaySlotsDao,
+class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
                                       tasksDao: TasksDao,
                                       settingsService: SettingsService) extends DaySlotsService with TimeUtils with SlickDriver {
 
@@ -24,11 +24,11 @@ class DefaultDaySlotService @Inject()(daySlotsDao: DaySlotsDao,
   private val taskQueryObject = new TaskQueryObject
 
   override def findByDate(date: SQLDate): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
-    daySlotsDao.findByDateWithTimeSlots(date)
+    bookingDao.findByDateWithTimeSlots(date)
   }
 
   override def findByDates(dates: Set[SQLDate]): Future[Seq[Tables.DaySlotsRow]] = {
-    daySlotsDao.findByDates(dates)
+    bookingDao.findByDates(dates)
   }
 
   override def createDaySlotWithTimeSlots(date: SQLDate): Future[(DaySlotsRow, Seq[TimeSlotsRow])] = {
@@ -41,7 +41,7 @@ class DefaultDaySlotService @Inject()(daySlotsDao: DaySlotsDao,
           daySlot <- daySlotQueryObject.insertQuery += DaySlotsRow(0, currentTimestamp(), date)
           timeSlots <- timeSlotQueryObject.insertQuery ++= createTimeSlots(dayCapacity, timeCapacity, daySlot)
         } yield (daySlot, timeSlots)
-        daySlotsDao.run(insertAction)
+        bookingDao.run(insertAction)
     }
   }
 
@@ -65,7 +65,7 @@ class DefaultDaySlotService @Inject()(daySlotsDao: DaySlotsDao,
       _ <- timeSlotQueryObject.updateQuery(timeSlot.copy(bookingsCount = bookingsCount))
       tasksUpdateCount <- taskQueryObject.updateQuery(task.copy(timeSlotId = Some(timeSlot.id)))
     } yield tasksUpdateCount
-    daySlotsDao.run(updateAction)
+    bookingDao.run(updateAction)
   }
 }
 

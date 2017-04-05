@@ -1,7 +1,7 @@
 package commons.utils
 
 import java.sql.{Time, Timestamp, Date => SqlDate}
-import java.time.LocalDate
+import java.time.{LocalDate, LocalDateTime}
 import java.util.Date
 
 
@@ -20,10 +20,17 @@ trait TimeUtils {
   }
 
   implicit class TimestampExt(timestamp: Timestamp) {
-
     def resetToHour(hour: Int): Timestamp = Timestamp.valueOf(timestamp.toLocalDateTime.toLocalDate.atTime(hour, 0))
 
     def toSqlTime: Time = Time.valueOf(timestamp.toLocalDateTime.toLocalTime)
+
+    def toSqlDate: SqlDate = SqlDate.valueOf(timestamp.toLocalDateTime.toLocalDate)
+  }
+
+  implicit class LocalDateTimeExt(localDateTime: LocalDateTime) {
+    implicit def toSqlDate: SqlDate = SqlDate.valueOf(localDateTime.toLocalDate)
+
+    implicit def toSqlTime: Time = Time.valueOf(localDateTime.toLocalTime)
   }
 
 }

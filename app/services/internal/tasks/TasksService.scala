@@ -10,7 +10,7 @@ import services.internal.tasks.TasksService._
 
 import scala.concurrent.Future
 
-@ImplementedBy(classOf[DefaultTaskService])
+@ImplementedBy(classOf[TempTaskService])
 trait TasksService {
 
   def createTaskForCustomer(implicit appointmentTask: PaidAppointmentTask, userId: Int, vehicle: Int): Future[Either[ServerError, AppointmentResponse]]
@@ -37,7 +37,7 @@ object TasksService {
 
   case class User(name: String, phone: String, email: Option[String]) extends AbstractUser
 
-  case class PersistedUser(id: Int, name: String, phone: String, email: Option[String], stipeId: Option[String]) extends AbstractUser
+  case class PersistedUser(id: Int, name: String, phone: String, email: Option[String], stripeId: Option[String]) extends AbstractUser
 
   trait AbstractVehicle {
     def maker: String

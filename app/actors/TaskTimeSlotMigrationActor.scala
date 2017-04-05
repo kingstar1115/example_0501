@@ -6,7 +6,7 @@ import javax.inject.Inject
 
 import actors.TaskTimeSlotMigrationActor._
 import akka.actor.Actor
-import dao.dayslots.DaySlotsDao
+import dao.dayslots.BookingDao
 import dao.tasks.TasksDao
 import models.Tables
 import models.Tables._
@@ -18,7 +18,7 @@ import scala.concurrent.Future
 
 
 class TaskTimeSlotMigrationActor @Inject()(tasksDao: TasksDao,
-                                           daySlotsDao: DaySlotsDao,
+                                           bookingDao: BookingDao,
                                            daySlotsService: DaySlotsService) extends Actor {
 
   override def receive: Receive = {

@@ -190,13 +190,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             val paymentResult = tip.token
               .map { token =>
                 Logger.debug(s"Charging tip for task ${dto.jobId} from token $token")
-                stripeService.charge(tip.amount, token, dto.jobId, "Tip")
+                stripeService.charge(tip.amount, token, "Tip")
               }
               .getOrElse {
                 db.run(userQuery.result.head).flatMap { user =>
                   user.stripeId.map { stripeId =>
                     val paymentSource = StripeService.PaymentSource(stripeId, tip.cardId)
-                    stripeService.charge(tip.amount, paymentSource, dto.jobId, "Tip")
+                    stripeService.charge(tip.amount, paymentSource, "Tip")
                   }.getOrElse {
                     Future(Left(ErrorResponse("User doesn't set a payment method", VError)))
                   }

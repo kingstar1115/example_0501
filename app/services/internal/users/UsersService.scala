@@ -7,5 +7,5 @@ import scala.concurrent.Future
 
 @ImplementedBy(classOf[DefaultUserService])
 trait UsersService {
-  def loadUserWithVehicle[T](id: Int, vehicleId: Int)(mapper: ((UsersRow, VehiclesRow)) => T): Future[T]
+  def loadUserWithVehicle[T](id: Int, vehicleId: Int): Future[(UsersRow, VehiclesRow)]
 }

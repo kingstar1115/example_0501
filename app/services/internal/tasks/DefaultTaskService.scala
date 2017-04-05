@@ -19,7 +19,7 @@ import services.internal.notifications.PushNotificationService
 import services.internal.services.ServicesService
 import services.internal.settings.SettingsService
 import services.internal.tasks.DefaultTaskService._
-import services.internal.tasks.TasksService.{AbstractUser, AbstractVehicle, AppointmentTask, _}
+import services.internal.tasks.TasksService._
 import services.internal.users.UsersService
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
@@ -37,7 +37,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
                                    servicesService: ServicesService,
                                    usersService: UsersService) extends TasksService {
 
-  private val db = dbConfigProvider.get.db
+  val db = dbConfigProvider.get.db
 
   def pay[T <: PaymentInformation](price: Int, jobId: Long, stripeId: Option[String] = None, paymentInformation: T)(implicit serviceInformation: ServiceInformation): Future[Either[ErrorResponse, Charge]] = {
     val description = serviceInformation.services.map(_.name).mkString("; ")
@@ -45,13 +45,13 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       case customer: CustomerPaymentInformation =>
         def payWithCard = stripeId.map { id =>
           val paymentSource = StripeService.PaymentSource(id, customer.cardId)
-          stripeService.charge(price, paymentSource, jobId, description)
+          stripeService.charge(price, paymentSource, description)
         }.getOrElse(Future(Left(ErrorResponse("User doesn't set up account to perform payment", StripeError))))
 
-        customer.token.map(token => stripeService.charge(price, token, jobId, description))
+        customer.token.map(token => stripeService.charge(price, token, description))
           .getOrElse(payWithCard)
       case anonymous: AnonymousPaymentInformation =>
-        stripeService.charge(price, anonymous.token, jobId, description)
+        stripeService.charge(price, anonymous.token, description)
     }
   }
 
@@ -62,9 +62,8 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  override def createTaskForCustomer(implicit appointmentTask: PaidAppointmentTask, userId: Int, vehicleId: Int): Future[Either[ServerError, AppointmentResponse]] = {
-
-    def mapUserWithVehicle(row: (UsersRow, VehiclesRow)) = (row._1.toPersistedUser, row._2.toPersistedVehicle)
+  override def createTaskForCustomer(implicit appointmentTask: PaidAppointmentTask, userId: Int,
+                                     vehicleId: Int): Future[Either[ServerError, AppointmentResponse]] = {
 
     def saveTask(data: TempData, tookanTask: AppointmentResponse) = {
       val paymentMethod = getPaymentMethod(appointmentTask.paymentInformation)
@@ -89,8 +88,8 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       }
     }
 
-    usersService.loadUserWithVehicle(userId, vehicleId)(mapUserWithVehicle)
-      .flatMap(tuple => createPaidTask(tuple._1, tuple._2)(saveTask))
+    usersService.loadUserWithVehicle(userId, vehicleId)
+      .flatMap(pair => createPaidTask(pair._1.toPersistedUser, pair._2.toPersistedVehicle)(saveTask))
   }
 
   override def createTaskForAnonymous(implicit paidAppointmentTask: PaidAppointmentTask, user: User, vehicle: Vehicle): Future[Either[ServerError, AppointmentResponse]] = {
@@ -161,14 +160,14 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  private def getStripeId[U <: AbstractUser](user: U): Option[String] = {
+  def getStripeId[U <: AbstractUser](user: U): Option[String] = {
     user match {
-      case persistedUser: PersistedUser => persistedUser.stipeId
+      case persistedUser: PersistedUser => persistedUser.stripeId
       case _ => None
     }
   }
 
-  private def getServiceInformation[V <: AbstractVehicle](appointmentTask: AppointmentTask, vehicle: V): Future[ServiceInformation] = {
+  def getServiceInformation[V <: AbstractVehicle](appointmentTask: AppointmentTask, vehicle: V): Future[ServiceInformation] = {
     //TODO: improve error handling
     appointmentTask match {
       case dto: ServicesInformation =>
@@ -200,7 +199,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None): Int = {
+  def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None): Int = {
     discount.map { discountAmount =>
       Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
       val discountedPrice = priceBeforeDiscount - discountAmount
@@ -220,7 +219,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     db.run(taskQuery.result)
   }
 
-  private def getMetadata[V <: AbstractVehicle](vehicle: V, services: Seq[Service]): Seq[Metadata] = {
+  def getMetadata[V <: AbstractVehicle](vehicle: V, services: Seq[Service]): Seq[Metadata] = {
     val metadata: Seq[Metadata] = Seq(
       Metadata(Metadata.maker, vehicle.maker),
       Metadata(Metadata.model, vehicle.model),
