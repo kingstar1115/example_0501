@@ -10,14 +10,14 @@ import services.internal.tasks.TasksService._
 
 import scala.concurrent.Future
 
-@ImplementedBy(classOf[TempTaskService])
+@ImplementedBy(classOf[DefaultTaskService])
 trait TasksService {
 
-  def createTaskForCustomer(implicit appointmentTask: PaidAppointmentTask, userId: Int, vehicle: Int): Future[Either[ServerError, AppointmentResponse]]
+  def createTaskForCustomer(userId: Int, vehicle: Int)(implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]]
 
-  def createTaskForAnonymous(implicit appointmentTask: PaidAppointmentTask, user: User, vehicle: Vehicle): Future[Either[ServerError, AppointmentResponse]]
+  def createTaskForAnonymous(user: User, vehicle: Vehicle)(implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]]
 
-  def createPartnershipTask(implicit appointmentTask: AppointmentTask, user: User, vehicle: Vehicle): Future[Either[ServerError, AppointmentResponse]]
+  def createPartnershipTask(user: User, vehicle: Vehicle)(implicit appointmentTask: AppointmentTask): Future[Either[ServerError, AppointmentResponse]]
 
   def refreshTask(taskId: Long): Unit
 

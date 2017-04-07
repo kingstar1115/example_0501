@@ -21,10 +21,14 @@ class DefaultBookingService @Inject()(daySlotsDao: BookingDao) extends BookingSe
   }
 
   override def reserveBooking(dateTime: LocalDateTime): Future[Option[TimeSlotsRow]] = {
-    (for {
-      timeSlot <- OptionT(findFreeTimeSlotByTimestamp(dateTime))
-      updatedTimeSlot <- OptionT(reserveBookingInternal(timeSlot))
-    } yield updatedTimeSlot).inner
+    if (LocalDateTime.now().isBefore(dateTime)) {
+      (for {
+        timeSlot <- OptionT(findFreeTimeSlotByTimestamp(dateTime))
+        updatedTimeSlot <- OptionT(reserveBookingInternal(timeSlot))
+      } yield updatedTimeSlot).inner
+    } else {
+      Future.successful(None)
+    }
   }
 
   private def reserveBookingInternal(timeSlot: TimeSlotsRow): Future[Option[TimeSlotsRow]] = {

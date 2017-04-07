@@ -7,9 +7,9 @@ import java.util.Date
 
 trait TimeUtils {
 
-  def currentTimestamp(): Timestamp = new Timestamp(new Date().getTime)
+  def currentTimestamp: Timestamp = new Timestamp(new Date().getTime)
 
-  def currentTime(): Time = new Time(new Date().getTime)
+  def currentTime: Time = new Time(new Date().getTime)
 
   def currentDate: SqlDate = SqlDate.valueOf(LocalDate.now())
 

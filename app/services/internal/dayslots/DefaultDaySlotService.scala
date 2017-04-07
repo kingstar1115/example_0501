@@ -38,7 +38,7 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
     } yield (dayCapacity, timeCapacity)).flatMap {
       case (dayCapacity, timeCapacity) =>
         val insertAction = for {
-          daySlot <- daySlotQueryObject.insertQuery += DaySlotsRow(0, currentTimestamp(), date)
+          daySlot <- daySlotQueryObject.insertQuery += DaySlotsRow(0, currentTimestamp, date)
           timeSlots <- timeSlotQueryObject.insertQuery ++= createTimeSlots(dayCapacity, timeCapacity, daySlot)
         } yield (daySlot, timeSlots)
         bookingDao.run(insertAction)
@@ -49,7 +49,7 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
     val bookingSlotTimestamp = daySlot.date.toSqlTimestamp
     0.until(dayCapacity).map { index =>
       val startHour = TimeSlotsStartHour + index
-      TimeSlotsRow(0, currentTimestamp(), timeCapacity, 0, bookingSlotTimestamp.resetToHour(startHour).toSqlTime,
+      TimeSlotsRow(0, currentTimestamp, timeCapacity, 0, bookingSlotTimestamp.resetToHour(startHour).toSqlTime,
         bookingSlotTimestamp.resetToHour(startHour + 1).toSqlTime, daySlot.id)
     }
   }

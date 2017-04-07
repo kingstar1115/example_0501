@@ -50,8 +50,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   val db = dbConfigProvider.get.db
 
   def createCustomerTask(version: String) = authorized.async(BodyParsers.parse.json) { implicit request =>
-    def createTask(appointmentTask: PaidAppointmentTask, vehicleId: Int) = {
-      taskService.createTaskForCustomer(appointmentTask, request.token.get.userInfo.id, vehicleId) map {
+    def createTask(vehicleId: Int)(implicit appointmentTask: PaidAppointmentTask) = {
+      taskService.createTaskForCustomer(request.token.get.userInfo.id, vehicleId) map {
         case Left(error) => badRequest(error.message)
         case Right(tookanTask) => ok(tookanTask)
       }
@@ -60,28 +60,28 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     version match {
       case "v3" =>
         processRequestF[CustomerTaskWithServicesDto](request.body) { dto =>
-          val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
+          implicit val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
             CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId), dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
-          createTask(appointmentTask, dto.vehicleId)
+          createTask(dto.vehicleId)
         }
       case "v2" =>
         processRequestF[CustomerTaskDto](request.body) { dto =>
-          val appointmentTask = PaidCustomerTaskWithInteriorCleaning(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
+          implicit val appointmentTask = PaidCustomerTaskWithInteriorCleaning(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
             CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId), dto.paymentDetails.promotion, dto.paymentDetails.hasInteriorCleaning)
-          createTask(appointmentTask, dto.vehicleId)
+          createTask(dto.vehicleId)
         }
       case _ =>
         processRequestF[TaskDto](request.body) { dto =>
-          val appointmentTask = PaidCustomerTaskWithInteriorCleaning(dto.description, dto.pickupAddress, dto.pickupLatitude, dto.pickupLongitude, dto.pickupDateTime,
+          implicit val appointmentTask = PaidCustomerTaskWithInteriorCleaning(dto.description, dto.pickupAddress, dto.pickupLatitude, dto.pickupLongitude, dto.pickupDateTime,
             CustomerPaymentInformation(dto.token, dto.cardId), dto.promotion, dto.hasInteriorCleaning)
-          createTask(appointmentTask, dto.vehicleId)
+          createTask(dto.vehicleId)
         }
     }
   }
 
   def createAnonymousTask(version: String) = Action.async(BodyParsers.parse.json) { request =>
-    def createTask(appointmentTask: PaidAppointmentTask, user: User, vehicle: Vehicle) = {
-      taskService.createTaskForAnonymous(appointmentTask, user, vehicle) map {
+    def createTask(user: User, vehicle: Vehicle)(implicit appointmentTask: PaidAppointmentTask) = {
+      taskService.createTaskForAnonymous(user, vehicle) map {
         case Left(error) => badRequest(error.message)
         case Right(tookanTask) => ok(tookanTask)
       }
@@ -90,22 +90,22 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     version match {
       case "v3" =>
         processRequestF[AnonymousTaskWithServicesDto](request.body) { dto =>
-          val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
+          implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
             AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.serviceDto.id, dto.serviceDto.extras)
-          createTask(appointmentTask, dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
+          createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
         }
       case _ =>
         processRequestF[AnonymousTaskDto](request.body) { dto =>
-          val appointmentTask = PaidAnonymousTaskWithInteriorCleaning(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
+          implicit val appointmentTask = PaidAnonymousTaskWithInteriorCleaning(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
             AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.hasInteriorCleaning)
-          createTask(appointmentTask, dto.user, dto.vehicle.mapToVehicle)
+          createTask(dto.user, dto.vehicle.mapToVehicle)
         }
     }
   }
 
   def createPartnershipTask(version: String) = Action.async(BodyParsers.parse.json) { request =>
-    def createPartnershipTask(appointmentTask: AppointmentTask, user: User, vehicle: Vehicle) = {
-      taskService.createPartnershipTask(appointmentTask, user, vehicle) map {
+    def createPartnershipTask(user: User, vehicle: Vehicle)(implicit appointmentTask: AppointmentTask) = {
+      taskService.createPartnershipTask(user, vehicle) map {
         case Left(error) => badRequest(error.message)
         case Right(tookanTask) => ok(tookanTask)
       }
@@ -114,11 +114,11 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     version match {
       case "v3" =>
         processRequestF[PartnershipTaskWithServiceDto](request.body) { dto =>
-          createPartnershipTask(dto.mapToAppointmentTask, dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
+          createPartnershipTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)(dto.mapToAppointmentTask)
         }
       case _ =>
         processRequestF[PartnershipTaskDto](request.body) { dto =>
-          createPartnershipTask(dto.mapToAppointmentTask, dto.user, dto.vehicleDto.mapToVehicle)
+          createPartnershipTask(dto.user, dto.vehicleDto.mapToVehicle)(dto.mapToAppointmentTask)
         }
     }
   }
