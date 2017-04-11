@@ -3,7 +3,7 @@
 CREATE TABLE day_slots (
   id           SERIAL PRIMARY KEY,
   created_date TIMESTAMP NOT NULL DEFAULT now(),
-  date         DATE      NOT NULL
+  date         DATE      NOT NULL UNIQUE
 );
 
 CREATE TABLE time_slots (
@@ -13,11 +13,12 @@ CREATE TABLE time_slots (
   bookings_count INT       NOT NULL DEFAULT 0,
   start_time     TIME      NOT NULL,
   end_time       TIME      NOT NULL,
-  day_slot_id    INT       NOT NULL REFERENCES day_slots (id) ON DELETE CASCADE
+  day_slot_id    INT       NOT NULL REFERENCES day_slots (id) ON DELETE CASCADE,
+  CONSTRAINT u_date_time UNIQUE (start_time, day_slot_id)
 );
 
 ALTER TABLE tasks
   ADD COLUMN time_slot_id INT REFERENCES time_slots (id);
 
 INSERT INTO settings (key, value) VALUES ('day.slot.capacity', 8);
-INSERT INTO settings (key, value) VALUES ('time.slot.capacity', 2);
+INSERT INTO settings (key, value) VALUES ('time.slot.capacity', 1);

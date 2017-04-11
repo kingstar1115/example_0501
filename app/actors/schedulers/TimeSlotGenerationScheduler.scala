@@ -17,6 +17,6 @@ class TimeSlotGenerationScheduler @Inject()(system: ActorSystem,
 
   def schedule(): Cancellable = {
     Logger.info(s"Scheduling 'TimeSlotGenerationActor' with ${7.days} interval")
-    system.scheduler.schedule(1.minute, 7.days, timeSlotGenerationActor, GenerateTimeSlots)
+    system.scheduler.schedule(5.minute, 7.days, timeSlotGenerationActor, GenerateTimeSlots)
   }
 }

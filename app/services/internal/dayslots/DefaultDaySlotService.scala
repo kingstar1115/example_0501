@@ -74,7 +74,7 @@ object DefaultDaySlotService {
   val DefaultDaySlotCapacity = 8
 
   val TimeSlotCapacity = "time.slot.capacity"
-  val DefaultTimeSlotCapacity = 2
+  val DefaultTimeSlotCapacity = 1
 
   //Time slots for day starts from 9 am
   val TimeSlotsStartHour = 9

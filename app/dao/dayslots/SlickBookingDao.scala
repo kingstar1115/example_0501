@@ -3,7 +3,9 @@ package dao.dayslots
 import java.sql.{Date, Time}
 import javax.inject.Inject
 
+import commons.utils.implicits.OrderingExt._
 import dao.SlickDriver
+import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 
@@ -55,5 +57,13 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) ex
     run(dBIOAction)
   }
 
+  override def findBookingSlots(date: Date): Future[Seq[BookingSlot]] = {
+    val bookingSlotsQuery = daySlotQueryObject.withTimeSlots
+      .filter(_._1.date >= date)
+    run(bookingSlotsQuery.result).map { resultSet =>
+      resultSet.groupBy(_._1)
+        .map(entry => BookingSlot(entry._1, entry._2.map(_._2))).toSeq.sortBy(_.daySlot.date)
+    }
+  }
 }
 
