@@ -1,10 +1,10 @@
-package controllers
+package controllers.rest
 
 import javax.inject.Inject
 
 import commons.enums.InternalSError
-import controllers.VehiclesController._
-import controllers.base.{BaseController, CRUDOperations}
+import controllers.rest.base._
+import controllers.rest.VehiclesController._
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Json
@@ -15,6 +15,7 @@ import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
+//noinspection TypeAnnotation
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,
                                    edmundsService: EdmundsService,
                                    val dbConfigProvider: DatabaseConfigProvider)

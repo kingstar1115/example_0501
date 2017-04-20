@@ -1,4 +1,4 @@
-package controllers.base
+package controllers.rest.base
 
 import commons.enums.NotAuthorized
 import play.api.http.HeaderNames

@@ -1,17 +1,14 @@
-package dto
+package dto.rest
 
 import java.sql.Date
 import java.time.{LocalDate, LocalDateTime}
 
-import commons.utils.implicits.WritesExt
+import commons.utils.implicits.WritesExt._
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
 import play.api.libs.json.{Json, Writes}
 
 object BookingDtos {
-
-  implicit val localDateTimeWrites = WritesExt.LocalDateTimeWrites
-  implicit val localDateWrites = WritesExt.LocalDateWrites
 
   case class BookingSlotDto(id: Int, available: Boolean, startTime: LocalDateTime, entTime: LocalDateTime)
 

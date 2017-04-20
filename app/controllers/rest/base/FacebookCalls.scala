@@ -1,11 +1,11 @@
-package controllers.base
+package controllers.rest.base
 
 import play.api.Play.current
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{Json, JsPath, Reads}
 import play.api.libs.ws.WSClient
-import controllers.base.FacebookCalls._
+import controllers.rest.base.FacebookCalls._
 
 trait FacebookCalls {
 
@@ -14,15 +14,15 @@ trait FacebookCalls {
   implicit val dataReads = Json.reads[PictureData]
   implicit val pictureReads = Json.reads[Picture]
   implicit val facebookResponseDtoReads: Reads[FacebookResponseDto] = (
-      (JsPath \ "id").read[String] and
+    (JsPath \ "id").read[String] and
       (JsPath \ "email").readNullable[String] and
       (JsPath \ "first_name").read[String] and
       (JsPath \ "last_name").read[String] and
       (JsPath \ "picture").read[Picture]
-    )(FacebookResponseDto.apply _)
+    ) (FacebookResponseDto.apply _)
 
   def facebookMe(token: String) = {
-    ws.url(facebookMeUrl)
+    ws.url(FacebookMeUrl)
       .withRequestTimeout(5000)
       .withQueryString("access_token" -> token, "fields" -> "id,first_name,last_name,email,picture.width(200).height(200)")
       .get()
@@ -31,8 +31,8 @@ trait FacebookCalls {
 
 object FacebookCalls {
 
-  val facebookUrl = current.configuration.getString("facebook.api").get
-  val facebookMeUrl = s"$facebookUrl/me"
+  val FacebookUrl = current.configuration.getString("facebook.api").get
+  val FacebookMeUrl = s"$FacebookUrl/me"
 
   case class FacebookResponseDto(id: String,
                                  email: Option[String],

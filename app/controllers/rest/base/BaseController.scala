@@ -1,4 +1,4 @@
-package controllers.base
+package controllers.rest.base
 
 import play.api.data.validation.ValidationError
 import play.api.libs.json.{JsError, JsPath, JsValue, Reads}

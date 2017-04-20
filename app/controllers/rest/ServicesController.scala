@@ -1,8 +1,8 @@
-package controllers
+package controllers.rest
 
 import javax.inject.Inject
 
-import controllers.base.BaseController
+import controllers.rest.base._
 import play.api.libs.json.{Json, Writes}
 import play.api.mvc.Action
 import security.TokenStorage
@@ -11,6 +11,7 @@ import services.internal.services.ServicesService._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
+//noinspection TypeAnnotation
 class ServicesController @Inject()(val tokenStorage: TokenStorage,
                                    servicesService: ServicesService) extends BaseController {
 

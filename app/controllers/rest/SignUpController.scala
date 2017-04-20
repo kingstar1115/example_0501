@@ -1,12 +1,12 @@
-package controllers
+package controllers.rest
 
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
 import commons.enums.{AuthyError, DatabaseError, FacebookError}
-import controllers.SignUpController.{EmailSignUpDto, FBSighUpResponseDto, FacebookSighUpDto, FbTokenDto}
-import controllers.base.FacebookCalls.FacebookResponseDto
-import controllers.base.{BaseController, FacebookCalls}
+import controllers.rest.base.FacebookCalls.FacebookResponseDto
+import controllers.rest.base._
+import controllers.rest.SignUpController.{EmailSignUpDto, FBSighUpResponseDto, FacebookSighUpDto, FbTokenDto}
 import models.Tables
 import models.Tables._
 import play.api.data.validation.ValidationError
@@ -24,7 +24,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-
+//noinspection TypeAnnotation
 class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                  tokenProvider: TokenProvider,
                                  val tokenStorage: TokenStorage,
@@ -123,7 +123,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                 verifyService.sendVerifyCode(dto.phoneCode.toInt, dto.phone).flatMap {
                   case response if response.success =>
                     val insertQuery = (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
-                      u.facebookId, u.userType, u.salt, u.profilePicture)) returning Users.map(_.id)) +=(dto.firstName,
+                      u.facebookId, u.userType, u.salt, u.profilePicture)) returning Users.map(_.id)) += (dto.firstName,
                       dto.lastName, dto.email, dto.phoneCode, dto.phone, Some(fbDto.id), 1,
                       generateSalt, Option(fbDto.picture.data.url))
                     db.run(insertQuery).map { userId =>

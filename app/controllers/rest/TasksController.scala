@@ -1,4 +1,4 @@
-package controllers
+package controllers.rest
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -6,9 +6,9 @@ import javax.inject.Inject
 
 import commons.enums.TaskStatuses.Successful
 import commons.enums.{TaskStatuses, ValidationError => VError}
-import controllers.TasksController._
-import controllers.VehiclesController._
-import controllers.base.{BaseController, ListResponse}
+import controllers.rest.TasksController._
+import controllers.rest.VehiclesController._
+import controllers.rest.base._
 import models.Tables._
 import play.api.data.Forms.{email => _, _}
 import play.api.data.validation.ValidationError
@@ -32,6 +32,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
+//noinspection TypeAnnotation
 class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 dbConfigProvider: DatabaseConfigProvider,
                                 tookanService: TookanService,

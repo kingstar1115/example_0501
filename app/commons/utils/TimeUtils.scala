@@ -33,4 +33,8 @@ trait TimeUtils {
     implicit def toSqlTime: Time = Time.valueOf(localDateTime.toLocalTime)
   }
 
+  implicit class LocalDateExt(localDate: LocalDate) {
+    implicit def toSqlDate: SqlDate = SqlDate.valueOf(localDate)
+  }
+
 }

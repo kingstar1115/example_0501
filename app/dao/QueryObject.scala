@@ -16,7 +16,7 @@ trait QueryObject[T <: BaseTable[E], E <: Entity] extends SlickDriver {
 
   def deleteByIdQuery(id: Int): FixedSqlAction[Int, NoStream, Write] = query.filter(_.id === id).delete
 
-  def updateQuery(entity: E) = findByIdQuery(entity.id).update(entity)
+  def updateQuery(entity: E): FixedSqlAction[Int, NoStream, Write] = findByIdQuery(entity.id).update(entity)
 
   def filter[C <: Rep[_]](expr: T => C)(implicit wt: CanBeQueryCondition[C]): Query[T, E, Seq] = {
     query.filter(expr)

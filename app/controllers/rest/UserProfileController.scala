@@ -1,34 +1,31 @@
-package controllers
+package controllers.rest
 
 import java.io.File
-import java.util.{NoSuchElementException, UUID}
+import java.util.UUID
 import javax.imageio.ImageIO
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
 import commons.enums.{DatabaseError, PaymentMethods}
-import controllers.UserProfileController._
-import controllers.base.BaseController
+import controllers.rest.UserProfileController._
+import controllers.rest.base._
 import models.Tables._
 import play.api.Logger
-import play.api.data.validation.ValidationError
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
-import play.api.mvc.{Action, BodyParsers, Result}
+import play.api.mvc.{Action, BodyParsers}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
 import services.{FileService, StripeService}
-import slick.dbio.Effect.Write
 import slick.driver.PostgresDriver.api._
-import slick.profile.FixedSqlAction
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
-
+//noinspection TypeAnnotation
 class UserProfileController @Inject()(val tokenStorage: TokenStorage,
                                       dbConfigProvider: DatabaseConfigProvider,
                                       application: play.Application,
@@ -185,7 +182,7 @@ class UserProfileController @Inject()(val tokenStorage: TokenStorage,
 
   def processStripe[T](result: Future[Either[ErrorResponse, T]])(f: T => Future[Option[String]]) = {
     result.flatMap {
-      case Left(error) => Future(None)
+      case Left(_) => Future(None)
       case Right(data) => f(data)
     }
   }

@@ -1,9 +1,9 @@
-package controllers
+package controllers.rest
 
 import com.google.inject.Inject
 import commons.enums.{AuthyError, DatabaseError}
-import controllers.PhoneVerificationController._
-import controllers.base.BaseController
+import controllers.rest.PhoneVerificationController._
+import controllers.rest.base._
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
@@ -18,7 +18,7 @@ import slick.driver.PostgresDriver.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-
+//noinspection TypeAnnotation
 class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                             val tokenStorage: TokenStorage,
                                             verifyService: AuthyVerifyService) extends BaseController() {

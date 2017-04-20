@@ -1,0 +1,50 @@
+@(contentHeader: Html = Html(""))(content: Html)
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Qweex</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css">
+        <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("stylesheets/bootstrap.min.css")">
+        <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("stylesheets/skin-blue.min.css")">
+        <link rel="stylesheet" type="text/css" href="@routes.Assets.versioned("stylesheets/AdminLTE.css")">
+
+        <script src="@routes.Assets.versioned("javascripts/jquery-3.2.1.min.js")"></script>
+        <script src="@routes.Assets.versioned("javascripts/bootstrap.min.js")"></script>
+        <script src="@routes.Assets.versioned("javascripts/app.min.js")" type="text/javascript"></script>
+    </head>
+    <body class="skin-blue sidebar-mini">
+        <header class="main-header">
+            <a href="@controllers.admin.routes.DashboardController.getAdminDashboard()" class="logo" title="Qweex">
+                <span class="logo-lg">
+                    <img src="@routes.Assets.versioned("images/logo.svg")" height="30">
+                </span>
+                <span class="logo-mini">
+                    <b>Q</b>wx
+                </span>
+            </a>
+            <nav class="navbar navbar-static-top" role="navigation">
+                <a href="#" class="sidebar-toggle" data-toggle="offcanvas" role="button">
+                    <span class="sr-only">Toggle navigation</span>
+                </a>
+            </nav>
+        </header>
+
+        <div class="main-sidebar">
+            <div class="sidebar">
+                <ul class="sidebar-menu">
+                    <li>
+                        <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots()">
+                            <span>Booking Slots</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="content-wrapper">
+            <section class="content-header">@contentHeader</section>
+            <section class="content">@content</section>
+        </div>
+    </body>
+</html>

@@ -1,12 +1,12 @@
-package controllers
+package controllers.rest
 
 import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
 import commons.enums.CommonError
-import controllers.LogInController.{EmailLogInDto, ForgotPasswordDto}
-import controllers.SignUpController.FbTokenDto
-import controllers.base._
+import controllers.rest.LogInController.{EmailLogInDto, ForgotPasswordDto}
+import controllers.rest.SignUpController.FbTokenDto
+import controllers.rest.base._
 import models.Tables
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
@@ -22,7 +22,7 @@ import slick.driver.PostgresDriver.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-
+//noinspection TypeAnnotation
 class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                 tokenProvider: TokenProvider,
                                 val tokenStorage: TokenStorage,
@@ -78,7 +78,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         case Left(error) => Future.successful(error)
         case Right(user) =>
           val code = tokenProvider.generateKey
-          val recoverURL = routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
+          val recoverURL = controllers.routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
           mailService.sendPasswordForgetEmail(user.email, recoverURL)
           db.run(Users.filter(_.id === user.id).map(_.code).update(Option(code))).map {
             case 1 => ok("Check your email for further instructions")

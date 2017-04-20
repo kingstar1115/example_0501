@@ -1,4 +1,4 @@
-package controllers.base
+package controllers.rest.base
 
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json.Writes

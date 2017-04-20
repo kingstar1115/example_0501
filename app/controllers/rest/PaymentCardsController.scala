@@ -1,10 +1,10 @@
-package controllers
+package controllers.rest
 
 import javax.inject.Inject
 
 import com.stripe.model.Card
-import controllers.PaymentCardsController._
-import controllers.base.{BaseController, ListResponse}
+import controllers.rest.PaymentCardsController._
+import controllers.rest.base._
 import models.Tables.{UsersRow, _}
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.json._
@@ -17,7 +17,7 @@ import slick.driver.PostgresDriver.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-
+//noinspection TypeAnnotation
 class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
                                        dbConfigProvider: DatabaseConfigProvider,
                                        stripeService: StripeService) extends BaseController {

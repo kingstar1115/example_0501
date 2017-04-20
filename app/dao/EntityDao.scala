@@ -15,8 +15,6 @@ trait EntityDao[T <: BaseTable[E], E <: Entity] extends QueryObject[T, E] {
 
   def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = db.run(a)
 
-  def runTransactionally[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]): Future[R] = db.run(a.transactionally)
-
   def findById(id: Int): Future[E] = run(findByIdQuery(id).result.head)
 
   def update(entity: E) = {

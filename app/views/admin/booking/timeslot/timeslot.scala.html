@@ -1,0 +1,25 @@
+@import controllers.admin.BookingSlotController.TimeSlotForm
+@import views.html.admin.main
+@import views.html.components._
+
+@(timeSlotForm: Form[TimeSlotForm])(implicit messages: Messages)
+
+@main() {
+    <div class="box box-primary">
+        <div class="box-header with-border">
+            <h3 class="box-title">Time Slot:</h3>
+        </div>
+        <div class="box-body">
+            <form role="form">
+                @input(timeSlotForm("id"), inputType = "hidden")
+                @input(timeSlotForm("startTime"), Some("Start Time"), args = Map('readonly -> true))
+                @input(timeSlotForm("endTime"), Some("End Time"), args = Map('readonly -> true))
+                @input(timeSlotForm("capacity"), Some("Capacity"))
+                @input(timeSlotForm("reserved"), Some("Reserved"), args = Map('readonly -> true))
+            </form>
+        </div>
+        <div class="box-footer">
+            <button type="submit" class="btn btn-primary pull-right">Submit</button>
+        </div>
+    </div>
+}

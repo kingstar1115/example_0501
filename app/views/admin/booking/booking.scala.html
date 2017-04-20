@@ -1,0 +1,58 @@
+@import dto.BookingDto._
+@import views.html.admin.main
+
+@(bookingDaySlots: Seq[DaySlotDto])
+
+@main() {
+    <div>
+        <div class="row">
+            <div class="col-md-6 col-xs-6">
+                <h2>Booking Dates:</h2>
+            </div>
+            <div class="col-md-6 col-xs-6">
+                <div class="btn-group pull-right" role="group">
+                    <button type="button" class="btn btn-default btn-flat">
+                        <span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="btn btn-warning btn-flat disabled" disabled>
+                        <span class="glyphicon glyphicon-apple" aria-hidden="true"></span>
+                    </button>
+                    <button type="button" class="btn btn-default btn-flat">
+                        <span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="nav-tabs-custom">
+                    <ul class="nav nav-tabs">
+                    @for(bookingDate <- bookingDaySlots.zipWithIndex) {
+                        <li class="@if(bookingDate._2 == 0) {active}">
+                            <a href="#tab_@bookingDate._1.id" data-toggle="tab" aria-expanded="@if(bookingDate._2 == 0) {true} else {false}">
+                            @bookingDate._1.date
+                            </a>
+                        </li>
+                    }
+                    </ul>
+                    <div class="tab-content">
+                    @for(bookingDate <- bookingDaySlots.zipWithIndex) {
+                        <div class="tab-pane @if(bookingDate._2 == 0) {active}" id="tab_@bookingDate._1.id">
+                            <div class="row">
+                            @for(slot <- bookingDate._1.timeSlots) {
+                                <div class="col-md-6">
+                                    <a href="@controllers.admin.routes.BookingSlotController.getBookingSlot(slot.id)">
+                                        <h4>@slot.startTime - @slot.endTime</h4>
+                                    </a>
+                                </div>
+                            }
+                            </div>
+                        </div>
+                    }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

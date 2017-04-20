@@ -1,6 +1,6 @@
 package services.internal.bookings
 
-import java.time.LocalDateTime
+import java.time.{LocalDate, LocalDateTime}
 
 import com.google.inject.ImplementedBy
 import dao.dayslots.BookingDao.BookingSlot
@@ -17,6 +17,12 @@ trait BookingService {
 
   def releaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow]
 
-  def getBookingSlots: Future[Seq[BookingSlot]]
+  def getBookingSlots(startDate: LocalDate = LocalDate.now(),
+                      endDate: LocalDate = LocalDate.now().plusDays(14),
+                      filterByCurrentTime: Boolean = true): Future[Seq[BookingSlot]]
+
+  def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]]
+
+  def increaseCapacity(id: Int, capacity: Int): Future[Option[TimeSlotsRow]]
 }
 

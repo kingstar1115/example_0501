@@ -1,19 +1,21 @@
-package controllers
+package controllers.rest
 
 import com.google.inject.Inject
-import controllers.LocationController._
-import controllers.base.{BaseController, CRUDOperations}
+import controllers.rest.LocationController._
+import controllers.rest.base._
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
-import play.api.libs.json.{JsPath, Json, Reads}
+import play.api.libs.json.{JsPath, JsValue, Json, Reads}
+import play.api.mvc.Action
 import security.TokenStorage
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
+//noinspection TypeAnnotation
 class LocationController @Inject()(val tokenStorage: TokenStorage,
                                    val dbConfigProvider: DatabaseConfigProvider)
   extends BaseController
@@ -25,7 +27,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
     processRequestF[LocationDto](request.body) { dto =>
       val userId = request.token.get.userInfo.id
       val createQuery = Locations.map(l => (l.userId, l.title, l.formattedAddress, l.latitude,
-        l.longitude, l.address, l.apartments, l.zipCode, l.notes)) returning Locations.map(_.id) +=(userId, dto.title,
+        l.longitude, l.address, l.apartments, l.zipCode, l.notes)) returning Locations.map(_.id) += (userId, dto.title,
         dto.formattedAddress, dto.latitude, dto.longitude, dto.address, dto.apartments, dto.zipCode, dto.notes)
 
       db.run(createQuery).map(locationId => created(routes.LocationController.get(version, locationId).absoluteURL()))
@@ -49,7 +51,7 @@ class LocationController @Inject()(val tokenStorage: TokenStorage,
   }
 
   override def toDto(location: _root_.models.Tables.LocationsRow): LocationDto = {
-    new LocationDto(Some(location.id), location.title, location.address, location.apartments,
+    LocationDto(Some(location.id), location.title, location.address, location.apartments,
       location.zipCode, location.formattedAddress, location.latitude, location.longitude, location.notes)
   }
 

@@ -1,14 +1,14 @@
-package controllers
+package controllers.rest
 
 import javax.inject.Inject
 
-import controllers.PushNotificationsController._
-import controllers.base.BaseController
+import controllers.rest.base._
+import controllers.rest.PushNotificationsController._
 import play.api.libs.json._
 import security.TokenStorage
 import services.internal.notifications.PushNotificationService
 
-
+//noinspection TypeAnnotation
 class PushNotificationsController @Inject()(val tokenStorage: TokenStorage,
                                             pushNotificationService: PushNotificationService) extends BaseController {
 
