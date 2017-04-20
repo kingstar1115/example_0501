@@ -3,6 +3,7 @@ package services.internal.bookings
 import java.time.{LocalDate, LocalDateTime}
 
 import com.google.inject.ImplementedBy
+import commons.ServerError
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
 
@@ -23,6 +24,6 @@ trait BookingService {
 
   def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]]
 
-  def increaseCapacity(id: Int, capacity: Int): Future[Option[TimeSlotsRow]]
+  def increaseCapacity(id: Int, capacity: Int): Future[Either[ServerError, TimeSlotsRow]]
 }
 

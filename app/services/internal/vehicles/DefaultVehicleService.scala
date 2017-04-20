@@ -2,7 +2,8 @@ package services.internal.vehicles
 
 import javax.inject.Inject
 
-import dao.vehicles.VehiclesDao
+import dao.SlickDbService
+import dao.vehicles.{VehicleQueryObject, VehiclesDao}
 import models.Tables.VehiclesRow
 import services.EdmundsService
 import services.EdmundsService.Style
@@ -13,9 +14,12 @@ import scala.concurrent.Future
 
 
 class DefaultVehicleService @Inject()(vehicleDao: VehiclesDao,
+                                      slickDbService: SlickDbService,
                                       edmundsService: EdmundsService) extends VehiclesService {
 
-  override def findById(id: Int): Future[VehiclesRow] = vehicleDao.findById(id)
+  override def findById(id: Int): Future[VehiclesRow] = {
+    slickDbService.findOne(VehicleQueryObject.findByIdQuery(id))
+  }
 
   override def addAdditionalPrice(id: Int, userId: Int): Future[Boolean] = {
     addAdditionalPriceInternal(vehicleDao.findByIdAndUser(id, userId)

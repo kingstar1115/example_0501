@@ -76,6 +76,7 @@ GET           /admin                                                      @contr
 #Bookings slots
 GET           /admin/booking-slots                                        @controllers.admin.BookingSlotController.getBookingSlots
 GET           /admin/booking-slots/:id                                    @controllers.admin.BookingSlotController.getBookingSlot(id: Int)
+POST          /admin/booking-slots/:id                                    @controllers.admin.BookingSlotController.updateBookingSlot(id: Int)
 
 #-----------------------------------------------------------------------------------------------------------------------
 

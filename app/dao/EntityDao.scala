@@ -18,7 +18,7 @@ trait EntityDao[T <: BaseTable[E], E <: Entity] extends QueryObject[T, E] {
   def findById(id: Int): Future[E] = run(findByIdQuery(id).result.head)
 
   def update(entity: E) = {
-    val updateAction = findByIdQuery(entity.id).update(entity).transactionally
+    val updateAction = findByIdQuery(entity.id).update(entity)
     run(updateAction)
   }
 

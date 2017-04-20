@@ -5,6 +5,7 @@ import dao.SlickDriver
 import dao.vehicles.VehiclesDao
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
+import dao.vehicles.VehicleQueryObject
 
 import scala.concurrent.Future
 
@@ -18,7 +19,7 @@ class SlickUserDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
 
   override def findByIdWithVehicle(id: Int, vehicleId: Int): Future[(UsersRow, VehiclesRow)] = {
     val selectQuery = findByIdQuery(id)
-      .join(vehicleDao.findByIdQuery(vehicleId)).on(_.id === _.userId)
+      .join(VehicleQueryObject.findByIdQuery(vehicleId)).on(_.id === _.userId)
     run(selectQuery.result.head)
   }
 }

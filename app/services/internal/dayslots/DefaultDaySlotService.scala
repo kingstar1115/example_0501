@@ -19,8 +19,8 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
                                       tasksDao: TasksDao,
                                       settingsService: SettingsService) extends DaySlotsService with TimeUtils with SlickDriver {
 
-  private val daySlotQueryObject = new DaySlotQueryObject
-  private val timeSlotQueryObject = new TimeSlotQueryObject
+  private val daySlotQueryObject = DaySlotQueryObject
+  private val timeSlotQueryObject = TimeSlotQueryObject
   private val taskQueryObject = new TaskQueryObject
 
   override def findByDate(date: SQLDate): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {

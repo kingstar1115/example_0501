@@ -4,18 +4,21 @@ import java.sql.Date
 import java.time.{LocalDate, LocalDateTime}
 import javax.inject.Inject
 
+import commons.ServerError
+import commons.enums.ValidationError
 import commons.monads.transformers.OptionT
 import commons.utils.TimeUtils
+import dao.SlickDbService
 import dao.dayslots.BookingDao.BookingSlot
 import dao.dayslots._
-import models.Tables
 import models.Tables._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
-class DefaultBookingService @Inject()(bookingDao: BookingDao) extends BookingService with TimeUtils {
+class DefaultBookingService @Inject()(bookingDao: BookingDao,
+                                      slickDbService: SlickDbService) extends BookingService with TimeUtils {
 
   override def findFreeTimeSlot(timestamp: LocalDateTime): Future[Option[TimeSlotsRow]] = {
     val bookingDate = timestamp.toSqlDate
@@ -73,16 +76,19 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao) extends BookingSer
   }
 
   override def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]] = {
-    bookingDao.findTimeSlotById(id)
+    slickDbService.findOneOption(TimeSlotQueryObject.findByIdQuery(id))
   }
 
-  override def increaseCapacity(id: Int, newCapacity: Int): Future[Option[Tables.TimeSlotsRow]] = {
-    bookingDao.findTimeSlotById(id).flatMap {
-      case Some(timeSlot) if timeSlot.capacity <= newCapacity =>
+  override def increaseCapacity(id: Int, newCapacity: Int): Future[Either[ServerError, TimeSlotsRow]] = {
+    findTimeSlot(id).flatMap {
+      case Some(timeSlot) if timeSlot.bookingsCount <= newCapacity =>
         val updatedTimeSlot = timeSlot.copy(capacity = newCapacity)
-        Future.successful(Some(updatedTimeSlot))
+        slickDbService.run(TimeSlotQueryObject.updateQuery(updatedTimeSlot))
+          .map(_ => Right(updatedTimeSlot))
+      case Some(timeSlot) =>
+        Future.successful(Left(ServerError(s"Capacity must be greater than reserved amount ${timeSlot.bookingsCount}", Some(ValidationError))))
       case _ =>
-        Future.successful(None)
+        Future.successful(Left(ServerError(s"Time Slot with id: '$id' not found")))
     }
   }
 }

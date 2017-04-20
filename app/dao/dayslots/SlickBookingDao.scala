@@ -18,8 +18,8 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) ex
 
   override def query: TableQuery[DaySlots] = DaySlots
 
-  private val daySlotQueryObject = new DaySlotQueryObject
-  private val timeSlotQueryObject = new TimeSlotQueryObject
+  private val daySlotQueryObject = DaySlotQueryObject
+  private val timeSlotQueryObject = TimeSlotQueryObject
 
   override def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]] = {
     val daySlotQuery = daySlotQueryObject.filter(_.date inSet dates).sortBy(_.date.asc)
@@ -64,10 +64,6 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) ex
       resultSet.groupBy(_._1)
         .map(entry => BookingSlot(entry._1, entry._2.map(_._2))).toSeq.sortBy(_.daySlot.date)
     }
-  }
-
-  override def findTimeSlotById(id: Int): Future[Option[TimeSlotsRow]] = {
-    run(timeSlotQueryObject.findByIdQuery(id).result.headOption)
   }
 }
 

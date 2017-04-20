@@ -9,17 +9,18 @@
         <div class="box-header with-border">
             <h3 class="box-title">Time Slot:</h3>
         </div>
-        <div class="box-body">
-            <form role="form">
+        <form role="form" method="post"
+        action="@controllers.admin.routes.BookingSlotController.updateBookingSlot(timeSlotForm("id").value.get.toInt)">
+            <div class="box-body">
                 @input(timeSlotForm("id"), inputType = "hidden")
                 @input(timeSlotForm("startTime"), Some("Start Time"), args = Map('readonly -> true))
                 @input(timeSlotForm("endTime"), Some("End Time"), args = Map('readonly -> true))
                 @input(timeSlotForm("capacity"), Some("Capacity"))
                 @input(timeSlotForm("reserved"), Some("Reserved"), args = Map('readonly -> true))
-            </form>
-        </div>
-        <div class="box-footer">
-            <button type="submit" class="btn btn-primary pull-right">Submit</button>
-        </div>
+            </div>
+            <div class="box-footer">
+                <button type="submit" class="btn btn-primary pull-right">Submit</button>
+            </div>
+        </form>
     </div>
 }

@@ -3,7 +3,7 @@ package dao.dayslots
 import dao.QueryObject
 import models.Tables._
 
-class TimeSlotQueryObject extends QueryObject[TimeSlots, TimeSlotsRow] {
+object TimeSlotQueryObject extends QueryObject[TimeSlots, TimeSlotsRow] {
 
   import profile.api._
 

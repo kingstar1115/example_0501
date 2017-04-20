@@ -7,7 +7,7 @@ import models.Tables._
 import scala.concurrent.Future
 
 @ImplementedBy(classOf[SlickVehicleDao])
-trait VehiclesDao extends EntityDao[Vehicles, VehiclesRow] {
+trait VehiclesDao {
 
   def findByIdAndUser(id: Int, userId: Int): Future[Option[VehiclesRow]]
 }
