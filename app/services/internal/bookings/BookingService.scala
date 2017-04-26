@@ -25,5 +25,7 @@ trait BookingService {
   def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]]
 
   def increaseCapacity(id: Int, capacity: Int): Future[Either[ServerError, TimeSlotsRow]]
+
+  def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean]
 }
 

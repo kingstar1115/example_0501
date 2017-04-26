@@ -6,7 +6,7 @@ import models.Tables._
 import slick.lifted.TableQuery
 
 
-class TaskQueryObject extends QueryObject[Tasks, TasksRow] with SlickDriver {
+object TaskQueryObject extends QueryObject[Tasks, TasksRow] with SlickDriver {
 
-  override def query: TableQuery[Tables.Tasks] = Tasks
+  override def query: TableQuery[Tasks] = Tasks
 }

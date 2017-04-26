@@ -75,8 +75,9 @@ GET           /admin                                                      @contr
 
 #Bookings slots
 GET           /admin/booking-slots                                        @controllers.admin.BookingSlotController.getBookingSlots
-GET           /admin/booking-slots/:id                                    @controllers.admin.BookingSlotController.getBookingSlot(id: Int)
-POST          /admin/booking-slots/:id                                    @controllers.admin.BookingSlotController.updateBookingSlot(id: Int)
+GET           /admin/booking-slots/:date                                  @controllers.admin.BookingSlotController.getPartialBookingSlots(date: java.time.LocalDate)
+GET           /admin/booking-slots/time-slot/:id                          @controllers.admin.BookingSlotController.getBookingSlot(id: Int)
+POST          /admin/booking-slots/time-slot/:id                          @controllers.admin.BookingSlotController.updateBookingSlot(id: Int)
 
 #-----------------------------------------------------------------------------------------------------------------------
 

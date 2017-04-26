@@ -1,7 +1,7 @@
 package dto.rest
 
 import java.sql.Date
-import java.time.{LocalDate, LocalDateTime}
+import java.time.{LocalDate, ZoneId}
 
 import commons.utils.implicits.WritesExt._
 import dao.dayslots.BookingDao.BookingSlot
@@ -10,7 +10,9 @@ import play.api.libs.json.{Json, Writes}
 
 object BookingDtos {
 
-  case class BookingSlotDto(id: Int, available: Boolean, startTime: LocalDateTime, entTime: LocalDateTime)
+  private val DefaultZoneId = ZoneId.systemDefault()
+
+  case class BookingSlotDto(id: Int, available: Boolean, startTime: Long, entTime: Long)
 
   object BookingSlotDto {
     implicit val bookingSlotWrites: Writes[BookingSlotDto] = {
@@ -19,9 +21,9 @@ object BookingDtos {
 
     implicit class TimeSlotToBookingSlotDtoConverter(timeSlot: TimeSlotsRow) {
       def convert(date: Date): BookingSlotDto = {
-        val available = timeSlot.bookingsCount < timeSlot.capacity
-        val startDateTime = date.toLocalDate.atTime(timeSlot.startTime.toLocalTime)
-        val endDateTime = date.toLocalDate.atTime(timeSlot.endTime.toLocalTime)
+        val available = timeSlot.reserved < timeSlot.capacity
+        val startDateTime = date.toLocalDate.atTime(timeSlot.startTime.toLocalTime).atZone(DefaultZoneId).toEpochSecond
+        val endDateTime = date.toLocalDate.atTime(timeSlot.endTime.toLocalTime).atZone(DefaultZoneId).toEpochSecond
         BookingSlotDto(timeSlot.id, available, startDateTime, endDateTime)
       }
     }

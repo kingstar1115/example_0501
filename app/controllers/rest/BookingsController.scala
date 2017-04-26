@@ -3,6 +3,7 @@ package controllers.rest
 import com.google.inject.Inject
 import controllers.rest.base._
 import dto.rest.BookingDtos.BookingDayDto
+import play.api.mvc.Action
 import security.TokenStorage
 import services.internal.bookings.BookingService
 

@@ -4,7 +4,7 @@ import java.sql.{Date, Time}
 import javax.inject.Inject
 
 import commons.utils.implicits.OrderingExt._
-import dao.SlickDriver
+import dao.{SlickDbService, SlickDriver}
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
@@ -12,7 +12,8 @@ import play.api.db.slick.DatabaseConfigProvider
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends BookingDao with SlickDriver {
+class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
+                                slickDbService: SlickDbService) extends BookingDao with SlickDriver {
 
   import profile.api._
 
@@ -36,34 +37,39 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) ex
 
   override def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[TimeSlotsRow]] = {
     val freeTimeSlotQuery = daySlotQueryObject.withTimeSlots
-      .filter(pair => pair._1.date === date && pair._2.startTime === time && pair._2.bookingsCount < pair._2.capacity)
+      .filter(pair => pair._1.date === date && pair._2.startTime === time && pair._2.reserved < pair._2.capacity)
       .map(_._2)
     run(freeTimeSlotQuery.result.headOption)
   }
 
   def increaseBooking(timeSlot: TimeSlotsRow): Future[Int] = {
     val bookingQuery =
-      sql"""UPDATE time_slots SET bookings_count = bookings_count + 1
-          WHERE id = ${timeSlot.id} AND capacity > bookings_count""".as[Int]
+      sql"""UPDATE time_slots SET reserved = reserved + 1
+          WHERE id = ${timeSlot.id} AND capacity > reserved""".as[Int]
     run(bookingQuery.head)
   }
 
   def decreaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow] = {
     val dBIOAction = (for {
-      _ <- sql"""UPDATE time_slots SET bookings_count = bookings_count - 1
-          WHERE id = ${timeSlot.id} AND bookings_count - 1 >= 0""".as[Int]
+      _ <- sql"""UPDATE time_slots SET reserved = reserved - 1
+          WHERE id = ${timeSlot.id} AND reserved - 1 >= 0""".as[Int]
       updatedTimeSlot <- timeSlotQueryObject.findByIdQuery(timeSlot.id).result.head
     } yield updatedTimeSlot).transactionally
-    run(dBIOAction)
+    slickDbService.run(dBIOAction)
   }
 
   override def findBookingSlots(startDate: Date, endDate: Date): Future[Seq[BookingSlot]] = {
     val bookingSlotsQuery = daySlotQueryObject.withTimeSlots
       .filter(pair => pair._1.date >= startDate && pair._1.date <= endDate)
-    run(bookingSlotsQuery.result).map { resultSet =>
+    slickDbService.run(bookingSlotsQuery.result).map { resultSet =>
       resultSet.groupBy(_._1)
         .map(entry => BookingSlot(entry._1, entry._2.map(_._2))).toSeq.sortBy(_.daySlot.date)
     }
+  }
+
+  override def hasBookingSlotsAfterDate(date: Date): Future[Boolean] = {
+    slickDbService.run(daySlotQueryObject.filter(_.date >= date).length.result)
+      .map(_ > 0)
   }
 }
 

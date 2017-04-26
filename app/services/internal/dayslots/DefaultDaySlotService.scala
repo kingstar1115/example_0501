@@ -4,11 +4,12 @@ import java.sql.{Date => SQLDate}
 import javax.inject.Inject
 
 import commons.utils.TimeUtils
-import dao.SlickDriver
-import dao.dayslots.{DaySlotQueryObject, BookingDao, TimeSlotQueryObject}
+import dao.dayslots.{BookingDao, DaySlotQueryObject, TimeSlotQueryObject}
 import dao.tasks.{TaskQueryObject, TasksDao}
+import dao.{SlickDbService, SlickDriver}
 import models.Tables
 import models.Tables._
+import play.api.Logger
 import services.internal.dayslots.DefaultDaySlotService._
 import services.internal.settings.SettingsService
 
@@ -17,11 +18,12 @@ import scala.concurrent.Future
 
 class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
                                       tasksDao: TasksDao,
-                                      settingsService: SettingsService) extends DaySlotsService with TimeUtils with SlickDriver {
+                                      settingsService: SettingsService,
+                                      slickDbService: SlickDbService) extends DaySlotsService with TimeUtils with SlickDriver {
 
   private val daySlotQueryObject = DaySlotQueryObject
   private val timeSlotQueryObject = TimeSlotQueryObject
-  private val taskQueryObject = new TaskQueryObject
+  private val taskQueryObject = TaskQueryObject
 
   override def findByDate(date: SQLDate): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
     bookingDao.findByDateWithTimeSlots(date)
@@ -32,6 +34,7 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
   }
 
   override def createDaySlotWithTimeSlots(date: SQLDate): Future[(DaySlotsRow, Seq[TimeSlotsRow])] = {
+    Logger.info(s"Creating booking slot for '$date'")
     (for {
       dayCapacity <- settingsService.getIntValue(DaySlotCapacity, DefaultDaySlotCapacity)
       timeCapacity <- settingsService.getIntValue(TimeSlotCapacity, DefaultTimeSlotCapacity)
@@ -41,7 +44,7 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
           daySlot <- daySlotQueryObject.insertQuery += DaySlotsRow(0, currentTimestamp, date)
           timeSlots <- timeSlotQueryObject.insertQuery ++= createTimeSlots(dayCapacity, timeCapacity, daySlot)
         } yield (daySlot, timeSlots)
-        bookingDao.run(insertAction)
+        slickDbService.run(insertAction)
     }
   }
 
@@ -55,17 +58,17 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
   }
 
   override def bookTimeSlot(task: TasksRow, timeSlot: TimeSlotsRow, validateCapacity: Boolean = true): Future[Int] = {
-    val bookingsCount = timeSlot.bookingsCount + 1
+    val newReservedAmount = timeSlot.reserved + 1
     if (validateCapacity) {
-      if (bookingsCount > timeSlot.capacity) {
+      if (newReservedAmount > timeSlot.capacity) {
         throw new IllegalArgumentException("Time slot bookings reached maximum capacity")
       }
     }
     val updateAction = for {
-      _ <- timeSlotQueryObject.updateQuery(timeSlot.copy(bookingsCount = bookingsCount))
+      _ <- timeSlotQueryObject.updateQuery(timeSlot.copy(reserved = newReservedAmount))
       tasksUpdateCount <- taskQueryObject.updateQuery(task.copy(timeSlotId = Some(timeSlot.id)))
     } yield tasksUpdateCount
-    bookingDao.run(updateAction)
+    slickDbService.run(updateAction)
   }
 }
 

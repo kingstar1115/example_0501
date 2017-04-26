@@ -145,7 +145,7 @@ object TasksActor {
 
   def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider,
             pushNotificationService: PushNotificationService) =
-    Props(classOf[TasksActor], tookanService, dbConfigProvider, pushNotificationService)
+    Props(new TasksActor(tookanService, dbConfigProvider, pushNotificationService))
 
   case class RefreshTaskData(jobId: Long)
 

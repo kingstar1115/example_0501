@@ -25,6 +25,8 @@ libraryDependencies ++= Seq(cache, ws, filters, "postgresql" % "postgresql" % "9
   "io.netty" % "netty-tcnative-boringssl-static" % "1.1.33.Fork22"
 )
 
+routesImport += "config.PathBinders._"
+
 routesGenerator := InjectedRoutesGenerator
 
 val conf = ConfigFactory.parseFile(new File("conf/application.conf")).resolve()

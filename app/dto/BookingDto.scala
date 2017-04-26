@@ -16,7 +16,7 @@ object BookingDto {
 
     def fromTimeSlotRow(timeSlotsRow: TimeSlotsRow): TimeSlotDto = {
       TimeSlotDto(timeSlotsRow.id, LocalTimeFormatter.format(timeSlotsRow.startTime.toLocalTime),
-        LocalTimeFormatter.format(timeSlotsRow.endTime.toLocalTime), timeSlotsRow.capacity, timeSlotsRow.bookingsCount)
+        LocalTimeFormatter.format(timeSlotsRow.endTime.toLocalTime), timeSlotsRow.capacity, timeSlotsRow.reserved)
     }
   }
 

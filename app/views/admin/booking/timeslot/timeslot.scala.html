@@ -1,4 +1,4 @@
-@import controllers.admin.BookingSlotController.TimeSlotForm
+@import forms.bookings.TimeSlotForm
 @import views.html.admin.main
 @import views.html.components._
 
@@ -19,6 +19,7 @@
                 @input(timeSlotForm("reserved"), Some("Reserved"), args = Map('readonly -> true))
             </div>
             <div class="box-footer">
+                <button type="submit" class="btn btn-default" onclick="history.back()">Cancel</button>
                 <button type="submit" class="btn btn-primary pull-right">Submit</button>
             </div>
         </form>

@@ -40,7 +40,7 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
   private def reserveBookingInternal(timeSlot: TimeSlotsRow): Future[Option[TimeSlotsRow]] = {
     bookingDao.increaseBooking(timeSlot).map {
       case 1 =>
-        Some(timeSlot.copy(bookingsCount = timeSlot.bookingsCount + 1))
+        Some(timeSlot.copy(reserved = timeSlot.reserved + 1))
       case _ =>
         None
     }
@@ -81,14 +81,18 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
 
   override def increaseCapacity(id: Int, newCapacity: Int): Future[Either[ServerError, TimeSlotsRow]] = {
     findTimeSlot(id).flatMap {
-      case Some(timeSlot) if timeSlot.bookingsCount <= newCapacity =>
+      case Some(timeSlot) if timeSlot.reserved <= newCapacity =>
         val updatedTimeSlot = timeSlot.copy(capacity = newCapacity)
         slickDbService.run(TimeSlotQueryObject.updateQuery(updatedTimeSlot))
           .map(_ => Right(updatedTimeSlot))
       case Some(timeSlot) =>
-        Future.successful(Left(ServerError(s"Capacity must be greater than reserved amount ${timeSlot.bookingsCount}", Some(ValidationError))))
+        Future.successful(Left(ServerError(s"Capacity must be greater than reserved amount ${timeSlot.reserved}", Some(ValidationError))))
       case _ =>
         Future.successful(Left(ServerError(s"Time Slot with id: '$id' not found")))
     }
+  }
+
+  override def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean] = {
+    bookingDao.hasBookingSlotsAfterDate(date.toSqlDate)
   }
 }
