@@ -51,16 +51,12 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
   }
 
   override def getBookingSlots(startDate: LocalDate = LocalDate.now(),
-                               endDate: LocalDate = LocalDate.now().plusDays(14),
-                               filterByCurrentTime: Boolean = true): Future[Seq[BookingSlot]] = {
+                               endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[BookingSlot]] = {
     val date = startDate.toSqlDate
     bookingDao.findBookingSlots(date, endDate.toSqlDate).map { bookingSlots =>
-      if (filterByCurrentTime) {
-        bookingSlots
-          .map(bookingSlot => filterTimeSlots(bookingSlot, date))
-      } else {
-        bookingSlots
-      }
+      bookingSlots
+        .map(bookingSlot => filterTimeSlots(bookingSlot, date))
+        .filterNot(_.timeSlots.isEmpty)
     }
   }
 

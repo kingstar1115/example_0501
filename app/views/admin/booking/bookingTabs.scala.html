@@ -6,10 +6,12 @@
     </div>
     <div class="col-md-6 col-xs-6">
         <div class="btn-group pull-right">
-            <button type="button" class="btn btn-default btn-flat @if(prevDate.isEmpty) {disabled}" @if(prevDate.isDefined) {onclick="getDaySlots('@prevDate.get')"}>
+            <button type="button" class="btn btn-default btn-flat @if(prevDate.isEmpty) {disabled}" @if(prevDate.isDefined) {
+                onclick="getDaySlots('@prevDate.get')"}>
                 <i class="fa fa-arrow-left"></i>
             </button>
-            <button type="button" class="btn btn-default btn-flat @if(nextDate.isEmpty) {disabled}" @if(nextDate.isDefined) {onclick="getDaySlots('@nextDate.get')"}>
+            <button type="button" class="btn btn-default btn-flat @if(nextDate.isEmpty) {disabled}" @if(nextDate.isDefined) {
+                onclick="getDaySlots('@nextDate.get')"}>
                 <i class="fa fa-arrow-right"></i>
             </button>
         </div>
@@ -31,15 +33,33 @@
             <div class="tab-content">
             @for(bookingDate <- bookingDaySlots.zipWithIndex) {
                 <div class="tab-pane @if(bookingDate._2 == 0) {active}" id="tab_@bookingDate._1.id">
-                    <div class="row">
-                    @for(slot <- bookingDate._1.timeSlots) {
-                        <div class="col-md-6">
-                            <a href="@controllers.admin.routes.BookingSlotController.getBookingSlot(slot.id)">
-                                <span class="h4">@slot.startTime - @slot.endTime</span>
-                                <i class="fa fa-pencil-square"></i>
-                            </a>
-                        </div>
-                    }
+                    <div class="no-padding">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>Capacity</th>
+                                    <th>Reserved</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @for(slot <- bookingDate._1.timeSlots) {
+                                <tr>
+                                    <td>@slot.startTime</td>
+                                    <td>@slot.endTime</td>
+                                    <td>@slot.capacity</td>
+                                    <td>@slot.reserved</td>
+                                    <td>
+                                        <a href="@controllers.admin.routes.BookingSlotController.getBookingSlot(slot.id)" class="pull-right" style="font-size: 25px;">
+                                            <i class="fa fa-pencil-square"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             }

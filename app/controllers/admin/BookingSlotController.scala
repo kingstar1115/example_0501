@@ -40,7 +40,7 @@ class BookingSlotController @Inject()(bookingService: BookingService,
   private def getBookingSlotsInternal[T](date: LocalDate)(mapper: (Seq[DaySlotDto], Option[LocalDate], Option[LocalDate]) => T): Future[T] = {
     val bookingRange = getBookingRange(date)
     (for {
-      bookingSlots <- bookingService.getBookingSlots(bookingRange.start, bookingRange.end, filterByCurrentTime = false)
+      bookingSlots <- bookingService.getBookingSlots(bookingRange.start, bookingRange.end)
       hasNext <- bookingService.hasBookingSlotsAfterDate(bookingRange.end.plusDays(1))
     } yield (bookingSlots, hasNext)).map {
       case (bookingSlots: Seq[BookingDao.BookingSlot], hasNext: Boolean) =>

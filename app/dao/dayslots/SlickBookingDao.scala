@@ -63,7 +63,7 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
       .filter(pair => pair._1.date >= startDate && pair._1.date <= endDate)
     slickDbService.run(bookingSlotsQuery.result).map { resultSet =>
       resultSet.groupBy(_._1)
-        .map(entry => BookingSlot(entry._1, entry._2.map(_._2))).toSeq.sortBy(_.daySlot.date)
+        .map(entry => BookingSlot(entry._1, entry._2.map(_._2).sortBy(_.startTime))).toSeq.sortBy(_.daySlot.date)
     }
   }
 

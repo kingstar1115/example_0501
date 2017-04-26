@@ -19,8 +19,7 @@ trait BookingService {
   def releaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow]
 
   def getBookingSlots(startDate: LocalDate = LocalDate.now(),
-                      endDate: LocalDate = LocalDate.now().plusDays(14),
-                      filterByCurrentTime: Boolean = true): Future[Seq[BookingSlot]]
+                      endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[BookingSlot]]
 
   def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]]
 
