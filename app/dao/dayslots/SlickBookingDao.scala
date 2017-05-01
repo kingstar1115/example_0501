@@ -4,12 +4,12 @@ import java.sql.{Date, Time}
 import javax.inject.Inject
 
 import commons.utils.implicits.OrderingExt._
-import dao.{SlickDbService, SlickDriver}
 import dao.dayslots.BookingDao.BookingSlot
+import dao.{SlickDbService, SlickDriver}
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,

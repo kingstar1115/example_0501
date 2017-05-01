@@ -16,7 +16,7 @@ trait Monad[M[_]] {
 
 object Monad {
 
-  import scala.concurrent.ExecutionContext.Implicits.global
+  import play.api.libs.concurrent.Execution.Implicits._
 
   implicit object FutureMonad extends Monad[Future] {
     override def map[A, B](ma: Future[A])(f: (A) => B): Future[B] = ma.map(f)

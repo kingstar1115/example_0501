@@ -8,9 +8,8 @@ import akka.actor.Actor
 import commons.utils.TimeUtils
 import models.Tables.DaySlotsRow
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.dayslots.DaySlotsService
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 class TimeSlotGenerationActor @Inject()(daySlotsService: DaySlotsService) extends Actor with TimeUtils {

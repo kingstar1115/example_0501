@@ -6,10 +6,10 @@ import dao.services.ServicesDao._
 import dao.services.SlickServicesDao._
 import models.Tables.{Services, _}
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import slick.driver.PostgresDriver.api._
 import slick.lifted.TableQuery
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class SlickServicesDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends ServicesDao {

@@ -6,7 +6,7 @@ import dto.rest.BookingDtos.BookingDayDto
 import security.TokenStorage
 import services.internal.bookings.BookingService
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 
 //noinspection TypeAnnotation
 class BookingsController @Inject()(val tokenStorage: TokenStorage,

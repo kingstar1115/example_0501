@@ -5,11 +5,11 @@ import javax.inject.Inject
 import dao.SlickDbService
 import dao.vehicles.{VehicleQueryObject, VehiclesDao}
 import models.Tables.VehiclesRow
+import play.api.libs.concurrent.Execution.Implicits._
 import services.EdmundsService
 import services.EdmundsService.Style
 import services.internal.vehicles.DefaultVehicleService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 

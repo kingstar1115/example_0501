@@ -7,11 +7,11 @@ import commons.enums.BadRequest
 import dao.services.ServicesDao
 import dao.services.ServicesDao.ServiceWithExtras
 import models.Tables._
+import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.services.ServicesService._
 import services.internal.settings.SettingsService
 import services.internal.vehicles.VehiclesService
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class DefaultServicesService @Inject()(servicesDao: ServicesDao,

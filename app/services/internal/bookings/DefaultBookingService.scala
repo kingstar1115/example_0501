@@ -12,8 +12,8 @@ import dao.SlickDbService
 import dao.dayslots.BookingDao.BookingSlot
 import dao.dayslots._
 import models.Tables._
+import play.api.libs.concurrent.Execution.Implicits._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 

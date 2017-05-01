@@ -3,17 +3,16 @@ package controllers.rest
 import javax.inject.Inject
 
 import commons.enums.InternalSError
-import controllers.rest.base._
 import controllers.rest.VehiclesController._
+import controllers.rest.base._
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Json
 import play.api.mvc.Action
 import security.TokenStorage
 import services.EdmundsService
 import slick.driver.PostgresDriver.api._
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 //noinspection TypeAnnotation
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,

@@ -1,11 +1,11 @@
 package controllers.rest.base
 
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.Writes
 import play.api.mvc.Result
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 trait CRUDOperations[T, D] extends ApiActions {

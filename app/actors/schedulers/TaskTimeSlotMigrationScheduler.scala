@@ -5,8 +5,8 @@ import javax.inject.{Inject, Named}
 import actors.TaskTimeSlotMigrationActor.MigrateTasks
 import akka.actor.{ActorRef, ActorSystem, Cancellable}
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class TaskTimeSlotMigrationScheduler @Inject()(system: ActorSystem,

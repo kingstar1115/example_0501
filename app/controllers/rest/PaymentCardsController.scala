@@ -7,6 +7,7 @@ import controllers.rest.PaymentCardsController._
 import controllers.rest.base._
 import models.Tables.{UsersRow, _}
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
 import play.api.mvc.Result
 import security.TokenStorage
@@ -14,7 +15,6 @@ import services.StripeService
 import services.StripeService.ErrorResponse
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 //noinspection TypeAnnotation

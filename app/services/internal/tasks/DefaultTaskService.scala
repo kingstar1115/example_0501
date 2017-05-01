@@ -15,6 +15,7 @@ import commons.monads.transformers.EitherT
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import services.StripeService.ErrorResponse
 import services.TookanService.{AppointmentResponse, Metadata}
 import services.internal.bookings.BookingService
@@ -27,7 +28,6 @@ import services.internal.users.UsersService
 import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class DefaultTaskService @Inject()(tookanService: TookanService,

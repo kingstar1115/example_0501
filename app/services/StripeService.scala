@@ -8,10 +8,10 @@ import com.stripe.exception.StripeException
 import com.stripe.model._
 import commons.enums.{ErrorType, InternalSError, StripeError}
 import play.api.Configuration
+import play.api.libs.concurrent.Execution.Implicits._
 import services.StripeService._
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 

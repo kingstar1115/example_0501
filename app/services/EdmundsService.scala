@@ -2,12 +2,12 @@ package services
 
 import javax.inject.Inject
 
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json.{Format, JsError, JsSuccess, Json}
 import play.api.libs.ws.{WSClient, WSRequest}
 import play.api.{Configuration, Logger}
 import services.EdmundsService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class EdmundsService @Inject()(ws: WSClient,

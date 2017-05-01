@@ -6,11 +6,11 @@ import javax.inject.Inject
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
 import com.relayrides.pushy.apns.{ApnsClient, ApnsClientBuilder}
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.{Configuration, Environment, Logger}
 import services.internal.cache.CacheService
 import services.internal.notifications.APNotificationService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
 import scala.util.Try
 

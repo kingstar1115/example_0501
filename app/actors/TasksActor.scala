@@ -8,12 +8,12 @@ import commons.enums.TaskStatuses._
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import services.TookanService
 import services.TookanService.{Agent, AppointmentDetails}
 import services.internal.notifications.{JobNotificationData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class TasksActor(tookanService: TookanService,

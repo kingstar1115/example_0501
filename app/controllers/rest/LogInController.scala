@@ -10,6 +10,7 @@ import controllers.rest.base._
 import models.Tables
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{JsPath, Reads}
@@ -19,7 +20,6 @@ import security._
 import services.EmailService
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 //noinspection TypeAnnotation

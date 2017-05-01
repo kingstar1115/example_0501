@@ -11,9 +11,9 @@ import dao.tasks.TasksDao
 import models.Tables
 import models.Tables._
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.dayslots.DaySlotsService
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 

@@ -4,13 +4,14 @@ import javax.inject.Inject
 
 import com.github.t3hnar.bcrypt._
 import commons.enums.{AuthyError, DatabaseError, FacebookError}
+import controllers.rest.SignUpController.{EmailSignUpDto, FBSighUpResponseDto, FacebookSighUpDto, FbTokenDto}
 import controllers.rest.base.FacebookCalls.FacebookResponseDto
 import controllers.rest.base._
-import controllers.rest.SignUpController.{EmailSignUpDto, FBSighUpResponseDto, FacebookSighUpDto, FbTokenDto}
 import models.Tables
 import models.Tables._
 import play.api.data.validation.ValidationError
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -20,7 +21,6 @@ import security._
 import services.{AuthyVerifyService, EmailService}
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 

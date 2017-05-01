@@ -3,11 +3,10 @@ package controllers.rest
 import javax.inject.Inject
 
 import controllers.rest.base._
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.Action
 import security.TokenStorage
 import services.internal.settings.SettingsService
-
-import scala.concurrent.ExecutionContext.Implicits.global
 
 
 //noinspection TypeAnnotation

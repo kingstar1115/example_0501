@@ -14,6 +14,7 @@ import play.api.data.Forms.{email => _, _}
 import play.api.data.validation.ValidationError
 import play.api.data.{Form, Forms}
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json.{Reads, _}
@@ -28,7 +29,6 @@ import services.internal.users.UsersService
 import services.{StripeService, _}
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 

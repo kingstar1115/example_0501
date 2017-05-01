@@ -5,14 +5,13 @@ import controllers.rest.LocationController._
 import controllers.rest.base._
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
-import play.api.libs.json.{JsPath, JsValue, Json, Reads}
-import play.api.mvc.Action
+import play.api.libs.json.{JsPath, Json, Reads}
 import security.TokenStorage
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 //noinspection TypeAnnotation

@@ -10,14 +10,13 @@ import dao.dayslots.BookingDao
 import dto.BookingDto._
 import forms.bookings.TimeSlotForm
 import play.api.i18n.{I18nSupport, MessagesApi}
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.{Action, Controller}
 import services.internal.bookings.BookingService
-import views.html.admin.booking.booking
-import views.html.admin.booking.bookingTabs
+import views.html.admin.booking.{booking, bookingTabs}
 import views.html.admin.booking.timeslot.timeslot
 import views.html.admin.notFound
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 

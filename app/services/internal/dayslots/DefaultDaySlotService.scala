@@ -10,10 +10,10 @@ import dao.{SlickDbService, SlickDriver}
 import models.Tables
 import models.Tables._
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.dayslots.DefaultDaySlotService._
 import services.internal.settings.SettingsService
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class DefaultDaySlotService @Inject()(bookingDao: BookingDao,

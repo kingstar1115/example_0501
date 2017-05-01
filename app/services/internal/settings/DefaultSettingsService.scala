@@ -4,11 +4,11 @@ import javax.inject.Inject
 
 import dao.settings.SettingsDao
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.cache.CacheService
 import services.internal.services.ServicesService
 import services.internal.settings.SettingsService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
 

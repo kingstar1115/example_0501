@@ -6,6 +6,7 @@ import javax.inject.{Inject, Singleton}
 
 import commons.enums.TaskStatuses.TaskStatus
 import play.api.Configuration
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 import play.api.libs.json._
@@ -13,7 +14,6 @@ import play.api.libs.ws.{WSClient, WSResponse}
 import play.mvc.Http.{HeaderNames, MimeTypes}
 import services.TookanService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 @Singleton
@@ -26,7 +26,7 @@ class TookanService @Inject()(ws: WSClient,
     configuration.getInt("tookan.userId").get,
     configuration.getString("tookan.template").get)
 
-  val BASE_URL = configuration.getString("tookan.url").get
+  val BaseUrl = configuration.getString("tookan.url").get
 
   def createAppointment(customerName: String,
                         customerPhone: String,
@@ -133,7 +133,7 @@ class TookanService @Inject()(ws: WSClient,
       .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.JSON))
   }
 
-  private def buildUrl(path: String) = BASE_URL.concat("/").concat(path)
+  private def buildUrl(path: String) = BaseUrl.concat("/").concat(path)
 
   implicit class WSResponseEx(wsResponse: WSResponse) {
 
