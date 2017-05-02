@@ -5,14 +5,14 @@ import javax.inject.Inject
 
 import actors.TimeSlotGenerationActor.GenerateTimeSlots
 import akka.actor.Actor
-import commons.utils.TimeUtils
+import commons.utils.TimeUtils._
 import models.Tables.DaySlotsRow
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.dayslots.DaySlotsService
 
 
-class TimeSlotGenerationActor @Inject()(daySlotsService: DaySlotsService) extends Actor with TimeUtils {
+class TimeSlotGenerationActor @Inject()(daySlotsService: DaySlotsService) extends Actor {
 
   override def receive: Receive = {
     case GenerateTimeSlots =>

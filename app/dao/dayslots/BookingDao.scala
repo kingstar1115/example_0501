@@ -25,6 +25,8 @@ trait BookingDao extends EntityDao[DaySlots, DaySlotsRow] {
   def findBookingSlots(startDate: Date, endDate: Date): Future[Seq[BookingSlot]]
 
   def hasBookingSlotsAfterDate(date: Date): Future[Boolean]
+
+  def insertDaySlot(daySlot: DaySlotsRow, timeSlots: Seq[TimeSlotsRow]): Future[(DaySlotsRow, Seq[TimeSlotsRow])]
 }
 
 object BookingDao {

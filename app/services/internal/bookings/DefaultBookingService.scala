@@ -5,20 +5,24 @@ import java.time.{LocalDate, LocalDateTime}
 import javax.inject.Inject
 
 import commons.ServerError
+import commons.SettingConstants.Booking._
 import commons.enums.ValidationError
 import commons.monads.transformers.OptionT
-import commons.utils.TimeUtils
+import commons.utils.TimeUtils._
 import dao.SlickDbService
 import dao.dayslots.BookingDao.BookingSlot
 import dao.dayslots._
 import models.Tables._
+import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
+import services.internal.settings.SettingsService
 
 import scala.concurrent.Future
 
 
 class DefaultBookingService @Inject()(bookingDao: BookingDao,
-                                      slickDbService: SlickDbService) extends BookingService with TimeUtils {
+                                      slickDbService: SlickDbService,
+                                      settingsService: SettingsService) extends BookingService {
 
   override def findFreeTimeSlot(timestamp: LocalDateTime): Future[Option[TimeSlotsRow]] = {
     val bookingDate = timestamp.toSqlDate
@@ -90,5 +94,26 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
 
   override def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean] = {
     bookingDao.hasBookingSlotsAfterDate(date.toSqlDate)
+  }
+
+  override def createDaySlotWithTimeSlots(date: Date): Future[(DaySlotsRow, Seq[TimeSlotsRow])] = {
+    Logger.info(s"Creating booking slot for '$date'")
+    (for {
+      dayCapacity <- settingsService.getIntValue(DaySlotCapacity, DefaultDaySlotCapacity)
+      timeCapacity <- settingsService.getIntValue(TimeSlotCapacity, DefaultTimeSlotCapacity)
+    } yield (dayCapacity, timeCapacity)).flatMap {
+      case (dayCapacity, timeCapacity) =>
+        val daySlot = DaySlotsRow(0, currentTimestamp, date)
+        bookingDao.insertDaySlot(daySlot, createTimeSlots(dayCapacity, timeCapacity, daySlot.date))
+    }
+  }
+
+  private def createTimeSlots(dayCapacity: Int, timeCapacity: Int, date: Date): Seq[TimeSlotsRow] = {
+    val bookingSlotTimestamp = date.toSqlTimestamp
+    0.until(dayCapacity).map { index =>
+      val startHour = TimeSlotsStartHour + index
+      TimeSlotsRow(0, currentTimestamp, timeCapacity, 0, bookingSlotTimestamp.resetToHour(startHour).toSqlTime,
+        bookingSlotTimestamp.resetToHour(startHour + 1).toSqlTime, 0)
+    }
   }
 }

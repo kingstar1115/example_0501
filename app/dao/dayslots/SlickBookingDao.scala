@@ -5,17 +5,18 @@ import javax.inject.Inject
 
 import commons.utils.implicits.OrderingExt._
 import dao.dayslots.BookingDao.BookingSlot
-import dao.{SlickDbService, SlickDriver}
+import models.Tables
 import models.Tables._
-import play.api.db.slick.DatabaseConfigProvider
+import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
+import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 
-class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
-                                slickDbService: SlickDbService) extends BookingDao with SlickDriver {
+class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
+  extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
 
-  import profile.api._
+  import driver.api._
 
   override def query: TableQuery[DaySlots] = DaySlots
 
@@ -24,12 +25,12 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
 
   override def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]] = {
     val daySlotQuery = daySlotQueryObject.filter(_.date inSet dates).sortBy(_.date.asc)
-    run(daySlotQuery.result)
+    db.run(daySlotQuery.result)
   }
 
   override def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
     val daySlotsWithTimeSlotsQuery = daySlotQueryObject.withTimeSlots.filter(_._1.date === date)
-    run(daySlotsWithTimeSlotsQuery.result).map { resultSet =>
+    db.run(daySlotsWithTimeSlotsQuery.result).map { resultSet =>
       resultSet.groupBy(_._1).headOption
         .map(tuple => (tuple._1, tuple._2.map(_._2)))
     }
@@ -39,14 +40,14 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
     val freeTimeSlotQuery = daySlotQueryObject.withTimeSlots
       .filter(pair => pair._1.date === date && pair._2.startTime === time && pair._2.reserved < pair._2.capacity)
       .map(_._2)
-    run(freeTimeSlotQuery.result.headOption)
+    db.run(freeTimeSlotQuery.result.headOption)
   }
 
   def increaseBooking(timeSlot: TimeSlotsRow): Future[Int] = {
     val bookingQuery =
       sql"""UPDATE time_slots SET reserved = reserved + 1
           WHERE id = ${timeSlot.id} AND capacity > reserved""".as[Int]
-    run(bookingQuery.head)
+    db.run(bookingQuery.head)
   }
 
   def decreaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow] = {
@@ -55,21 +56,29 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
           WHERE id = ${timeSlot.id} AND reserved - 1 >= 0""".as[Int]
       updatedTimeSlot <- timeSlotQueryObject.findByIdQuery(timeSlot.id).result.head
     } yield updatedTimeSlot).transactionally
-    slickDbService.run(dBIOAction)
+    db.run(dBIOAction)
   }
 
   override def findBookingSlots(startDate: Date, endDate: Date): Future[Seq[BookingSlot]] = {
     val bookingSlotsQuery = daySlotQueryObject.withTimeSlots
       .filter(pair => pair._1.date >= startDate && pair._1.date <= endDate)
-    slickDbService.run(bookingSlotsQuery.result).map { resultSet =>
+    db.run(bookingSlotsQuery.result).map { resultSet =>
       resultSet.groupBy(_._1)
         .map(entry => BookingSlot(entry._1, entry._2.map(_._2).sortBy(_.startTime))).toSeq.sortBy(_.daySlot.date)
     }
   }
 
   override def hasBookingSlotsAfterDate(date: Date): Future[Boolean] = {
-    slickDbService.run(daySlotQueryObject.filter(_.date >= date).length.result)
+    db.run(daySlotQueryObject.filter(_.date >= date).length.result)
       .map(_ > 0)
+  }
+
+  override def insertDaySlot(daySlot: Tables.DaySlotsRow, timeSlots: Seq[Tables.TimeSlotsRow]): Future[(Tables.DaySlotsRow, Seq[Tables.TimeSlotsRow])] = {
+    val insertAction = (for {
+      savedDaySlot <- daySlotQueryObject.insertQuery += daySlot
+      savedTimeSlots <- timeSlotQueryObject.insertQuery ++= timeSlots.map(timeSlot => timeSlot.copy(daySlotId = savedDaySlot.id))
+    } yield (savedDaySlot, savedTimeSlots)).transactionally.named("Day Slot Insert")
+    db.run(insertAction)
   }
 }
 

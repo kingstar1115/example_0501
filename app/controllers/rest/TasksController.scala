@@ -22,6 +22,7 @@ import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
 import security.TokenStorage
 import services.StripeService.ErrorResponse
+import services.internal.bookings.BookingService
 import services.internal.settings.SettingsService
 import services.internal.tasks.TasksService
 import services.internal.tasks.TasksService._
@@ -40,7 +41,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 config: Configuration,
                                 settingsService: SettingsService,
                                 taskService: TasksService,
-                                usersService: UsersService) extends BaseController {
+                                usersService: UsersService,
+                                bookingService: BookingService) extends BaseController {
 
   implicit val agentDtoFormat: Format[AgentDto] = Json.format[AgentDto]
   implicit val taskListDtoFormat: Format[TaskListDto] = Json.format[TaskListDto]
@@ -154,7 +156,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             Tasks.filter(_.id === task.id).map(_.jobStatus).update(TaskStatuses.Cancel.code),
             PaymentDetails.filter(_.taskId === task.id).map(_.chargeId).update(chargeOpt)
           ).transactionally
-          db.run(updateAction).map(_ => success)
+          db.run(updateAction).map { _ =>
+            task.timeSlotId.map { timeSlotId =>
+              bookingService.findTimeSlot(timeSlotId)
+                .map(_.get)
+                .flatMap(r => bookingService.releaseBooking(r))
+            }
+            success
+          }
         }
       }.getOrElse(Future.successful(badRequest(s"Can't cancel task with $id id")))
     }
@@ -206,7 +215,6 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
             paymentResult.flatMap {
               case Right(_) =>
-                //TODO: check update statement
                 val updateAction = DBIO.seq(
                   PaymentDetails.filter(_.taskId in taskQuery.map(_.id)).map(_.tip).update(tip.amount),
                   taskQuery.map(_.submitted).update(true)

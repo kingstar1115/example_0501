@@ -38,3 +38,5 @@ trait TimeUtils {
   }
 
 }
+
+object TimeUtils extends TimeUtils

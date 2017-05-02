@@ -47,6 +47,7 @@ class TasksActor(tookanService: TookanService,
                     case Deleted.code =>
                       Logger.debug(s"Deleting task with id: ${taskRow.id}")
                       db.run(Tasks.filter(_.id === taskRow.id).delete)
+                      //TODO: free time slot
                     case _ =>
                       update(taskRow, task, agentId, team.teamName)
                   }

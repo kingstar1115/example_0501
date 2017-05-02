@@ -1,5 +1,6 @@
 package services.internal.bookings
 
+import java.sql.Date
 import java.time.{LocalDate, LocalDateTime}
 
 import com.google.inject.ImplementedBy
@@ -26,5 +27,7 @@ trait BookingService {
   def increaseCapacity(id: Int, capacity: Int): Future[Either[ServerError, TimeSlotsRow]]
 
   def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean]
+
+  def createDaySlotWithTimeSlots(date: Date): Future[(DaySlotsRow, Seq[TimeSlotsRow])]
 }
 
