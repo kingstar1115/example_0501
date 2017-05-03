@@ -134,10 +134,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     } yield (task, paymentDetails)
 
     db.run(selectQuery.result.headOption).flatMap {
-      _.map { row =>
-        val task = row._1
-        val paymentDetails = row._2
-
+      case Some((task, paymentDetails)) =>
         val refundResult = paymentDetails.chargeId.map { chargeId =>
           Logger.debug(s"Refunding charge $chargeId for customer ${request.token.get.userInfo.email}")
           stripeService.refund(chargeId).map {
@@ -165,7 +162,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
             success
           }
         }
-      }.getOrElse(Future.successful(badRequest(s"Can't cancel task with $id id")))
+      case None =>
+        Future.successful(badRequest(s"Can't cancel task with $id id"))
     }
   }
 

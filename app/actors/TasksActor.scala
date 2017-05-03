@@ -37,7 +37,6 @@ class TasksActor(tookanService: TookanService,
                 Logger.debug("Can't get team information")
                 Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
               case Right(team) =>
-                val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
                 val taskSelectQuery = for {
                   job <- Tasks if job.jobId === jobId
                 } yield job

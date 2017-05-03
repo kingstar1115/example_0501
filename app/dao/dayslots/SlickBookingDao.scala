@@ -7,11 +7,13 @@ import commons.utils.implicits.OrderingExt._
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables
 import models.Tables._
+import play.api.Logger
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
 import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
   extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
@@ -77,8 +79,15 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
     val insertAction = (for {
       savedDaySlot <- daySlotQueryObject.insertQuery += daySlot
       savedTimeSlots <- timeSlotQueryObject.insertQuery ++= timeSlots.map(timeSlot => timeSlot.copy(daySlotId = savedDaySlot.id))
-    } yield (savedDaySlot, savedTimeSlots)).transactionally.named("Day Slot Insert")
-    db.run(insertAction)
+    } yield (savedDaySlot, savedTimeSlots)).transactionally
+    val insertFuture = db.run(insertAction)
+    insertFuture.onComplete {
+      case Success((savedDaySlot, _)) =>
+        Logger.info(s"Successfully created day slot for '${savedDaySlot.date}' with id: ${savedDaySlot.id}")
+      case Failure(e) =>
+        Logger.info(s"Failed to save day slot for '${daySlot.date}'", e)
+    }
+    insertFuture
   }
 }
 

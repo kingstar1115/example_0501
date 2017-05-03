@@ -50,9 +50,9 @@ class BookingSlotController @Inject()(bookingService: BookingService,
 
   private def getBookingRange(date: LocalDate): BookingInterval = {
     if (LocalDate.now().equals(date)) {
-      (date, date.`with`(DayOfWeek.SUNDAY))
+      BookingInterval(date, date.`with`(DayOfWeek.SUNDAY))
     } else {
-      (date.`with`(DayOfWeek.MONDAY), date.`with`(DayOfWeek.SUNDAY))
+      BookingInterval(date.`with`(DayOfWeek.MONDAY), date.`with`(DayOfWeek.SUNDAY))
     }
   }
 
@@ -105,12 +105,6 @@ class BookingSlotController @Inject()(bookingService: BookingService,
 
 object BookingSlotController {
 
-  type BookingInterval = (LocalDate, LocalDate)
-
-  implicit class RichBookingRange(bookingRange: BookingInterval) {
-    def start: LocalDate = bookingRange._1
-
-    def end: LocalDate = bookingRange._2
-  }
+  case class BookingInterval(start: LocalDate, end: LocalDate)
 
 }

@@ -3,6 +3,8 @@ package dao.vehicles
 import dao.{QueryObject, SlickDriver}
 import models.Tables._
 
+import scala.language.higherKinds
+
 object VehicleQueryObject extends QueryObject[Vehicles, VehiclesRow] with SlickDriver {
 
   import profile.api._
