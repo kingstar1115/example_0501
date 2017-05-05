@@ -14,26 +14,34 @@ class ExtSourceCodeGenerator(model: m.Model) extends SourceCodeGenerator(model: 
 
   override def Table = new Table(_) {
 
+    override def EntityType = new EntityType {
+      override def parents: Seq[String] = {
+        if (!relationTables.contains(model.name.table))
+          Seq("Entity")
+        else
+          super.parents
+      }
+    }
+
     override def TableClass = new TableClass {
       override def code: String =
-        if (relationTables.contains(model.name.table)) {
-          super.code
-        } else {
+        if (!relationTables.contains(model.name.table)) {
+          val prns = parents.map(" with " + _).mkString("")
           val args = model.name.schema.map(n => s"""Some("$n")""") ++ Seq("\"" + model.name.table + "\"")
           s"""
-            class $name(_tableTag: Tag) extends BaseTable[$elementType](_tableTag, ${args.mkString(", ")}) {
+            class $name(_tableTag: Tag) extends BaseTable[$elementType](_tableTag, ${args.mkString(", ")})$prns {
               ${indent(body.map(_.mkString("\n")).mkString("\n\n"))}
             }
           """.trim()
+        } else {
+          super.code
         }
     }
 
-    override def EntityType = new EntityType {
-      override def parents: Seq[String] = {
-        if (relationTables.contains(model.name.table))
-          Seq()
-        else
-          Seq("Entity")
+
+    override def TableValue = new TableValue {
+      override def code: String = {
+        s"lazy val $name = new TableQuery(tag => new ${TableClass.name}(tag)) with CRUDTableQuery[${TableClass.name}, ${TableClass.elementType}]"
       }
     }
   }

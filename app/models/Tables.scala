@@ -54,7 +54,7 @@ trait Tables {
     val index1 = index("agents_fleet_id_key", fleetId, unique=true)
               }
   /** Collection-like TableQuery object for table Agents */
-  lazy val Agents = new TableQuery(tag => new Agents(tag))
+  lazy val Agents = new TableQuery(tag => new Agents(tag)) with CRUDTableQuery[Agents, AgentsRow]
 
   /** Entity class storing rows of table DaySlots
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -83,7 +83,7 @@ trait Tables {
     val index1 = index("day_slots_date_key", date, unique=true)
               }
   /** Collection-like TableQuery object for table DaySlots */
-  lazy val DaySlots = new TableQuery(tag => new DaySlots(tag))
+  lazy val DaySlots = new TableQuery(tag => new DaySlots(tag)) with CRUDTableQuery[DaySlots, DaySlotsRow]
 
   /** Entity class storing rows of table Extras
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -118,7 +118,7 @@ trait Tables {
     val index1 = index("extras_name_key", name, unique=true)
               }
   /** Collection-like TableQuery object for table Extras */
-  lazy val Extras = new TableQuery(tag => new Extras(tag))
+  lazy val Extras = new TableQuery(tag => new Extras(tag)) with CRUDTableQuery[Extras, ExtrasRow]
 
   /** Entity class storing rows of table Locations
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -171,7 +171,7 @@ trait Tables {
     lazy val usersFk = foreignKey("locations_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table Locations */
-  lazy val Locations = new TableQuery(tag => new Locations(tag))
+  lazy val Locations = new TableQuery(tag => new Locations(tag)) with CRUDTableQuery[Locations, LocationsRow]
 
   /** Entity class storing rows of table PaymentDetails
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -215,7 +215,7 @@ trait Tables {
     lazy val tasksFk = foreignKey("payment_details_task_id_fkey", taskId, Tasks)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table PaymentDetails */
-  lazy val PaymentDetails = new TableQuery(tag => new PaymentDetails(tag))
+  lazy val PaymentDetails = new TableQuery(tag => new PaymentDetails(tag)) with CRUDTableQuery[PaymentDetails, PaymentDetailsRow]
 
   /** Entity class storing rows of table Services
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -262,7 +262,7 @@ trait Tables {
     val index1 = index("services_key_key", key, unique=true)
               }
   /** Collection-like TableQuery object for table Services */
-  lazy val Services = new TableQuery(tag => new Services(tag))
+  lazy val Services = new TableQuery(tag => new Services(tag)) with CRUDTableQuery[Services, ServicesRow]
 
   /** Entity class storing rows of table ServicesExtras
    *  @param serviceId Database column service_id SqlType(int4)
@@ -293,7 +293,7 @@ trait Tables {
     lazy val servicesFk = foreignKey("services_extras_service_id_fkey", serviceId, Services)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
   }
   /** Collection-like TableQuery object for table ServicesExtras */
-  lazy val ServicesExtras = new TableQuery(tag => new ServicesExtras(tag))
+  lazy val ServicesExtras = new TableQuery(tag => new ServicesExtras(tag)) with CRUDTableQuery[ServicesExtras, ServicesExtrasRow]
 
   /** Entity class storing rows of table Settings
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -322,7 +322,7 @@ trait Tables {
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
               }
   /** Collection-like TableQuery object for table Settings */
-  lazy val Settings = new TableQuery(tag => new Settings(tag))
+  lazy val Settings = new TableQuery(tag => new Settings(tag)) with CRUDTableQuery[Settings, SettingsRow]
 
   /** Entity class storing rows of table Tasks
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -405,7 +405,7 @@ trait Tables {
     val index1 = index("jobs_job_id_key", jobId, unique=true)
               }
   /** Collection-like TableQuery object for table Tasks */
-  lazy val Tasks = new TableQuery(tag => new Tasks(tag))
+  lazy val Tasks = new TableQuery(tag => new Tasks(tag)) with CRUDTableQuery[Tasks, TasksRow]
 
   /** Entity class storing rows of table TaskServices
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -440,7 +440,7 @@ trait Tables {
     lazy val tasksFk = foreignKey("task_services_job_id_fkey", taskId, Tasks)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table TaskServices */
-  lazy val TaskServices = new TableQuery(tag => new TaskServices(tag))
+  lazy val TaskServices = new TableQuery(tag => new TaskServices(tag)) with CRUDTableQuery[TaskServices, TaskServicesRow]
 
   /** Entity class storing rows of table TimeSlots
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -484,7 +484,7 @@ trait Tables {
     val index1 = index("u_date_time", (startTime, daySlotId), unique=true)
               }
   /** Collection-like TableQuery object for table TimeSlots */
-  lazy val TimeSlots = new TableQuery(tag => new TimeSlots(tag))
+  lazy val TimeSlots = new TableQuery(tag => new TimeSlots(tag)) with CRUDTableQuery[TimeSlots, TimeSlotsRow]
 
   /** Entity class storing rows of table Users
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -554,7 +554,7 @@ trait Tables {
     val index2 = index("users_facebook_id_key", facebookId, unique=true)
               }
   /** Collection-like TableQuery object for table Users */
-  lazy val Users = new TableQuery(tag => new Users(tag))
+  lazy val Users = new TableQuery(tag => new Users(tag)) with CRUDTableQuery[Users, UsersRow]
 
   /** Entity class storing rows of table Vehicles
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -610,5 +610,5 @@ trait Tables {
     lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table Vehicles */
-  lazy val Vehicles = new TableQuery(tag => new Vehicles(tag))
+  lazy val Vehicles = new TableQuery(tag => new Vehicles(tag)) with CRUDTableQuery[Vehicles, VehiclesRow]
 }
