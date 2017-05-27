@@ -20,7 +20,7 @@ object TimeSlotForm {
       Id -> number,
       StartTime -> text,
       EndTime -> text,
-      Capacity -> number(min = 1),
+      Capacity -> number(min = 0),
       Reserved -> number
     )(TimeSlotForm.apply)(TimeSlotForm.unapply)
   )
