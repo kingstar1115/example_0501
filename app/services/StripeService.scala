@@ -6,14 +6,14 @@ import javax.inject.{Inject, Singleton}
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model._
-import commons.enums.{ErrorType, StripeError, InternalSError}
+import commons.enums.{ErrorType, InternalSError, StripeError}
 import play.api.Configuration
+import play.api.libs.concurrent.Execution.Implicits._
 import services.StripeService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.collection.JavaConverters._
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
 
 @Singleton
 class StripeService @Inject()(configuration: Configuration) {
@@ -74,36 +74,43 @@ class StripeService @Inject()(configuration: Configuration) {
     process(customer.getSources.retrieve(cardId).delete)
   }
 
-  def charge(amount: Int, paymentSource: PaymentSource, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, jobId) { parameters =>
+  def charge(amount: Int, paymentSource: PaymentSource, description: String): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, description)({ parameters =>
       parameters.put("customer", paymentSource.customerId)
       paymentSource.sourceId match {
         case Some(source) => parameters.put("source", source)
         case _ =>
       }
-    }
+    })
   }
 
-  def charge(amount: Int, source: String, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, jobId) { parameters =>
+  def charge(amount: Int, source: String, description: String): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, description)({ parameters =>
       parameters.put("source", source)
-    }
+    })
   }
 
-  private def chargeInternal(amount: Int, jobId: Long)(addParameters: util.HashMap[String, Object] => Unit) = {
-    val metadata = new util.HashMap[String, String]() {
-      put("jobId", jobId.toString)
-    }
+  private def chargeInternal(amount: Int, description: String)(addParameters: (util.HashMap[String, Object]) => Unit) = {
     val params = new util.HashMap[String, Object]() {
       put("amount", new Integer(amount))
       put("currency", "usd")
-      put("metadata", metadata)
+      put("description", description)
     }
     addParameters(params)
     process(Charge.create(params))
   }
 
-  def refund(chargeId: String) = {
+  def updateChargeMetadata(charge: Charge, jobId: Long): Future[Either[ErrorResponse, Charge]] = {
+    val metadata = new util.HashMap[String, String]() {
+      put("jobId", jobId.toString)
+    }
+    val params = new util.HashMap[String, Object]() {
+      put("metadata", metadata)
+    }
+    process(charge.update(params))
+  }
+
+  def refund(chargeId: String): Future[Either[ErrorResponse, Refund]] = {
     val params = new util.HashMap[String, Object]() {
       put("charge", chargeId)
     }

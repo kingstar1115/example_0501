@@ -6,11 +6,11 @@ import javax.inject.Inject
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
 import com.relayrides.pushy.apns.{ApnsClient, ApnsClientBuilder}
 import play.api.inject.ApplicationLifecycle
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.{Configuration, Environment, Logger}
 import services.internal.cache.CacheService
 import services.internal.notifications.APNotificationService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Promise
 import scala.util.Try
 
@@ -55,7 +55,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
 
   override def sendJobInProgressNotification(data: JobNotificationData, token: String): Unit = {
     sendNotification(token, data) { data =>
-      Logger.debug(s"Building job started notification: ${data.toString}")
+      Logger.debug(s"Building job in progress notification: ${data.toString}")
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)

@@ -2,40 +2,56 @@ package services.internal.settings
 
 import javax.inject.Inject
 
-import models.Tables._
+import dao.settings.SettingsDao
 import play.api.Logger
-import play.api.db.slick.DatabaseConfigProvider
+import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.cache.CacheService
-import services.internal.settings.DefaultSettingsService._
-import services.internal.settings.SettingsService.PriceSettings
-import slick.driver.PostgresDriver.api._
+import services.internal.services.ServicesService
+import services.internal.settings.SettingsService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.util.Try
 
 class DefaultSettingsService @Inject()(cacheService: CacheService,
-                                       val dbConfigProvider: DatabaseConfigProvider) extends SettingsService {
+                                       settingsDao: SettingsDao,
+                                       servicesService: ServicesService) extends SettingsService {
 
-  initializeSettings()
-
-  override def initializeSettings() = {
-    Logger.info("Initializing project settings")
-    val listQuery = for {
-      settings <- Settings
-    } yield settings
-    dbConfigProvider.get.db.run(listQuery.result).map { settings =>
-      val priceSettings = PriceSettings(
-        settings.find(_.key == "carWashing").get.value.toInt,
-        settings.find(_.key == "interiorCleaning").get.value.toInt
-      )
-      cacheService.set(PricesSettingsKey, priceSettings)
+  override def getPriceSettings: Future[PriceSettings] = {
+    val servicesFuture = for {
+      exteriorCleaning <- servicesService.getExteriorCleaningService
+      exteriorAndInterior <- servicesService.getExteriorAndInteriorCleaningService
+    } yield (exteriorCleaning, exteriorAndInterior)
+    servicesFuture.map { tuple =>
+      val carWashingPrice = tuple._1.price
+      val interiorCleaningPrice = tuple._2.price - carWashingPrice
+      PriceSettings(carWashingPrice, interiorCleaningPrice)
     }
   }
 
-  override def getPriceSettings: PriceSettings = {
-    cacheService.get[PriceSettings](PricesSettingsKey).get
+  override def getBasePrice: Future[BasePrice] = {
+    servicesService.getExteriorCleaningService.map(_.price).map(BasePrice.apply)
   }
-}
 
-object DefaultSettingsService {
-  val PricesSettingsKey = "pricesSettings"
+  override def getIntValue(key: String, defaultValue: Int): Future[Int] = {
+    loadValueFromCache(key).map {
+      case Some(value) =>
+        Try(value.toInt)
+          .getOrElse(defaultValue)
+      case _ =>
+        defaultValue
+    }
+  }
+
+  private def loadValueFromCache(key: String): Future[Option[String]] = {
+    cacheService.get[String](key)
+      .fold(loadValue(key))(value => Future.successful(Option(value)))
+  }
+
+  private def loadValue(key: String): Future[Option[String]] = {
+    settingsDao.findByKey(key).map(_.map { setting =>
+      Logger.info(s"Caching setting '$key:${setting.value}'")
+      cacheService.set(key, setting.value)
+      setting.value
+    })
+  }
 }

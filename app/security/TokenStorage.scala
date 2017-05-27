@@ -25,7 +25,7 @@ class TokenStorage @Inject()(sedisPool: Pool) {
           .getOrElse(None)
       } match {
         case Success(token) => token
-        case Failure(e) => None
+        case Failure(_) => None
       }
     }
   }

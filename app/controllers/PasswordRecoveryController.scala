@@ -11,16 +11,15 @@ import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.mvc.{Action, Controller}
 import slick.driver.PostgresDriver.api._
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.Future
+import views.html.password.{passwordRestorePage, _}
 
-import views.html.password._
-
-
+//noinspection TypeAnnotation
 class PasswordRecoveryController @Inject()(dbConfigProvider: DatabaseConfigProvider, val messagesApi: MessagesApi)
   extends Controller with I18nSupport {
 
-  def getRecoverPasswordPage(code: String) = Action.async { request =>
+  def getRecoverPasswordPage(code: String) = Action.async { _ =>
     val db = dbConfigProvider.get.db
     val userQuery = for {u <- Tables.Users if u.code === code} yield u
     db.run(userQuery.result.headOption).map { userOpt =>
@@ -31,7 +30,7 @@ class PasswordRecoveryController @Inject()(dbConfigProvider: DatabaseConfigProvi
             "password" -> text,
             "passwordRepeat" -> text
           )(PasswordRecovery.apply)(PasswordRecovery.unapply))
-        val data = form.fill(new PasswordRecovery(user.code.get, "", ""))
+        val data = form.fill(PasswordRecovery(user.code.get, "", ""))
         Ok(passwordRestorePage(data))
       }.getOrElse(Redirect(routes.PasswordRecoveryController.notFound()))
     }
@@ -62,7 +61,7 @@ class PasswordRecoveryController @Inject()(dbConfigProvider: DatabaseConfigProvi
             val updateQuery = Tables.Users.map(user => (user.code, user.password))
               .filter(_._1 === user.code)
               .update(None, Some(newPassword))
-            db.run(updateQuery).map(count => Redirect(routes.PasswordRecoveryController.successPage()))
+            db.run(updateQuery).map(_ => Redirect(routes.PasswordRecoveryController.successPage()))
           }.getOrElse(Future.successful(BadRequest))
         }
       }

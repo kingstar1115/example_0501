@@ -1,6 +1,5 @@
 import commons.enums.ClientError
-import controllers.base.RestResponses
-import play.api.Logger
+import controllers.rest.base._
 import play.api.http.HttpErrorHandler
 import play.api.mvc.{RequestHeader, Result}
 

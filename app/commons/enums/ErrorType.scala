@@ -1,6 +1,12 @@
 package commons.enums
 
+import play.api.libs.json.{Json, Writes}
+
 sealed abstract class ErrorType(val name: String)
+
+object ErrorType {
+  implicit val errorTypeFormat: Writes[ErrorType] = Writes((errorType: ErrorType) => Json.obj("code" -> errorType.name))
+}
 
 case object ValidationError extends ErrorType("EntityValidationError")
 
@@ -21,4 +27,6 @@ case object CommonError extends ErrorType("CommonError")
 case object StripeError extends ErrorType("StripeError")
 
 case object TookanError extends ErrorType("TookanError")
+
+case object BadRequest extends ErrorType("Bad Request")
 

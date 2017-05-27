@@ -1,0 +1,16 @@
+@import views.html.admin.main
+
+@(bookingDaySlots: Seq[dto.BookingDto.DaySlotDto], prevDate: Option[java.time.LocalDate], nextDate: Option[java.time.LocalDate])(implicit req: RequestHeader)
+
+@scripts = {
+@helper.javascriptRouter("jsRoutes")(
+    controllers.admin.routes.javascript.BookingSlotController.getPartialBookingSlots
+)
+    <script src="@routes.Assets.versioned("javascripts/admin/booking.js")"></script>
+}
+
+@main(scripts = scripts) {
+    <div class="bookingSlots">
+    @bookingTabs(bookingDaySlots, prevDate, nextDate)
+    </div>
+}

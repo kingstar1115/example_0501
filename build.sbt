@@ -25,6 +25,8 @@ libraryDependencies ++= Seq(cache, ws, filters, "postgresql" % "postgresql" % "9
   "io.netty" % "netty-tcnative-boringssl-static" % "1.1.33.Fork22"
 )
 
+routesImport += "config.PathBinders._"
+
 routesGenerator := InjectedRoutesGenerator
 
 val conf = ConfigFactory.parseFile(new File("conf/application.conf")).resolve()
@@ -32,7 +34,7 @@ slick <<= slickCodeGenTask
 
 // code generation task
 lazy val slick = TaskKey[Seq[File]]("gen-tables")
-lazy val slickCodeGenTask = (sourceManaged, dependencyClasspath in Compile, runner in Compile, streams) map { (dir, cp, r, s) =>
+lazy val slickCodeGenTask = (sourceManaged, fullClasspath in Compile, runner in Compile, streams) map { (dir, cp, r, s) =>
   val outputDir = root.base.getAbsoluteFile / "app"
   val url = conf.getString("slick.dbs.default.db.url")
   val jdbcDriver = conf.getString("slick.dbs.default.db.driver")
@@ -40,7 +42,7 @@ lazy val slickCodeGenTask = (sourceManaged, dependencyClasspath in Compile, runn
   val pkg = "models"
   val user = conf.getString("slick.dbs.default.db.user")
   val password = conf.getString("slick.dbs.default.db.password")
-  toError(r.run("slick.codegen.SourceCodeGenerator",
+  toError(r.run("commons.utils.codegen.ExtSourceCodeGenerator",
     cp.files,
     Array(slickDriver, jdbcDriver, url, outputDir.getPath, pkg, user, password), s.log))
   val fname = outputDir + s"/$pkg/Tables.scala"

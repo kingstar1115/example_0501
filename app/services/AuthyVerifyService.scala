@@ -5,12 +5,12 @@ import javax.inject.Inject
 import com.google.inject.Singleton
 import play.api.Configuration
 import play.api.http.{HeaderNames, MimeTypes}
+import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.{Writes, _}
 import play.api.libs.ws.WSClient
 import services.AuthyVerifyService._
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
