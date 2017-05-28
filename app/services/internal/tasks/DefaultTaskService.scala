@@ -120,7 +120,8 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       case Some(timeSlot) =>
         mapper.apply(timeSlot)
       case None =>
-        Future.successful(Left(ServerError(s"Failed to book time slot for $dateTime")))
+        Logger.info(s"Failed to book time slot for $dateTime")
+        Future.successful(Left(ServerError("Oops! We are sorry, but this time is no longer available. Please select another one.")))
     }
   }
 

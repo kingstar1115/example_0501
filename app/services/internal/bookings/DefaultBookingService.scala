@@ -56,7 +56,6 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
 
   override def getBookingSlots(startDate: LocalDate = LocalDate.now(),
                                endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[BookingSlot]] = {
-    Logger.info(s"Getting booking slots for ${startDate.toSqlDate} - ${endDate.toSqlDate}. LocalDateTime - ${LocalDateTime.now()}")
     bookingDao.findBookingSlots(startDate.toSqlDate, endDate.toSqlDate).map { bookingSlots =>
       bookingSlots
         .map(bookingSlot => filterTimeSlots(bookingSlot))
@@ -69,10 +68,8 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
       bookingSlot
     } else {
       val currentTime = LocalDateTime.now().toSqlTime
-      Logger.info(s"Filtering booking slots after $currentTime (${LocalDateTime.now()}). Initial size ${bookingSlot.timeSlots.size}")
       val availableTimeSlots = bookingSlot.timeSlots
         .filter(timeSlot => timeSlot.startTime.after(currentTime))
-      Logger.info(s"Size after filtering ${availableTimeSlots.size}")
       bookingSlot.copy(timeSlots = availableTimeSlots)
     }
   }
