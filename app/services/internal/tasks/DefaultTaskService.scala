@@ -161,7 +161,15 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None): Int = {
-    discount.map { discountAmount =>
+
+    discount.map(discountAmount =>
+      if (discountAmount < 100) {
+        Logger.info(s"Increasing discount amount. Original value: $discountAmount")
+        discountAmount * 100
+      } else {
+        discountAmount
+      }
+    ).map { discountAmount =>
       Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
       val discountedPrice = priceBeforeDiscount - discountAmount
       if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
