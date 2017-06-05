@@ -13,7 +13,7 @@ import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.{Action, Controller}
 import services.internal.bookings.BookingService
-import views.html.admin.booking.{booking, bookingTabs}
+import views.html.admin.booking.booking
 import views.html.admin.booking.timeslot.timeslot
 import views.html.admin.notFound
 
@@ -24,19 +24,7 @@ import scala.concurrent.Future
 class BookingSlotController @Inject()(bookingService: BookingService,
                                       val messagesApi: MessagesApi) extends Controller with I18nSupport {
 
-  def getBookingSlots = Action.async { implicit request =>
-    getBookingSlotsInternal(LocalDate.now()) { (daySlotDtos, prevDate, nextDate) =>
-      Ok(booking(daySlotDtos, prevDate, nextDate))
-    }
-  }
-
-  def getPartialBookingSlots(date: LocalDate) = Action.async { _ =>
-    getBookingSlotsInternal(date) { (daySlotDtos, prevDate, nextDate) =>
-      Ok(bookingTabs(daySlotDtos, prevDate, nextDate))
-    }
-  }
-
-  private def getBookingSlotsInternal[T](date: LocalDate)(mapper: (Seq[DaySlotDto], Option[LocalDate], Option[LocalDate]) => T): Future[T] = {
+  def getBookingSlots(date: LocalDate = LocalDate.now()) = Action.async { implicit request =>
     val bookingRange = getBookingRange(date)
     (for {
       bookingSlots <- bookingService.getBookingSlots(bookingRange.start, bookingRange.end)
@@ -44,7 +32,9 @@ class BookingSlotController @Inject()(bookingService: BookingService,
     } yield (bookingSlots, hasNext)).map {
       case (bookingSlots: Seq[BookingDao.BookingSlot], hasNext: Boolean) =>
         val daySlotDtos = bookingSlots.map(DaySlotDto.fromBookingSlot)
-        mapper(daySlotDtos, getPrevDate(bookingRange), getNextDate(bookingRange, hasNext))
+        val prevDate = getPrevDate(bookingRange)
+        val nextDate = getNextDate(bookingRange, hasNext)
+        Ok(booking(daySlotDtos, prevDate, nextDate, date))
     }
   }
 
@@ -75,12 +65,12 @@ class BookingSlotController @Inject()(bookingService: BookingService,
     }
   }
 
-  def getBookingSlot(id: Int) = Action.async { _ =>
+  def getBookingSlot(id: Int, date: LocalDate = LocalDate.now()) = Action.async { _ =>
     bookingService.findTimeSlot(id).map {
       case None =>
         BadRequest
       case Some(timeSlotRow) =>
-        Ok(timeslot(TimeSlotForm(timeSlotRow.id, timeSlotRow.startTime.toString, timeSlotRow.endTime.toString,
+        Ok(timeslot(TimeSlotForm(timeSlotRow.id, date.toString, timeSlotRow.startTime.toString, timeSlotRow.endTime.toString,
           timeSlotRow.capacity, timeSlotRow.reserved).wrapToForm()))
     }
   }
@@ -96,7 +86,7 @@ class BookingSlotController @Inject()(bookingService: BookingService,
           case Left(_) =>
             BadRequest(notFound())
           case Right(_) =>
-            Redirect(controllers.admin.routes.BookingSlotController.getBookingSlots())
+            Redirect(controllers.admin.routes.BookingSlotController.getBookingSlots(LocalDate.parse(form.date)))
         }
       }
     )

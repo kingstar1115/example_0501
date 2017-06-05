@@ -1,7 +1,7 @@
 package commons.utils.implicits
 
-import java.time.{LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
+import java.time.{LocalDate, LocalDateTime}
 
 import play.api.libs.json.{DefaultWrites, Writes}
 

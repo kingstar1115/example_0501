@@ -74,9 +74,8 @@ GET           /api/$version<v[3]>/booking-slots                           @contr
 GET           /admin                                                      @controllers.admin.DashboardController.getAdminDashboard
 
 #Bookings slots
-GET           /admin/booking-slots                                        @controllers.admin.BookingSlotController.getBookingSlots
-GET           /admin/booking-slots/:date                                  @controllers.admin.BookingSlotController.getPartialBookingSlots(date: java.time.LocalDate)
-GET           /admin/booking-slots/time-slot/:id                          @controllers.admin.BookingSlotController.getBookingSlot(id: Int)
+GET           /admin/booking-slots                                        @controllers.admin.BookingSlotController.getBookingSlots(date: java.time.LocalDate ?= java.time.LocalDate.now())
+GET           /admin/booking-slots/time-slot/:id                          @controllers.admin.BookingSlotController.getBookingSlot(id: Int, date: java.time.LocalDate ?= java.time.LocalDate.now())
 POST          /admin/booking-slots/time-slot/:id                          @controllers.admin.BookingSlotController.updateBookingSlot(id: Int)
 
 #-----------------------------------------------------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 package dto
 
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 import dao.dayslots.BookingDao.BookingSlot
@@ -20,7 +21,7 @@ object BookingDto {
     }
   }
 
-  case class DaySlotDto(id: Int, date: String, timeSlots: Seq[TimeSlotDto])
+  case class DaySlotDto(id: Int, date: LocalDate, dateStr: String, timeSlots: Seq[TimeSlotDto])
 
   object DaySlotDto {
 
@@ -28,7 +29,8 @@ object BookingDto {
 
     def fromBookingSlot(bookingSlot: BookingSlot): DaySlotDto = {
       val timeSlots = bookingSlot.timeSlots.map(TimeSlotDto.fromTimeSlotRow)
-      DaySlotDto(bookingSlot.daySlot.id, LocalDateFormatter.format(bookingSlot.daySlot.date.toLocalDate), timeSlots)
+      DaySlotDto(bookingSlot.daySlot.id, bookingSlot.daySlot.date.toLocalDate,
+        LocalDateFormatter.format(bookingSlot.daySlot.date.toLocalDate), timeSlots)
     }
 
     def fromBookingSlots(bookingSlot: Seq[BookingSlot]): Seq[DaySlotDto] = {

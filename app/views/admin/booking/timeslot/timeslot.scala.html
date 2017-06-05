@@ -1,6 +1,7 @@
 @import forms.bookings.TimeSlotForm
 @import views.html.admin.main
 @import views.html.components._
+@import java.time.LocalDate
 
 @(timeSlotForm: Form[TimeSlotForm])(implicit messages: Messages)
 
@@ -13,13 +14,15 @@
         action="@controllers.admin.routes.BookingSlotController.updateBookingSlot(timeSlotForm("id").value.get.toInt)">
             <div class="box-body">
                 @input(timeSlotForm("id"), inputType = "hidden")
+                @input(timeSlotForm("date"), inputType = "hidden")
                 @input(timeSlotForm("startTime"), Some("Start Time"), args = Map('readonly -> true))
                 @input(timeSlotForm("endTime"), Some("End Time"), args = Map('readonly -> true))
                 @input(timeSlotForm("capacity"), Some("Capacity"))
                 @input(timeSlotForm("reserved"), Some("Reserved"), args = Map('readonly -> true))
             </div>
             <div class="box-footer">
-                <button type="submit" class="btn btn-default" onclick="history.back()">Cancel</button>
+                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(LocalDate.parse(timeSlotForm("date").value.get))"
+                    class="btn btn-default">Cancel</a>
                 <button type="submit" class="btn btn-primary pull-right">Submit</button>
             </div>
         </form>
