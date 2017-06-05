@@ -163,7 +163,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None): Int = {
 
     discount.map(discountAmount =>
-      if (discountAmount < 100) {
+      if (discountAmount > 0 && discountAmount < 100) {
         Logger.info(s"Increasing discount amount. Original value: $discountAmount")
         discountAmount * 100
       } else {
