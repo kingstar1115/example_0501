@@ -54,7 +54,7 @@ trait Tables {
     val index1 = index("agents_fleet_id_key", fleetId, unique=true)
               }
   /** Collection-like TableQuery object for table Agents */
-  lazy val Agents = new TableQuery(tag => new Agents(tag))
+  lazy val Agents = new TableQuery(tag => new Agents(tag)) with CRUDTableQuery[Agents, AgentsRow]
 
   /** Entity class storing rows of table DaySlots
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -83,7 +83,7 @@ trait Tables {
     val index1 = index("day_slots_date_key", date, unique=true)
               }
   /** Collection-like TableQuery object for table DaySlots */
-  lazy val DaySlots = new TableQuery(tag => new DaySlots(tag))
+  lazy val DaySlots = new TableQuery(tag => new DaySlots(tag)) with CRUDTableQuery[DaySlots, DaySlotsRow]
 
   /** Entity class storing rows of table Extras
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -118,7 +118,7 @@ trait Tables {
     val index1 = index("extras_name_key", name, unique=true)
               }
   /** Collection-like TableQuery object for table Extras */
-  lazy val Extras = new TableQuery(tag => new Extras(tag))
+  lazy val Extras = new TableQuery(tag => new Extras(tag)) with CRUDTableQuery[Extras, ExtrasRow]
 
   /** Entity class storing rows of table Locations
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -171,7 +171,7 @@ trait Tables {
     lazy val usersFk = foreignKey("locations_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table Locations */
-  lazy val Locations = new TableQuery(tag => new Locations(tag))
+  lazy val Locations = new TableQuery(tag => new Locations(tag)) with CRUDTableQuery[Locations, LocationsRow]
 
   /** Entity class storing rows of table PaymentDetails
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -215,7 +215,7 @@ trait Tables {
     lazy val tasksFk = foreignKey("payment_details_task_id_fkey", taskId, Tasks)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table PaymentDetails */
-  lazy val PaymentDetails = new TableQuery(tag => new PaymentDetails(tag))
+  lazy val PaymentDetails = new TableQuery(tag => new PaymentDetails(tag)) with CRUDTableQuery[PaymentDetails, PaymentDetailsRow]
 
   /** Entity class storing rows of table Services
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -262,7 +262,7 @@ trait Tables {
     val index1 = index("services_key_key", key, unique=true)
               }
   /** Collection-like TableQuery object for table Services */
-  lazy val Services = new TableQuery(tag => new Services(tag))
+  lazy val Services = new TableQuery(tag => new Services(tag)) with CRUDTableQuery[Services, ServicesRow]
 
   /** Entity class storing rows of table ServicesExtras
    *  @param serviceId Database column service_id SqlType(int4)
@@ -322,7 +322,7 @@ trait Tables {
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
               }
   /** Collection-like TableQuery object for table Settings */
-  lazy val Settings = new TableQuery(tag => new Settings(tag))
+  lazy val Settings = new TableQuery(tag => new Settings(tag)) with CRUDTableQuery[Settings, SettingsRow]
 
   /** Entity class storing rows of table Tasks
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -342,18 +342,18 @@ trait Tables {
    *  @param hasInteriorCleaning Database column has_interior_cleaning SqlType(bool)
    *  @param latitude Database column latitude SqlType(numeric)
    *  @param longitude Database column longitude SqlType(numeric)
-   *  @param timeSlotId Database column time_slot_id SqlType(int4), Default(None) */
-  case class TasksRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, timeSlotId: Option[Int] = None) extends Entity
+   *  @param timeSlotId Database column time_slot_id SqlType(int4) */
+  case class TasksRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, timeSlotId: Int) extends Entity
   /** GetResult implicit for fetching TasksRow objects using plain SQL queries */
   implicit def GetResultTasksRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[Option[String]], e4: GR[Boolean], e5: GR[Option[Int]], e6: GR[scala.math.BigDecimal]): GR[TasksRow] = GR{
     prs => import prs._
-    TasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<?[Int]))
+    TasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<[Int]))
   }
   /** Table description of table tasks. Objects of this class serve as prototypes for rows in queries. */
   class Tasks(_tableTag: Tag) extends BaseTable[TasksRow](_tableTag, "tasks") {
                 def * = (id, createdDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, jobAddress, jobPickupPhone, customerPhone, teamName, hasInteriorCleaning, latitude, longitude, timeSlotId) <> (TasksRow.tupled, TasksRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(latitude), Rep.Some(longitude), timeSlotId).shaped.<>({r=>import r._; _1.map(_=> TasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get, _18)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(latitude), Rep.Some(longitude), Rep.Some(timeSlotId)).shaped.<>({r=>import r._; _1.map(_=> TasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get, _18.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -389,13 +389,13 @@ trait Tables {
     val latitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("latitude")
     /** Database column longitude SqlType(numeric) */
     val longitude: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("longitude")
-    /** Database column time_slot_id SqlType(int4), Default(None) */
-    val timeSlotId: Rep[Option[Int]] = column[Option[Int]]("time_slot_id", O.Default(None))
+    /** Database column time_slot_id SqlType(int4) */
+    val timeSlotId: Rep[Int] = column[Int]("time_slot_id")
 
     /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
     lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing TimeSlots (database name tasks_time_slot_id_fkey) */
-    lazy val timeSlotsFk = foreignKey("tasks_time_slot_id_fkey", timeSlotId, TimeSlots)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
+    lazy val timeSlotsFk = foreignKey("tasks_time_slot_id_fkey", timeSlotId, TimeSlots)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing Users (database name jobs_user_id_fkey) */
     lazy val usersFk = foreignKey("jobs_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
     /** Foreign key referencing Vehicles (database name jobs_vehicle_id_fkey) */
@@ -405,7 +405,7 @@ trait Tables {
     val index1 = index("jobs_job_id_key", jobId, unique=true)
               }
   /** Collection-like TableQuery object for table Tasks */
-  lazy val Tasks = new TableQuery(tag => new Tasks(tag))
+  lazy val Tasks = new TableQuery(tag => new Tasks(tag)) with CRUDTableQuery[Tasks, TasksRow]
 
   /** Entity class storing rows of table TaskServices
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -440,7 +440,7 @@ trait Tables {
     lazy val tasksFk = foreignKey("task_services_job_id_fkey", taskId, Tasks)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table TaskServices */
-  lazy val TaskServices = new TableQuery(tag => new TaskServices(tag))
+  lazy val TaskServices = new TableQuery(tag => new TaskServices(tag)) with CRUDTableQuery[TaskServices, TaskServicesRow]
 
   /** Entity class storing rows of table TimeSlots
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -484,7 +484,7 @@ trait Tables {
     val index1 = index("u_date_time", (startTime, daySlotId), unique=true)
               }
   /** Collection-like TableQuery object for table TimeSlots */
-  lazy val TimeSlots = new TableQuery(tag => new TimeSlots(tag))
+  lazy val TimeSlots = new TableQuery(tag => new TimeSlots(tag)) with CRUDTableQuery[TimeSlots, TimeSlotsRow]
 
   /** Entity class storing rows of table Users
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -554,7 +554,7 @@ trait Tables {
     val index2 = index("users_facebook_id_key", facebookId, unique=true)
               }
   /** Collection-like TableQuery object for table Users */
-  lazy val Users = new TableQuery(tag => new Users(tag))
+  lazy val Users = new TableQuery(tag => new Users(tag)) with CRUDTableQuery[Users, UsersRow]
 
   /** Entity class storing rows of table Vehicles
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
@@ -610,5 +610,5 @@ trait Tables {
     lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
               }
   /** Collection-like TableQuery object for table Vehicles */
-  lazy val Vehicles = new TableQuery(tag => new Vehicles(tag))
+  lazy val Vehicles = new TableQuery(tag => new Vehicles(tag)) with CRUDTableQuery[Vehicles, VehiclesRow]
 }

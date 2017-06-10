@@ -44,7 +44,7 @@ class DefaultDaySlotService @Inject()(bookingDao: BookingDao,
     }
     val updateAction = for {
       _ <- timeSlotQueryObject.updateQuery(timeSlot.copy(reserved = newReservedAmount))
-      tasksUpdateCount <- taskQueryObject.updateQuery(task.copy(timeSlotId = Some(timeSlot.id)))
+      tasksUpdateCount <- taskQueryObject.updateQuery(task.copy(timeSlotId = timeSlot.id))
     } yield tasksUpdateCount
     slickDbService.run(updateAction)
   }

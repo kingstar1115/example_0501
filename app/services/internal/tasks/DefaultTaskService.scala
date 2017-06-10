@@ -244,7 +244,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
         Tasks.map(task => (task.jobId, task.userId, task.scheduledTime, task.vehicleId, task.hasInteriorCleaning, task.latitude, task.longitude, task.timeSlotId))
           returning Tasks.map(_.id)
           += ((tookanTask.jobId, data.user.id, Timestamp.valueOf(appointmentTask.dateTime), data.vehicle.id,
-          data.serviceInformation.hasInteriorCleaning, appointmentTask.latitude, appointmentTask.longitude, Some(data.timeSlot.id)))
+          data.serviceInformation.hasInteriorCleaning, appointmentTask.latitude, appointmentTask.longitude, data.timeSlot.id))
         )
       _ <- (
         PaymentDetails.map(paymentDetails => (paymentDetails.taskId, paymentDetails.paymentMethod, paymentDetails.price,
@@ -310,7 +310,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   override def refreshTask(taskId: Long): Unit = {
-    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService)) ! RefreshTaskData(taskId)
+    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService, bookingService)) ! RefreshTaskData(taskId)
   }
 
   override def pendingTasks(userId: Int): Future[Seq[(TasksRow, Option[AgentsRow], VehiclesRow)]] = {

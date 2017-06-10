@@ -152,16 +152,12 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
           tookanService.updateTaskStatus(id, TaskStatuses.Cancel)
           val updateAction = DBIO.seq(
             Tasks.filter(_.id === task.id).map(_.jobStatus).update(TaskStatuses.Cancel.code),
-            PaymentDetails.filter(_.taskId === task.id).map(_.chargeId).update(chargeOpt)
+            PaymentDetails.filter(_.taskId === task.id).map(_.chargeId).update(chargeOpt),
+            DBIO.from(bookingService.findTimeSlot(task.timeSlotId)
+              .map(_.get)
+              .flatMap(r => bookingService.releaseBooking(r)))
           ).transactionally
-          db.run(updateAction).map { _ =>
-            task.timeSlotId.map { timeSlotId =>
-              bookingService.findTimeSlot(timeSlotId)
-                .map(_.get)
-                .flatMap(r => bookingService.releaseBooking(r))
-            }
-            success
-          }
+          db.run(updateAction).map(_ => success)
         }
       case None =>
         Future.successful(badRequest(s"Can't cancel task with $id id"))

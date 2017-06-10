@@ -11,6 +11,7 @@ import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits._
 import services.TookanService
 import services.TookanService.{Agent, AppointmentDetails}
+import services.internal.bookings.BookingService
 import services.internal.notifications.{JobNotificationData, PushNotificationService}
 import slick.driver.PostgresDriver.api._
 
@@ -18,7 +19,8 @@ import scala.concurrent.Future
 
 class TasksActor(tookanService: TookanService,
                  dbConfigProvider: DatabaseConfigProvider,
-                 pushNotificationService: PushNotificationService) extends Actor {
+                 pushNotificationService: PushNotificationService,
+                 bookingService: BookingService) extends Actor {
 
   override def receive = {
     case t: RefreshTaskData => updateTaskData(t.jobId)
@@ -29,24 +31,28 @@ class TasksActor(tookanService: TookanService,
     val db = dbConfigProvider.get.db
 
     tookanService.getTask(jobId).map {
-      case Right(task) =>
+      case Right(tookanTask) =>
         (for {
-          agentId <- updateOrCreateAgent(task.fleetId)
+          agentId <- updateOrCreateAgent(tookanTask.fleetId)
           team <- tookanService.getTeam
         } yield (agentId, team)).flatMap {
           case (agentId, Right(team)) =>
             val taskSelectQuery = for {
-              job <- Tasks if job.jobId === jobId
-            } yield job
+              task <- Tasks if task.jobId === jobId
+              timeSlot <- TimeSlots if timeSlot.id === task.timeSlotId
+            } yield (task, timeSlot)
 
-            db.run(taskSelectQuery.result.head).map { taskRow =>
-              task.jobStatus match {
+            db.run(taskSelectQuery.result.head).map { tuple =>
+              val task = tuple._1
+              tookanTask.jobStatus match {
                 case Deleted.code =>
-                  Logger.debug(s"Deleting task with id: ${taskRow.id}")
-                  db.run(Tasks.filter(_.id === taskRow.id).delete)
-                //TODO: free time slot
+                  Logger.debug(s"Deleting task with id: ${task.id}")
+                  for {
+                    _ <- bookingService.releaseBooking(tuple._2)
+                    count <- db.run(Tasks.filter(_.id === task.id).delete)
+                  } yield count
                 case _ =>
-                  update(taskRow, task, agentId, team.teamName)
+                  update(task, tookanTask, agentId, team.teamName)
               }
             }
 
@@ -145,8 +151,8 @@ class TasksActor(tookanService: TookanService,
 object TasksActor {
 
   def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider,
-            pushNotificationService: PushNotificationService) =
-    Props(new TasksActor(tookanService, dbConfigProvider, pushNotificationService))
+            pushNotificationService: PushNotificationService, bookingService: BookingService) =
+    Props(new TasksActor(tookanService, dbConfigProvider, pushNotificationService, bookingService))
 
   case class RefreshTaskData(jobId: Long)
 
