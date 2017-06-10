@@ -30,29 +30,30 @@ class TasksActor(tookanService: TookanService,
 
     tookanService.getTask(jobId).map {
       case Right(task) =>
-        updateOrCreateAgent(task.fleetId)
-          .flatMap { agentId =>
-            tookanService.getTeam.flatMap {
-              case Left(e) =>
-                Logger.debug("Can't get team information")
-                Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
-              case Right(team) =>
-                val taskSelectQuery = for {
-                  job <- Tasks if job.jobId === jobId
-                } yield job
+        (for {
+          agentId <- updateOrCreateAgent(task.fleetId)
+          team <- tookanService.getTeam
+        } yield (agentId, team)).flatMap {
+          case (agentId, Right(team)) =>
+            val taskSelectQuery = for {
+              job <- Tasks if job.jobId === jobId
+            } yield job
 
-                db.run(taskSelectQuery.result.head).map { taskRow =>
-                  task.jobStatus match {
-                    case Deleted.code =>
-                      Logger.debug(s"Deleting task with id: ${taskRow.id}")
-                      db.run(Tasks.filter(_.id === taskRow.id).delete)
-                      //TODO: free time slot
-                    case _ =>
-                      update(taskRow, task, agentId, team.teamName)
-                  }
-                }
+            db.run(taskSelectQuery.result.head).map { taskRow =>
+              task.jobStatus match {
+                case Deleted.code =>
+                  Logger.debug(s"Deleting task with id: ${taskRow.id}")
+                  db.run(Tasks.filter(_.id === taskRow.id).delete)
+                //TODO: free time slot
+                case _ =>
+                  update(taskRow, task, agentId, team.teamName)
+              }
             }
-          }
+
+          case (_, Left(e)) =>
+            Logger.debug("Can't get team information")
+            Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
+        }
 
       case _ => Logger.debug(s"Can't find job with id: $jobId")
     }

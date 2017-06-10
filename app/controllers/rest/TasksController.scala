@@ -93,8 +93,9 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     version match {
       case "v3" =>
         processRequestF[AnonymousTaskWithServicesDto](request.body) { dto =>
-          implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
-            AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.serviceDto.id, dto.serviceDto.extras)
+          implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude,
+            dto.dateTime, AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.tip,
+            dto.serviceDto.id, dto.serviceDto.extras)
           createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
         }
       case _ =>
@@ -269,7 +270,6 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       "job_id" -> Forms.longNumber,
       "job_status" -> Forms.number
     )(TaskHook.apply)(TaskHook.unapply)).bindFromRequest().get
-    Logger.debug(s"Task update web hook. ${formData.toString}")
     taskService.refreshTask(formData.jobId)
     NoContent
   }
@@ -475,7 +475,7 @@ object TasksController {
       (__ \ "paymentDetails").read[AnonymousPaymentDetailsWithInterior]
     ) (AnonymousTaskDto.apply _)
 
-  case class AnonymousPaymentDetails(token: String, promotion: Option[Int])
+  case class AnonymousPaymentDetails(token: String, promotion: Option[Int], tip: Option[Int])
 
   implicit val anonymousPaymentDetailsFormat: Format[AnonymousPaymentDetails] = Json.format[AnonymousPaymentDetails]
 

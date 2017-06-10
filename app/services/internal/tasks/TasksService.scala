@@ -82,6 +82,10 @@ object TasksService {
     def promotion: Option[Int]
   }
 
+  trait PaidAnonymousAppointmentTask extends PaidAppointmentTask{
+    def tip: Option[Int]
+  }
+
 
   trait ServicesInformation {
     def serviceId: Int
@@ -128,8 +132,9 @@ object TasksService {
                                                  dateTime: LocalDateTime,
                                                  paymentInformation: AnonymousPaymentInformation,
                                                  promotion: Option[Int],
+                                                 tip: Option[Int],
                                                  serviceId: Int,
-                                                 extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation
+                                                 extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation
 
   case class PartnershipTaskWithInteriorCleaning(description: String,
                                                  address: String,

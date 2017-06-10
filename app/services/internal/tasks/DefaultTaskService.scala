@@ -145,8 +145,8 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       }
     }
 
-    val basePrice = data.serviceInformation.services.map(_.price).sum
-    val price = calculatePrice(basePrice, appointmentTask.promotion)
+    val servicesPrice = data.serviceInformation.services.map(_.price).sum
+    val price = calculatePrice(servicesPrice)
     price match {
       case x if x > 50 =>
         pay(x, appointmentTask.paymentInformation).map {
@@ -160,22 +160,35 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  private def calculatePrice(priceBeforeDiscount: Int, discount: Option[Int] = None): Int = {
+  private def calculatePrice(price: Int)(implicit appointmentTask: PaidAppointmentTask): Int = {
 
-    val priceWithDiscount = discount.map(discountAmount =>
-      if (discountAmount > 0 && discountAmount < 100) {
-        Logger.debug(s"Increasing discount amount. Original value: $discountAmount")
-        discountAmount * 100
+    def adjustPromotionValue(promotion: Int): Int = {
+      if (promotion > 0 && promotion < 100) {
+        val adjustedPromotion = promotion * 100
+        Logger.debug(s"Increased promotion value: $adjustedPromotion")
+        adjustedPromotion
       } else {
-        discountAmount
+        promotion
       }
-    ).map { discountAmount =>
-      Logger.debug(s"Washing price: $priceBeforeDiscount. Discount: $discountAmount")
-      val discountedPrice = priceBeforeDiscount - discountAmount
-      if (discountedPrice > 0 && discountedPrice < 50) 0 else discountedPrice
-    }.getOrElse(priceBeforeDiscount)
-    Logger.debug(s"Final washing price: $priceWithDiscount")
-    priceWithDiscount
+    }
+
+    Logger.debug(s"Calculating task price. Base price: $price")
+    val discountedPrice = appointmentTask.promotion.map { promotion =>
+      Logger.info(s"Promotion value: $promotion")
+      price - adjustPromotionValue(promotion)
+    }.getOrElse(price)
+
+    val priceWithTip = appointmentTask match {
+      case x: PaidAnonymousAppointmentTask =>
+        x.tip.map { tip =>
+          Logger.debug(s"Adding tip: $tip")
+          discountedPrice + tip
+        }.getOrElse(discountedPrice)
+      case _ =>
+        discountedPrice
+    }
+    Logger.debug(s"Calculated task price: $priceWithTip")
+    priceWithTip
   }
 
   private def refund(tookanResponse: Either[ServerError, AppointmentResponse],
