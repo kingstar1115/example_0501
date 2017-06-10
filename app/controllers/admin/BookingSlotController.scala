@@ -34,15 +34,23 @@ class BookingSlotController @Inject()(bookingService: BookingService,
         val daySlotDtos = bookingSlots.map(DaySlotDto.fromBookingSlot)
         val prevDate = getPrevDate(bookingRange)
         val nextDate = getNextDate(bookingRange, hasNext)
-        Ok(booking(daySlotDtos, prevDate, nextDate, date))
+        val selectedDate = if (daySlotDtos.exists(daySlot => daySlot.date.isEqual(date))) {
+          date
+        } else {
+          daySlotDtos.head.date
+        }
+        Ok(booking(daySlotDtos, prevDate, nextDate, selectedDate))
     }
   }
 
   private def getBookingRange(date: LocalDate): BookingInterval = {
-    if (LocalDate.now().equals(date)) {
-      BookingInterval(date, date.`with`(DayOfWeek.SUNDAY))
+    val monday = date.`with`(DayOfWeek.MONDAY)
+    val sunday = date.`with`(DayOfWeek.SUNDAY)
+    val now = LocalDate.now()
+    if (now.compareTo(monday) >= 0) {
+      BookingInterval(now, sunday)
     } else {
-      BookingInterval(date.`with`(DayOfWeek.MONDAY), date.`with`(DayOfWeek.SUNDAY))
+      BookingInterval(monday, sunday)
     }
   }
 
