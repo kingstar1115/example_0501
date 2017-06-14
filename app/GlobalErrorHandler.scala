@@ -1,5 +1,6 @@
 import commons.enums.ClientError
 import controllers.rest.base._
+import play.api.Logger
 import play.api.http.HttpErrorHandler
 import play.api.mvc.{RequestHeader, Result}
 
@@ -12,6 +13,7 @@ class GlobalErrorHandler extends HttpErrorHandler with RestResponses {
   }
 
   override def onServerError(request: RequestHeader, exception: Throwable): Future[Result] = {
+    Logger.error(exception.getMessage, exception)
     Future.successful(serverError(exception))
   }
 }

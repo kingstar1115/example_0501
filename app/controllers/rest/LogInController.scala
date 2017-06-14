@@ -63,7 +63,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
         processRequestF[FbTokenDto](request.body) { dto =>
           forgotPasswordInternal(dto.token)
         }
-      case "v2" =>
+      case _ =>
         processRequestF[ForgotPasswordDto](request.body) { dto =>
           forgotPasswordInternal(dto.email)
         }
