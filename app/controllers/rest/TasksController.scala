@@ -4,7 +4,6 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-import commons.enums.TaskStatuses.Successful
 import commons.enums.{TaskStatuses, ValidationError => VError}
 import controllers.rest.TasksController._
 import controllers.rest.VehiclesController._
@@ -21,7 +20,6 @@ import play.api.libs.json.{Reads, _}
 import play.api.mvc.{Action, BodyParsers}
 import play.api.{Configuration, Logger}
 import security.TokenStorage
-import services.StripeService.ErrorResponse
 import services.internal.bookings.BookingService
 import services.internal.settings.SettingsService
 import services.internal.tasks.TasksService
@@ -180,52 +178,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def completeTask(version: String) = authorized.async(BodyParsers.parse.json) { request =>
     processRequestF[CompleteTaskDto](request.body) { dto =>
-
       val userId = request.token.get.userInfo.id
-      val taskQuery = for {
-        task <- Tasks if task.jobId === dto.jobId && task.jobStatus === Successful.code && task.submitted === false && task.userId === userId
-      } yield task
-      val userQuery = for {
-        user <- Users if user.id === userId
-      } yield user
-
-      db.run(taskQuery.exists.result).flatMap {
-        case true =>
-          dto.tip.map { tip =>
-            val paymentResult = tip.token
-              .map { token =>
-                Logger.debug(s"Charging tip for task ${dto.jobId} from token $token")
-                stripeService.charge(tip.amount, token, "Tip")
-              }
-              .getOrElse {
-                db.run(userQuery.result.head).flatMap { user =>
-                  user.stripeId.map { stripeId =>
-                    val paymentSource = StripeService.PaymentSource(stripeId, tip.cardId)
-                    stripeService.charge(tip.amount, paymentSource, "Tip")
-                  }.getOrElse {
-                    Future(Left(ErrorResponse("User doesn't set a payment method", VError)))
-                  }
-                }
-              }
-
-            paymentResult.flatMap {
-              case Right(_) =>
-                val updateAction = DBIO.seq(
-                  PaymentDetails.filter(_.taskId in taskQuery.map(_.id)).map(_.tip).update(tip.amount),
-                  taskQuery.map(_.submitted).update(true)
-                ).transactionally
-                db.run(updateAction).map(_ => success)
-
-              case Left(error) =>
-                Logger.debug(s"Failed to charge tip: ${error.message}")
-                Future(badRequest(error.message, error.errorType))
-            }
-          }.getOrElse {
-            db.run(taskQuery.map(_.submitted).update(true).map(_ => success))
-          }
-        case _ =>
-          Logger.debug(s"Task with id ${dto.jobId} was not found for submitting")
-          Future(badRequest("Can't find task to submit"))
+      taskService.completeTask(dto, userId).map {
+        case Right(_) =>
+          success
+        case Left(error) =>
+          error.errorType
+            .map(errorType => badRequest(error.message, errorType))
+            .getOrElse(badRequest(error.message))
       }
     }
   }

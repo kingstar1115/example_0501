@@ -4,6 +4,7 @@ import java.time.LocalDateTime
 
 import com.google.inject.ImplementedBy
 import commons.ServerError
+import controllers.rest.TasksController.CompleteTaskDto
 import models.Tables.{AgentsRow, TasksRow, VehiclesRow}
 import services.TookanService.AppointmentResponse
 import services.internal.tasks.TasksService._
@@ -22,6 +23,8 @@ trait TasksService {
   def refreshTask(taskId: Long): Unit
 
   def pendingTasks(userId: Int): Future[Seq[(TasksRow, Option[AgentsRow], VehiclesRow)]]
+
+  def completeTask(dto: CompleteTaskDto, userId: Int): Future[Either[ServerError, TasksRow]]
 }
 
 object TasksService {
@@ -82,7 +85,7 @@ object TasksService {
     def promotion: Option[Int]
   }
 
-  trait PaidAnonymousAppointmentTask extends PaidAppointmentTask{
+  trait PaidAnonymousAppointmentTask extends PaidAppointmentTask {
     def tip: Option[Int]
   }
 

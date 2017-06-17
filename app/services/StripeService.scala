@@ -74,8 +74,8 @@ class StripeService @Inject()(configuration: Configuration) {
     process(customer.getSources.retrieve(cardId).delete)
   }
 
-  def charge(amount: Int, paymentSource: PaymentSource, description: String): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, description)({ parameters =>
+  def chargeFromCard(amount: Int, paymentSource: PaymentSource, description: String, metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, description, metaData)({ parameters =>
       parameters.put("customer", paymentSource.customerId)
       paymentSource.sourceId match {
         case Some(source) => parameters.put("source", source)
@@ -84,17 +84,21 @@ class StripeService @Inject()(configuration: Configuration) {
     })
   }
 
-  def charge(amount: Int, source: String, description: String): Future[Either[ErrorResponse, Charge]] = {
-    chargeInternal(amount, description)({ parameters =>
+  def chargeFromToken(amount: Int, source: String, description: String, metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
+    chargeInternal(amount, description, metaData)({ parameters =>
       parameters.put("source", source)
     })
   }
 
-  private def chargeInternal(amount: Int, description: String)(addParameters: (util.HashMap[String, Object]) => Unit) = {
+  private def chargeInternal(amount: Int, description: String, metaData: Map[String, String])(addParameters: (util.HashMap[String, Object]) => Unit) = {
+    val metadataMap = new util.HashMap[String, String]() {
+      metaData.foreach(entry => put(entry._1, entry._2))
+    }
     val params = new util.HashMap[String, Object]() {
       put("amount", new Integer(amount))
       put("currency", "usd")
       put("description", description)
+      put("metadata", metadataMap)
     }
     addParameters(params)
     process(Charge.create(params))

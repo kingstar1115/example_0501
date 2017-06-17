@@ -12,6 +12,9 @@ import commons.ServerError
 import commons.enums.TaskStatuses.Successful
 import commons.enums.{PaymentMethods, StripeError, TookanError}
 import commons.monads.transformers.EitherT
+import controllers.rest.TasksController
+import controllers.rest.TasksController.CompleteTaskDto
+import dao.SlickDbService
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
@@ -38,7 +41,8 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
                                    pushNotificationService: PushNotificationService,
                                    servicesService: ServicesService,
                                    usersService: UsersService,
-                                   bookingService: BookingService) extends TasksService {
+                                   bookingService: BookingService,
+                                   slickDbService: SlickDbService) extends TasksService {
 
   private val db = dbConfigProvider.get.db
 
@@ -135,13 +139,13 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
           def payWithCard = getStripeId(data.user).map {
             id =>
               val paymentSource = StripeService.PaymentSource(id, customer.cardId)
-              stripeService.charge(price, paymentSource, description)
+              stripeService.chargeFromCard(price, paymentSource, description)
           }.getOrElse(Future(Left(ErrorResponse("User doesn't set up account to perform payment", StripeError))))
 
-          customer.token.map(token => stripeService.charge(price, token, description))
+          customer.token.map(token => stripeService.chargeFromToken(price, token, description))
             .getOrElse(payWithCard)
         case anonymous: AnonymousPaymentInformation =>
-          stripeService.charge(price, anonymous.token, description)
+          stripeService.chargeFromToken(price, anonymous.token, description)
       }
     }
 
@@ -319,6 +323,67 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       if task.jobStatus === Successful.code && task.submitted === false && task.userId === userId
     } yield (task, agent, vehicle)
     db.run(taskQuery.result)
+  }
+
+  override def completeTask(dto: TasksController.CompleteTaskDto, userId: Int): Future[Either[ServerError, TasksRow]] = {
+    (for {
+      taskWithUser <- EitherT(loadTaskForCompleting(dto.jobId, userId))
+      charge <- EitherT(chargeTip(dto, taskWithUser._2))
+    } yield (taskWithUser, charge)).inner.flatMap {
+      case Right((taskWithUser, chargeOptional)) =>
+        val submittedTask = taskWithUser._1.copy(submitted = true)
+        chargeOptional match {
+          case Some(charge) =>
+            val updateAction = DBIO.seq(
+              PaymentDetails.filter(_.taskId === taskWithUser._1.id).map(_.tip).update(charge.getAmount),
+              Tasks.update(submittedTask)
+            ).transactionally
+            slickDbService.run(updateAction).map(_ => Right(submittedTask))
+          case None =>
+            slickDbService.run(Tasks.update(submittedTask)).map(_ => Right(submittedTask))
+        }
+      case Left(error) =>
+        Future.successful(Left(error))
+    }
+  }
+
+  private def loadTaskForCompleting(jobId: Long, userId: Int): Future[Either[ServerError, (TasksRow, UsersRow)]] = {
+    val taskWithUser = for {
+      (task, user) <- Tasks join Users on (_.userId === _.id)
+      if task.jobId === jobId && task.jobStatus === Successful.code && task.submitted === false && task.userId === userId
+    } yield (task, user)
+    slickDbService.run(taskWithUser.result.headOption).map {
+      case None =>
+        Logger.debug(s"Task $jobId for user $userId was not found for completing")
+        Left(ServerError("Failed to complete task"))
+      case Some((task, user)) =>
+        Right((task, user))
+    }
+  }
+
+  private def chargeTip(completeTaskDto: CompleteTaskDto, user: UsersRow): Future[Either[ServerError, Option[Charge]]] = {
+    completeTaskDto.tip.map { tip =>
+      val metadata = Map(("jobId", completeTaskDto.jobId.toString))
+      val chargeResult = tip.token match {
+        case Some(token) =>
+          Logger.debug(s"Charging tip for task ${completeTaskDto.jobId} from token $token")
+          stripeService.chargeFromToken(tip.amount, token, "Tip", metadata)
+        case None =>
+          user.stripeId.map { stripeId =>
+            val paymentSource = StripeService.PaymentSource(stripeId, tip.cardId)
+            stripeService.chargeFromCard(tip.amount, paymentSource, "Tip", metadata)
+          }.getOrElse {
+            Future(Left(ErrorResponse("User doesn't set a payment method", StripeError)))
+          }
+      }
+      chargeResult.map {
+        case Right(charge) =>
+          Right(Some(charge))
+        case Left(error) =>
+          Logger.debug(s"Failed to charge tip: ${error.message} for task ${completeTaskDto.jobId}")
+          Left(ServerError(error.message, Some(error.errorType)))
+      }
+    }.getOrElse(Future.successful(Right(None)))
   }
 }
 
