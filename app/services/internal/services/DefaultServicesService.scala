@@ -19,11 +19,11 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
                                        settingsService: SettingsService) extends ServicesService {
 
   override def getExteriorCleaningService: Future[ServicesRow] = {
-    servicesDao.findByKey(exteriorCleaning)
+    servicesDao.findByKey(ExteriorCleaning)
   }
 
   override def getExteriorAndInteriorCleaningService: Future[ServicesRow] = {
-    servicesDao.findByKey(exteriorAndInteriorCleaning)
+    servicesDao.findByKey(ExteriorAndInteriorCleaning)
   }
 
   override def getServiceWithExtras(id: Int, extras: Set[Int]): Future[ServiceWithExtras] = {
@@ -31,7 +31,7 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
   }
 
   override def hasInteriorCleaning(service: ServicesRow): Boolean =
-    service.key.exists(_.equals(exteriorAndInteriorCleaning))
+    service.key.equals(ExteriorAndInteriorCleaning)
 
   override def getAllServicesWithExtras(vehicleId: Int, userId: Int): Future[Either[ServerError, ServicesWithExtrasDto]] = {
     vehiclesService.addAdditionalPrice(vehicleId, userId)
@@ -41,7 +41,7 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
       }
   }
 
-  override def getAllServicesWithExtras(make: String, model: String, year: Int) = {
+  override def getAllServicesWithExtras(make: String, model: String, year: Int): Future[ServicesWithExtrasDto] = {
     vehiclesService.addAdditionalPrice(make, model, year)
       .flatMap(addAdditionalPrice => loadServicesWithExtras(addAdditionalPrice))
   }
@@ -56,7 +56,7 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
   }
 
   private def convertServices(services: Seq[(ServicesRow, Option[ServicesExtrasRow])], addAdditionalPrice: Boolean): Future[Seq[ServiceDto]] = {
-    settingsService.getIntValue(SettingsService.serviceAdditionalCost, defaultAdditionalCost)
+    settingsService.getIntValue(SettingsService.serviceAdditionalCost, DefaultAdditionalCost)
       .flatMap { additionalPrice =>
         val dtos = services.groupBy(_._1)
           .map { entry =>
@@ -68,7 +68,7 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
   }
 
   override def getServicePrice(service: ServicesRow, make: String, model: String, year: Int): Future[Int] = {
-    settingsService.getIntValue(SettingsService.serviceAdditionalCost, defaultAdditionalCost)
+    settingsService.getIntValue(SettingsService.serviceAdditionalCost, DefaultAdditionalCost)
       .flatMap(additionalPrice => getServicePriceInternal(service, vehiclesService.addAdditionalPrice(make, model, year), additionalPrice))
 
   }

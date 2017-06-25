@@ -28,9 +28,9 @@ trait ServicesService {
 
 object ServicesService {
 
-  val exteriorCleaning = "EXTERIOR_CLEANING"
-  val exteriorAndInteriorCleaning = "EXTERIOR_AND_INTERIOR_CLEANING"
-  val defaultAdditionalCost = 1000
+  val ExteriorCleaning = "EXTERIOR_CLEANING"
+  val ExteriorAndInteriorCleaning = "EXTERIOR_AND_INTERIOR_CLEANING"
+  val DefaultAdditionalCost = 1000
 
   case class ExtraDto(id: Int, name: String, description: Option[String], price: Int)
 
