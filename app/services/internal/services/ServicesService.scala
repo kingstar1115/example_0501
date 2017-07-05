@@ -34,7 +34,7 @@ object ServicesService {
 
   case class ExtraDto(id: Int, name: String, description: Option[String], price: Int)
 
-  case class ServiceDto(id: Int, name: String, description: Option[String], price: Int, extras: Set[Int])
+  case class ServiceDto(id: Int, name: String, description: Option[String], price: Int, extras: Set[Int], seq: Int)
 
   case class ServicesWithExtrasDto(services: Seq[ServiceDto], extras: Seq[ExtraDto])
 

@@ -51,7 +51,7 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
       .flatMap { serviceWithExtras =>
         val extrasDto = serviceWithExtras.extras.map(_.convertToExtraDto)
         convertServices(serviceWithExtras.services, addAdditionalPrice)
-          .map(servicesDto => ServicesWithExtrasDto(servicesDto, extrasDto))
+          .map(servicesDto => ServicesWithExtrasDto(servicesDto.sortBy(_.seq), extrasDto))
       }
   }
 
@@ -93,7 +93,7 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
   implicit class ExtServicesRow(service: ServicesRow) {
     def convertToServiceDto(extrasIds: Set[Int], addAdditionalPrice: Boolean, additionalPrice: Int): Future[ServiceDto] = {
       getServicePriceInternal(service, Future.successful(addAdditionalPrice), additionalPrice)
-        .map(price => ServiceDto(service.id, service.name, service.description, price, extrasIds))
+        .map(price => ServiceDto(service.id, service.name, service.description, price, extrasIds, service.sequence))
     }
   }
 

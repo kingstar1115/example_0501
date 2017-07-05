@@ -226,18 +226,19 @@ trait Tables {
    *  @param key Database column key SqlType(varchar), Length(64,true)
    *  @param deletable Database column deletable SqlType(bool), Default(true)
    *  @param isCarDependentPrice Database column is_car_dependent_price SqlType(bool), Default(false)
-   *  @param enabled Database column enabled SqlType(bool), Default(Some(true)) */
-  case class ServicesRow(id: Int, createdDate: java.sql.Timestamp, name: String, description: Option[String] = None, price: Int, key: String, deletable: Boolean = true, isCarDependentPrice: Boolean = false, enabled: Option[Boolean] = Some(true)) extends Entity
+   *  @param enabled Database column enabled SqlType(bool), Default(Some(true))
+   *  @param sequence Database column sequence SqlType(int4) */
+  case class ServicesRow(id: Int, createdDate: java.sql.Timestamp, name: String, description: Option[String] = None, price: Int, key: String, deletable: Boolean = true, isCarDependentPrice: Boolean = false, enabled: Option[Boolean] = Some(true), sequence: Int) extends Entity
   /** GetResult implicit for fetching ServicesRow objects using plain SQL queries */
   implicit def GetResultServicesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean], e5: GR[Option[Boolean]]): GR[ServicesRow] = GR{
     prs => import prs._
-    ServicesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<?[String], <<[Int], <<[String], <<[Boolean], <<[Boolean], <<?[Boolean]))
+    ServicesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<?[String], <<[Int], <<[String], <<[Boolean], <<[Boolean], <<?[Boolean], <<[Int]))
   }
   /** Table description of table services. Objects of this class serve as prototypes for rows in queries. */
   class Services(_tableTag: Tag) extends BaseTable[ServicesRow](_tableTag, "services") {
-                def * = (id, createdDate, name, description, price, key, deletable, isCarDependentPrice, enabled) <> (ServicesRow.tupled, ServicesRow.unapply)
+                def * = (id, createdDate, name, description, price, key, deletable, isCarDependentPrice, enabled, sequence) <> (ServicesRow.tupled, ServicesRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(name), description, Rep.Some(price), Rep.Some(key), Rep.Some(deletable), Rep.Some(isCarDependentPrice), enabled).shaped.<>({r=>import r._; _1.map(_=> ServicesRow.tupled((_1.get, _2.get, _3.get, _4, _5.get, _6.get, _7.get, _8.get, _9)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(name), description, Rep.Some(price), Rep.Some(key), Rep.Some(deletable), Rep.Some(isCarDependentPrice), enabled, Rep.Some(sequence)).shaped.<>({r=>import r._; _1.map(_=> ServicesRow.tupled((_1.get, _2.get, _3.get, _4, _5.get, _6.get, _7.get, _8.get, _9, _10.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -257,6 +258,8 @@ trait Tables {
     val isCarDependentPrice: Rep[Boolean] = column[Boolean]("is_car_dependent_price", O.Default(false))
     /** Database column enabled SqlType(bool), Default(Some(true)) */
     val enabled: Rep[Option[Boolean]] = column[Option[Boolean]]("enabled", O.Default(Some(true)))
+    /** Database column sequence SqlType(int4) */
+    val sequence: Rep[Int] = column[Int]("sequence")
 
     /** Uniqueness Index over (key) (database name services_key_key) */
     val index1 = index("services_key_key", key, unique=true)
