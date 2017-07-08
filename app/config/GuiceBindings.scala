@@ -17,7 +17,6 @@ class GuiceBindings extends AbstractModule with AkkaGuiceSupport {
 
   private def bindSchedulers() = {
     bind(classOf[TimeSlotGenerationScheduler]).asEagerSingleton()
-    bind(classOf[TaskTimeSlotMigrationScheduler]).asEagerSingleton()
   }
 
   private def bindActors() = {
