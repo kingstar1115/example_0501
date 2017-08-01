@@ -243,6 +243,10 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
                       (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
     val paymentMethod = getPaymentMethod(appointmentTask.paymentInformation)
     val basePrice = data.serviceInformation.services.map(_.price).sum
+    val promotion = appointmentTask.promotion
+      .filter(value => value > 0 && value < 100)
+      .map(_ * 100)
+      .getOrElse(0)
     val insertTask = (for {
       taskId <- (
         Tasks.map(task => (task.jobId, task.userId, task.scheduledTime, task.vehicleId, task.hasInteriorCleaning, task.latitude, task.longitude, task.timeSlotId))
@@ -253,7 +257,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       _ <- (
         PaymentDetails.map(paymentDetails => (paymentDetails.taskId, paymentDetails.paymentMethod, paymentDetails.price,
           paymentDetails.tip, paymentDetails.promotion, paymentDetails.chargeId))
-          += ((taskId, paymentMethod, basePrice, 0, appointmentTask.promotion.getOrElse(0), charge.map(_.getId)))
+          += ((taskId, paymentMethod, basePrice, 0, promotion, charge.map(_.getId)))
         )
       _ <- DBIO.sequence(
         data.serviceInformation.services
