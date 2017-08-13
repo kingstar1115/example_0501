@@ -127,6 +127,11 @@ class TookanService @Inject()(ws: WSClient,
       ))
   }
 
+  def leaveCustomerReview(customerReview: CustomerReview) = {
+    buildRequest(CustomerRating)
+      .post(Json.toJson(customerReview))
+  }
+
   private def buildRequest(path: String) = {
     ws.url(buildUrl(path))
       .withRequestTimeout(10000L)
@@ -169,6 +174,7 @@ object TookanService {
   val TeamDetails = "view_team"
   val AgentCoordinates = "view_all_fleets"
   val UpdateTaskStatus = "update_task_via_dashboard"
+  val CustomerRating = "customer_rating"
 
   case class Config(key: String,
                     teamId: Int,
@@ -305,7 +311,7 @@ object TookanService {
   case class TaskAction(actionType: String,
                         description: String) {
 
-    def isImageAction = actionType.equals("image_added")
+    def isImageAction: Boolean = actionType.equals("image_added")
   }
 
   object TaskAction {
@@ -324,9 +330,10 @@ object TookanService {
                                 taskHistory: Seq[TaskAction],
                                 address: String,
                                 pickupPhone: String,
-                                customerPhone: String) {
+                                customerPhone: String,
+                                jobHash: String) {
 
-    def getDate = {
+    def getDate: LocalDateTime = {
       val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm a")
       LocalDateTime.parse(pickupDatetime.toUpperCase, formatter)
     }
@@ -343,7 +350,8 @@ object TookanService {
         (__ \ "task_history").read[Seq[TaskAction]] and
         (__ \ "job_address").read[String] and
         (__ \ "job_pickup_phone").read[String] and
-        (__ \ "customer_phone").read[String]
+        (__ \ "customer_phone").read[String] and
+        (__ \ "job_hash").read[String]
       ) (AppointmentDetails.apply _)
   }
 
@@ -387,8 +395,21 @@ object TookanService {
       ))
   }
 
+  case class CustomerReview(rating: Int,
+                            comment: Option[String],
+                            jobHash: String)
+
+  object CustomerReview {
+    implicit val customerReviewWrites: Writes[CustomerReview] = Writes((customerReview: CustomerReview) =>
+      Json.obj(
+        "rating" -> customerReview.rating,
+        "customer_comment" -> customerReview.comment,
+        "job_id" -> customerReview.jobHash
+      ))
+  }
+
   implicit class BooleanEx(value: Boolean) {
-    def convert = value match {
+    def convert: String = value match {
       case false => "0"
       case _ => "1"
     }

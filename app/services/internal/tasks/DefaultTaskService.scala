@@ -344,6 +344,10 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
             ).transactionally
             slickDbService.run(updateAction).map(_ => Right(submittedTask))
           case None =>
+            submittedTask.jobHash.map(jobHash => {
+              val customerReview = TookanService.CustomerReview(dto.customerReview.rating, dto.customerReview.comment, jobHash)
+              tookanService.leaveCustomerReview(customerReview)
+            })
             slickDbService.run(Tasks.update(submittedTask)).map(_ => Right(submittedTask))
         }
       case Left(error) =>

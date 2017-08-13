@@ -46,6 +46,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   implicit val taskListDtoFormat: Format[TaskListDto] = Json.format[TaskListDto]
   implicit val taskDetailsDtoFormat: Format[TaskDetailsDto] = Json.format[TaskDetailsDto]
   implicit val tipDtoFormat: Format[TipDto] = Json.format[TipDto]
+  implicit val customerReviewDtoFormat: Format[CustomerReviewDto] = Json.format[CustomerReviewDto]
   implicit val completeTaskDtoFormat: Format[CompleteTaskDto] = Json.format[CompleteTaskDto]
 
   val db = dbConfigProvider.get.db
@@ -533,8 +534,11 @@ object TasksController {
                     cardId: Option[String],
                     token: Option[String])
 
+  case class CustomerReviewDto(rating: Int, comment: Option[String])
+
   case class CompleteTaskDto(jobId: Long,
-                             tip: Option[TipDto])
+                             tip: Option[TipDto],
+                             customerReview: CustomerReviewDto)
 
   case class TaskHook(jobId: Long,
                       jobStatus: Int)
