@@ -20,13 +20,14 @@ import scala.concurrent.Future
 class TookanService @Inject()(ws: WSClient,
                               configuration: Configuration) {
 
-  implicit val config = Config(
+  implicit val config: Config = Config(
     configuration.getString("tookan.key").get,
+    configuration.getString("tookan.v2Key").get,
     configuration.getInt("tookan.teamId").get,
     configuration.getInt("tookan.userId").get,
     configuration.getString("tookan.template").get)
 
-  val BaseUrl = configuration.getString("tookan.url").get
+  val BaseUrl: String = configuration.getString("tookan.url").get
 
   def createAppointment(customerName: String,
                         customerPhone: String,
@@ -50,24 +51,24 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
-    buildRequest(CreateTask)
+    buildRequest(CreateTask, V2)
       .post(Json.toJson(task))
       .map(response => response.convert[AppointmentResponse])
   }
 
-  def deleteTask(jobId: Long) = {
-    buildRequest(DeleteTask)
+  def deleteTask(jobId: Long): Future[TookanResponse] = {
+    buildRequest(DeleteTask, V2)
       .post(Json.obj(
-        "access_token" -> config.key,
+        "api_key" -> config.v2Key,
         "job_id" -> jobId.toString
       ))
       .map(response => response.getResponse)
   }
 
   def getTask(jobId: Long): Future[Either[TookanResponse, AppointmentDetails]] = {
-    buildRequest(TaskDetails)
+    buildRequest(TaskDetails, V2)
       .post(Json.obj(
-        "access_token" -> config.key,
+        "api_key" -> config.v2Key,
         "user_id" -> config.userId,
         "job_id" -> jobId.toString
       ))
@@ -118,31 +119,40 @@ class TookanService @Inject()(ws: WSClient,
       }
   }
 
-  def updateTaskStatus(taskId: Long, status: TaskStatus) = {
-    buildRequest(UpdateTaskStatus)
+  def updateTaskStatus(taskId: Long, status: TaskStatus): Future[WSResponse] = {
+    buildRequest(UpdateTaskStatus, V2)
       .post(Json.obj(
-        "access_token" -> config.key,
+        "api_key" -> config.v2Key,
         "job_id" -> taskId.toString,
         "job_status" -> status.code
       ))
   }
 
-  def leaveCustomerReview(customerReview: CustomerReview) = {
-    buildRequest(CustomerRating)
-      .post(Json.toJson(customerReview))
+  def leaveCustomerReview(customerReview: CustomerReview): Future[WSResponse] = {
+    val url = BaseUrl.concat("/").concat(CustomerRating)
+    ws.url(url)
+      .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.FORM))
+      .post(Map(
+        "rating" -> Seq(customerReview.rating.toString),
+        "customer_comment" -> Seq(customerReview.comment.getOrElse("")),
+        "job_id" -> Seq(customerReview.jobHash)
+      ))
   }
 
-  private def buildRequest(path: String) = {
-    ws.url(buildUrl(path))
+  private def buildRequest(path: String, apiVersion: String = "") = {
+    val url = BaseUrl
+      .concat(apiVersion)
+      .concat("/")
+      .concat(path)
+    ws.url(url)
       .withRequestTimeout(10000L)
       .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.JSON))
   }
 
-  private def buildUrl(path: String) = BaseUrl.concat("/").concat(path)
 
   implicit class WSResponseEx(wsResponse: WSResponse) {
 
-    val jsonBody = wsResponse.json
+    val jsonBody: JsValue = wsResponse.json
 
     def getResponse: TookanResponse = jsonBody.as[TookanResponse](TookanResponse.tookanResponseFormat)
 
@@ -169,14 +179,17 @@ object TookanService {
 
   val CreateTask = "create_task"
   val DeleteTask = "delete_job"
-  val TaskDetails = "view_task_profile"
+  val TaskDetails = "get_task_details"
   val ListAgents = "view_all_fleets_location"
   val TeamDetails = "view_team"
   val AgentCoordinates = "view_all_fleets"
   val UpdateTaskStatus = "update_task_via_dashboard"
   val CustomerRating = "customer_rating"
 
+  val V2 = "/v2"
+
   case class Config(key: String,
+                    v2Key: String,
                     teamId: Int,
                     userId: Int,
                     template: String)
@@ -185,14 +198,14 @@ object TookanService {
                             status: Int)
 
   object TookanResponse {
-    implicit val tookanResponseFormat = Json.format[TookanResponse]
+    implicit val tookanResponseFormat: Format[TookanResponse] = Json.format[TookanResponse]
   }
 
   case class Metadata(label: String,
                       data: String)
 
   object Metadata {
-    implicit val metadataFormat = Json.format[Metadata]
+    implicit val metadataFormat: Format[Metadata] = Json.format[Metadata]
 
     val maker: String = "Maker"
     val model: String = "Model"
@@ -256,10 +269,10 @@ object TookanService {
         autoAssignment = true,
         None,
         Seq.empty[String],
-        Option(config.key),
+        Option(config.v2Key),
         Option(config.template))
 
-    val formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm")
+    val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy HH:mm")
 
     implicit val appointmentTaskWrites: Writes[AppointmentTask] =
       Writes((task: AppointmentTask) =>
@@ -278,7 +291,7 @@ object TookanService {
           "has_delivery" -> task.hasDelivery.convert,
           "layout_type" -> task.layoutType,
           "tracking_link" -> task.trackingLink.convert,
-          "access_token" -> task.apiKey,
+          "api_key" -> task.apiKey,
           "team_id" -> task.teamId,
           "auto_assignment" -> task.autoAssignment.convert,
           "fleet_id" -> task.fleetId,
@@ -399,20 +412,8 @@ object TookanService {
                             comment: Option[String],
                             jobHash: String)
 
-  object CustomerReview {
-    implicit val customerReviewWrites: Writes[CustomerReview] = Writes((customerReview: CustomerReview) =>
-      Json.obj(
-        "rating" -> customerReview.rating,
-        "customer_comment" -> customerReview.comment,
-        "job_id" -> customerReview.jobHash
-      ))
-  }
-
   implicit class BooleanEx(value: Boolean) {
-    def convert: String = value match {
-      case false => "0"
-      case _ => "1"
-    }
+    def convert: String = if (value) "1" else "0"
   }
 
 }

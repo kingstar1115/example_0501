@@ -538,7 +538,7 @@ object TasksController {
 
   case class CompleteTaskDto(jobId: Long,
                              tip: Option[TipDto],
-                             customerReview: CustomerReviewDto)
+                             customerReview: Option[CustomerReviewDto])
 
   case class TaskHook(jobId: Long,
                       jobStatus: Int)
