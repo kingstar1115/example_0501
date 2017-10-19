@@ -139,7 +139,7 @@ class SignUpController @Inject()(dbConfigProvider: DatabaseConfigProvider,
 
               val existsQuery = for {
                 u <- Users if u.facebookId === fbDto.id || u.email === dto.email || (u.phoneCode === dto.phoneCode
-                && u.phone === dto.phone)
+                  && u.phone === dto.phone)
               } yield u
 
               db.run(existsQuery.length.result).flatMap {
@@ -197,8 +197,8 @@ object SignUpController {
                                  email: Option[String])
 
   implicit val emailSignUpDtoReads: Reads[EmailSignUpDto] = (
-    (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
-      (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+    (JsPath \ "firstName").read[String](maxLength[String](150)) and
+      (JsPath \ "lastName").read[String](maxLength[String](150)) and
       (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "email").read[String](email) and
@@ -206,8 +206,8 @@ object SignUpController {
     ) (EmailSignUpDto.apply _)
 
   implicit val facebookSighUpDtoReads: Reads[FacebookSighUpDto] = (
-    (JsPath \ "firstName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
-      (JsPath \ "lastName").read[String](minLength[String](2) keepAnd maxLength[String](150)) and
+    (JsPath \ "firstName").read[String](maxLength[String](150)) and
+      (JsPath \ "lastName").read[String](maxLength[String](150)) and
       (JsPath \ "phoneCountryCode").read[String](pattern("[0-9]{1,4}".r, "Invalid country code")) and
       (JsPath \ "phoneNumber").read[String](pattern("[0-9]{8,14}".r, "Invalid phone format")) and
       (JsPath \ "email").read[String](email) and
