@@ -77,7 +77,7 @@ class EdmundsService @Inject()(ws: WSClient,
 
 object EdmundsService {
 
-  val vehicleApiUrl = "https://api.edmunds.com/api/vehicle/v2/"
+  val vehicleApiUrl = "http://api.edmunds.com/api/vehicle/v2/"
   val makes = "makes"
 
   case class Makers(makes: List[Maker], makesCount: Int)
