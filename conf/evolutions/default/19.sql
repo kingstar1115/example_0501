@@ -1,9 +1,11 @@
 # --- !Ups
 
-ALTER TABLE tasks
-  ADD COLUMN job_hash VARCHAR(64)
+ALTER TABLE users
+  ALTER COLUMN first_name SET DEFAULT '',
+  ALTER COLUMN last_name SET DEFAULT '';
 
 # --- !Downs
 
-ALTER TABLE tasks
-  DROP COLUMN IF EXISTS job_hash;
+ALTER TABLE users
+  ALTER COLUMN first_name DROP DEFAULT,
+  ALTER COLUMN last_name DROP DEFAULT;
