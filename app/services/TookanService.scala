@@ -178,12 +178,12 @@ class TookanService @Inject()(ws: WSClient,
 object TookanService {
 
   val CreateTask = "create_task"
-  val DeleteTask = "delete_job"
+  val DeleteTask = "delete_task"
   val TaskDetails = "get_task_details"
   val ListAgents = "view_all_fleets_location"
   val TeamDetails = "view_team"
   val AgentCoordinates = "view_all_fleets"
-  val UpdateTaskStatus = "update_task_via_dashboard"
+  val UpdateTaskStatus = "update_task_status"
   val CustomerRating = "customer_rating"
 
   val V2 = "/v2"
