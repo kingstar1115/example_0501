@@ -22,7 +22,7 @@ class TasksActor(tookanService: TookanService,
                  pushNotificationService: PushNotificationService,
                  bookingService: BookingService) extends Actor {
 
-  override def receive = {
+  override def receive: PartialFunction[Any, Unit] = {
     case t: RefreshTaskData => updateTaskData(t.jobId)
     case _ =>
   }
@@ -65,24 +65,25 @@ class TasksActor(tookanService: TookanService,
     }
   }
 
-  private def update(taskRow: TasksRow, task: AppointmentDetails, agentId: Option[Int], teamName: String) = {
-    Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${task.jobStatus}")
+  private def update(taskRow: TasksRow, appointment: AppointmentDetails, agentId: Option[Int], teamName: String) = {
+    Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${appointment.jobStatus}")
 
-    val images = task.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
-    val taskUpdateQuery = Tasks.filter(_.jobId === task.jobId)
+    val images = appointment.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
+    val taskUpdateQuery = Tasks.filter(_.jobId === appointment.jobId)
       .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
-        job.jobPickupPhone, job.customerPhone, job.teamName))
-      .update((task.jobStatus, agentId, Option(images), Timestamp.valueOf(task.getDate), Option(task.address),
-        Option(task.pickupPhone), Option(task.customerPhone), Option(teamName)))
+        job.jobPickupPhone, job.customerPhone, job.teamName, job.jobHash))
+      .update((appointment.jobStatus, agentId, Option(images), Timestamp.valueOf(appointment.getDate), Option(appointment.address),
+        Option(appointment.pickupPhone), Option(appointment.customerPhone), Option(teamName), Option(appointment.jobHash)))
+
     dbConfigProvider.get.db.run(taskUpdateQuery).map { _ =>
-      Logger.debug(s"Task with id: ${taskRow.id} and jobId: ${task.jobId} updated!")
-      if (taskRow.jobStatus != task.jobStatus && agentId.isDefined) {
-        sendJobStatusChangeNotification(taskRow, agentId.get, task.jobStatus)
+      Logger.debug(s"Task with id: ${taskRow.id} and jobId: ${appointment.jobId} updated!")
+      if (taskRow.jobStatus != appointment.jobStatus && agentId.isDefined) {
+        sendJobStatusChangeNotification(taskRow, agentId.get, appointment.jobStatus)
       }
     }
   }
 
-  def sendJobStatusChangeNotification(job: TasksRow, agentId: Int, jobStatus: Int) = {
+  private def sendJobStatusChangeNotification(job: TasksRow, agentId: Int, jobStatus: Int) = {
     val db = dbConfigProvider.get.db
     val agentQuery = for {
       agent <- Agents if agent.id === agentId

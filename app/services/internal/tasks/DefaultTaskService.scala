@@ -333,19 +333,23 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     (for {
       taskWithUser <- EitherT(loadTaskForCompleting(dto.jobId, userId))
       charge <- EitherT(chargeTip(dto, taskWithUser._2))
-    } yield (taskWithUser, charge)).inner.flatMap {
-      case Right((taskWithUser, chargeOptional)) =>
-        val submittedTask = taskWithUser._1.copy(submitted = true)
-        chargeOptional match {
-          case Some(charge) =>
-            val updateAction = DBIO.seq(
-              PaymentDetails.filter(_.taskId === taskWithUser._1.id).map(_.tip).update(charge.getAmount),
-              Tasks.update(submittedTask)
-            ).transactionally
-            slickDbService.run(updateAction).map(_ => Right(submittedTask))
-          case None =>
-            slickDbService.run(Tasks.update(submittedTask)).map(_ => Right(submittedTask))
-        }
+    } yield (taskWithUser._1, charge)).inner.flatMap {
+      case Right((task, chargeOptional)) =>
+        (for {
+          jobHash <- task.jobHash
+          customerReview <- dto.customerReview
+        } yield TookanService.CustomerReview(customerReview.rating, customerReview.comment, jobHash))
+          .map(tookanService.leaveCustomerReview)
+
+        val updated = task.copy(submitted = true)
+        val updateAction = chargeOptional.map { charge =>
+          DBIO.seq(
+            PaymentDetails.filter(_.taskId === updated.id).map(_.tip).update(charge.getAmount),
+            Tasks.update(updated)
+          ).transactionally
+        }.getOrElse(Tasks.update(updated))
+        slickDbService.run(updateAction).map(_ => Right(updated))
+
       case Left(error) =>
         Future.successful(Left(error))
     }
