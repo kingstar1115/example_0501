@@ -83,8 +83,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
   }
 
   override def toDto(vehicle: _root_.models.Tables.VehiclesRow): VehicleDto = {
-    VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
-      vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
+    VehicleDto.convert(vehicle)
   }
 
   override val table = Vehicles
@@ -101,6 +100,13 @@ object VehiclesController {
                         year: Int,
                         color: Option[String],
                         licPlate: Option[String])
+
+  object VehicleDto {
+    def convert(vehicle: VehiclesRow): VehicleDto = {
+      VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
+        vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
+    }
+  }
 
   implicit val vehicleDtoFormat = Json.format[VehicleDto]
 }

@@ -57,7 +57,7 @@ class TasksActor(tookanService: TookanService,
             }
 
           case (_, Left(e)) =>
-            Logger.debug("Can't get team information")
+            Logger.debug(s"Can't get team information. Message: `${e.message}`")
             Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
         }
 
@@ -108,35 +108,32 @@ class TasksActor(tookanService: TookanService,
   private def updateOrCreateAgent(fleetId: Option[Long]) = {
     val db = dbConfigProvider.get.db
 
-    def saveAgent(implicit agent: Agent): Future[Option[Int]] = {
+    def saveAgent(agent: Agent): Future[Option[Int]] = {
       val insertQuery = (
-        Agents.map(agent => (agent.fleetId, agent.name, agent.fleetImage, agent.phone))
-          returning Agents.map(_.id) += (agent.fleetId, agent.name.trim, agent.image, agent.phone)
+        Agents.map(agent => (agent.fleetId, agent.name, agent.fleetImage, agent.phone, agent.avrCustomerRating))
+          returning Agents.map(_.id) += (agent.fleetId, agent.name.trim, agent.image, agent.phone, agent.avrCustomerRating)
         )
       db.run(insertQuery).map(id => Some(id))
     }
 
-    def updateAgent(id: Int)(implicit agent: Agent) = {
-      val updateQuery = Agents.filter(_.id === id).map(agent => (agent.name, agent.fleetImage, agent.phone))
-        .update((agent.name.trim, agent.image, agent.phone))
+    def updateAgent(id: Int, agent: Agent) = {
+      val updateQuery = Agents.filter(_.id === id)
+        .map(agent => (agent.name, agent.fleetImage, agent.phone, agent.avrCustomerRating))
+        .update((agent.name.trim, agent.image, agent.phone, agent.avrCustomerRating))
       db.run(updateQuery).map(_ => Option(id))
     }
 
     def loadAgent(fleetId: Long) = {
-      tookanService.listAgents.flatMap {
-        case Right(agents) =>
-          agents.find(agent => agent.fleetId == fleetId)
-            .map { implicit agent =>
+      tookanService.getAgent(fleetId).flatMap {
+        case Right(agent) =>
               val agentQuery = for {
                 agent <- Agents if agent.fleetId === fleetId
               } yield agent
               db.run(agentQuery.result.headOption)
                 .flatMap { agentOpt =>
-                  agentOpt.map(existingAgent => updateAgent(existingAgent.id))
-                    .getOrElse(saveAgent)
+                  agentOpt.map(persistedAgent => updateAgent(persistedAgent.id, agent))
+                    .getOrElse(saveAgent(agent))
                 }
-            }
-            .getOrElse(Future(None))
 
         case Left(response) =>
           Logger.error(s"Can't load agents. Status: ${response.status} Message: ${response.message}")

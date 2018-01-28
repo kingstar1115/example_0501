@@ -13,7 +13,7 @@ import commons.enums.TaskStatuses.Successful
 import commons.enums.{PaymentMethods, StripeError, TookanError}
 import commons.monads.transformers.EitherT
 import controllers.rest.TasksController
-import controllers.rest.TasksController.CompleteTaskDto
+import controllers.rest.TasksController.{CompleteTaskDto, TaskDetailsDto}
 import dao.SlickDbService
 import models.Tables._
 import play.api.Logger
@@ -244,8 +244,12 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     val paymentMethod = getPaymentMethod(appointmentTask.paymentInformation)
     val basePrice = data.serviceInformation.services.map(_.price).sum
     val promotion = appointmentTask.promotion
-      .filter(value => value > 0 && value < 100)
-      .map(_ * 100)
+      .map(promotion => {
+        if (promotion > 0 && promotion < 100)
+          promotion * 100
+        else
+          promotion
+      })
       .getOrElse(0)
     val insertTask = (for {
       taskId <- (
@@ -393,6 +397,25 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       }
     }.getOrElse(Future.successful(Right(None)))
   }
+
+  override def getTask(id: Long, userId: Int): Future[Option[TaskDetailsDto]] = {
+    val selectQuery = for {
+      ((((task, agent), vehicle), paymentDetails), services) <- Tasks
+        .joinLeft(Agents).on(_.agentId === _.id)
+        .join(Vehicles).on(_._1.vehicleId === _.id)
+        .join(PaymentDetails).on(_._1._1.id === _.taskId)
+        .join(TaskServices).on(_._1._1._1.id === _.taskId)
+      if task.userId === userId && task.jobId === id
+    } yield (task, agent, vehicle, paymentDetails, services)
+    slickDbService.run(selectQuery.result).map(result => {
+      if (result.isEmpty) {
+        None
+      } else {
+        Some(TaskDetailsDto.convert(result.head, result.map(_._5)))
+      }
+    })
+  }
+
 }
 
 object DefaultTaskService {

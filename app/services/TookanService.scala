@@ -1,6 +1,6 @@
 package services
 
-import java.time.LocalDateTime
+import java.time.{LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
 import javax.inject.{Inject, Singleton}
 
@@ -51,13 +51,13 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def createAppointment(task: AppointmentTask): Future[Either[TookanResponse, AppointmentResponse]] = {
-    buildRequest(CreateTask, V2)
+    buildJsonRequest(CreateTask, V2)
       .post(Json.toJson(task))
-      .map(response => response.convert[AppointmentResponse])
+      .map(response => response.convert[AppointmentResponse]())
   }
 
   def deleteTask(jobId: Long): Future[TookanResponse] = {
-    buildRequest(DeleteTask, V2)
+    buildJsonRequest(DeleteTask, V2)
       .post(Json.obj(
         "api_key" -> config.v2Key,
         "job_id" -> jobId.toString
@@ -66,7 +66,7 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def getTask(jobId: Long): Future[Either[TookanResponse, AppointmentDetails]] = {
-    buildRequest(TaskDetails, V2)
+    buildJsonRequest(TaskDetails, V2)
       .post(Json.obj(
         "api_key" -> config.v2Key,
         "user_id" -> config.userId,
@@ -83,7 +83,7 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def getTeam: Future[Either[TookanResponse, Team]] = {
-    buildRequest(TeamDetails)
+    buildJsonRequest(TeamDetails)
       .post(Json.obj(
         "access_token" -> config.key
       ))
@@ -97,14 +97,8 @@ class TookanService @Inject()(ws: WSClient,
       }
   }
 
-  def listAgents: Future[Either[TookanResponse, List[Agent]]] = {
-    buildRequest(ListAgents)
-      .post(Json.obj("access_token" -> config.key))
-      .map(response => response.asList[Agent])
-  }
-
   def getAgentCoordinates(fleetId: Long): Future[Either[TookanResponse, Coordinates]] = {
-    buildRequest(AgentCoordinates)
+    buildJsonRequest(AgentCoordinates)
       .post(Json.obj(
         "access_token" -> config.key,
         "fleet_id" -> fleetId
@@ -120,12 +114,22 @@ class TookanService @Inject()(ws: WSClient,
   }
 
   def updateTaskStatus(taskId: Long, status: TaskStatus): Future[WSResponse] = {
-    buildRequest(UpdateTaskStatus, V2)
+    buildJsonRequest(UpdateTaskStatus, V2)
       .post(Json.obj(
         "api_key" -> config.v2Key,
         "job_id" -> taskId.toString,
         "job_status" -> status.code
       ))
+  }
+
+  private def buildJsonRequest(path: String, apiVersion: String = "") = {
+    val url = BaseUrl
+      .concat(apiVersion)
+      .concat("/")
+      .concat(path)
+    ws.url(url)
+      .withRequestTimeout(10000L)
+      .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.JSON))
   }
 
   def leaveCustomerReview(customerReview: CustomerReview): Future[WSResponse] = {
@@ -139,14 +143,22 @@ class TookanService @Inject()(ws: WSClient,
       ))
   }
 
-  private def buildRequest(path: String, apiVersion: String = "") = {
-    val url = BaseUrl
-      .concat(apiVersion)
-      .concat("/")
-      .concat(path)
-    ws.url(url)
+  def getAgent(id: Long): Future[Either[TookanResponse, Agent]] = {
+    buildFormRequest(ListAgentsWithRating)
+      .post(Map(
+        "user_id" -> Seq(config.userId.toString),
+        "team_id" -> Seq(config.teamId.toString),
+        "access_token" -> Seq(config.key),
+        "date" -> Seq(LocalDate.now().toString),
+        "is_offline" -> Seq("1")
+      ))
+      .map(response => response.convert[Agent](__ \ "data" \ "teams" \\ "fleets" \\ id.toString))
+  }
+
+  private def buildFormRequest(path: String) = {
+    ws.url(BaseUrl.concat("/").concat(path))
       .withRequestTimeout(10000L)
-      .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.JSON))
+      .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.FORM))
   }
 
 
@@ -156,10 +168,10 @@ class TookanService @Inject()(ws: WSClient,
 
     def getResponse: TookanResponse = jsonBody.as[TookanResponse](TookanResponse.tookanResponseFormat)
 
-    def convert[T](implicit reads: Reads[T]): Either[TookanResponse, T] = {
+    def convert[T](path: JsPath = JsPath \ "data")(implicit reads: Reads[T]): Either[TookanResponse, T] = {
       val response = getResponse
       response.status match {
-        case 200 => Right((jsonBody \ "data").as[T])
+        case 200 => Right(path.asSingleJson(jsonBody).as[T])
         case _ => Left(response)
       }
     }
@@ -180,11 +192,11 @@ object TookanService {
   val CreateTask = "create_task"
   val DeleteTask = "delete_task"
   val TaskDetails = "get_task_details"
-  val ListAgents = "view_all_fleets_location"
   val TeamDetails = "view_team"
   val AgentCoordinates = "view_all_fleets"
   val UpdateTaskStatus = "update_task_status"
   val CustomerRating = "customer_rating"
+  val ListAgentsWithRating = "getJobAndFleetDetails"
 
   val V2 = "/v2"
 
@@ -371,14 +383,16 @@ object TookanService {
   case class Agent(fleetId: Long,
                    image: String,
                    name: String,
-                   phone: String)
+                   phone: String,
+                   avrCustomerRating: BigDecimal)
 
   object Agent {
     implicit val agentReads: Reads[Agent] = (
       (__ \ "fleet_id").read[Long] and
         (__ \ "fleet_image").read[String] and
         (__ \ "username").read[String] and
-        (__ \ "phone").read[String]
+        (__ \ "phone").read[String] and
+        (__ \ "avg_cust_rating").read[BigDecimal]
       ) (Agent.apply _)
   }
 
