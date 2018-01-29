@@ -327,7 +327,8 @@ object TasksController {
                             longitude: BigDecimal,
                             promotion: Int,
                             tip: Int,
-                            services: Seq[TaskServiceDto] = Seq.empty)
+                            services: Seq[TaskServiceDto] = Seq.empty,
+                            rating: Option[Int])
 
   object TaskDetailsDto {
 
@@ -346,7 +347,7 @@ object TasksController {
         vehicleDto, taskDetails._1.jobStatus, taskDetails._1.submitted, taskDetails._1.teamName, taskDetails._1.jobAddress,
         taskDetails._1.jobPickupPhone, taskDetails._1.customerPhone, taskDetails._4.paymentMethod,
         taskDetails._1.hasInteriorCleaning, services.head.price, taskDetails._1.latitude, taskDetails._1.longitude,
-        taskDetails._4.promotion, taskDetails._4.tip, servicesDto)
+        taskDetails._4.promotion, taskDetails._4.tip, servicesDto, taskDetails._1.rating)
     }
 
     private def convertServices(services: Seq[TaskServicesRow]): Seq[TaskServiceDto] = {

@@ -345,7 +345,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
         } yield TookanService.CustomerReview(customerReview.rating, customerReview.comment, jobHash))
           .map(tookanService.leaveCustomerReview)
 
-        val updated = task.copy(submitted = true)
+        val updated = task.copy(submitted = true, rating = dto.customerReview.map(_.rating))
         val updateAction = chargeOptional.map { charge =>
           DBIO.seq(
             PaymentDetails.filter(_.taskId === updated.id).map(_.tip).update(charge.getAmount),
