@@ -24,18 +24,19 @@ trait Tables {
    *  @param fleetId Database column fleet_id SqlType(int8)
    *  @param name Database column name SqlType(varchar), Length(255,true)
    *  @param fleetImage Database column fleet_image SqlType(text)
-   *  @param phone Database column phone SqlType(varchar), Length(20,true) */
-  case class AgentsRow(id: Int, createdDate: java.sql.Timestamp, fleetId: Long, name: String, fleetImage: String, phone: String) extends Entity
+   *  @param phone Database column phone SqlType(varchar), Length(20,true)
+   *  @param avrCustomerRating Database column avr_customer_rating SqlType(numeric), Default(0) */
+  case class AgentsRow(id: Int, createdDate: java.sql.Timestamp, fleetId: Long, name: String, fleetImage: String, phone: String, avrCustomerRating: scala.math.BigDecimal = BigDecimal(0)) extends Entity
   /** GetResult implicit for fetching AgentsRow objects using plain SQL queries */
-  implicit def GetResultAgentsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String]): GR[AgentsRow] = GR{
+  implicit def GetResultAgentsRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[String], e4: GR[scala.math.BigDecimal]): GR[AgentsRow] = GR{
     prs => import prs._
-    AgentsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[String], <<[String], <<[String]))
+    AgentsRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[String], <<[String], <<[String], <<[scala.math.BigDecimal]))
   }
   /** Table description of table agents. Objects of this class serve as prototypes for rows in queries. */
   class Agents(_tableTag: Tag) extends BaseTable[AgentsRow](_tableTag, "agents") {
-                def * = (id, createdDate, fleetId, name, fleetImage, phone) <> (AgentsRow.tupled, AgentsRow.unapply)
+                def * = (id, createdDate, fleetId, name, fleetImage, phone, avrCustomerRating) <> (AgentsRow.tupled, AgentsRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(fleetId), Rep.Some(name), Rep.Some(fleetImage), Rep.Some(phone)).shaped.<>({r=>import r._; _1.map(_=> AgentsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(fleetId), Rep.Some(name), Rep.Some(fleetImage), Rep.Some(phone), Rep.Some(avrCustomerRating)).shaped.<>({r=>import r._; _1.map(_=> AgentsRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -49,6 +50,8 @@ trait Tables {
     val fleetImage: Rep[String] = column[String]("fleet_image")
     /** Database column phone SqlType(varchar), Length(20,true) */
     val phone: Rep[String] = column[String]("phone", O.Length(20,varying=true))
+    /** Database column avr_customer_rating SqlType(numeric), Default(0) */
+    val avrCustomerRating: Rep[scala.math.BigDecimal] = column[scala.math.BigDecimal]("avr_customer_rating", O.Default(BigDecimal(0)))
 
     /** Uniqueness Index over (fleetId) (database name agents_fleet_id_key) */
     val index1 = index("agents_fleet_id_key", fleetId, unique=true)
@@ -346,18 +349,19 @@ trait Tables {
    *  @param latitude Database column latitude SqlType(numeric)
    *  @param longitude Database column longitude SqlType(numeric)
    *  @param timeSlotId Database column time_slot_id SqlType(int4)
-   *  @param jobHash Database column job_hash SqlType(varchar), Length(64,true), Default(None) */
-  case class TasksRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, timeSlotId: Int, jobHash: Option[String] = None) extends Entity
+   *  @param jobHash Database column job_hash SqlType(varchar), Length(64,true), Default(None)
+   *  @param rating Database column rating SqlType(int4), Default(None) */
+  case class TasksRow(id: Int, createdDate: java.sql.Timestamp, jobId: Long, jobStatus: Int = 6, scheduledTime: java.sql.Timestamp, images: Option[String] = None, submitted: Boolean = false, userId: Int, agentId: Option[Int] = None, vehicleId: Int, jobAddress: Option[String] = None, jobPickupPhone: Option[String] = None, customerPhone: Option[String] = None, teamName: Option[String] = None, hasInteriorCleaning: Boolean, latitude: scala.math.BigDecimal, longitude: scala.math.BigDecimal, timeSlotId: Int, jobHash: Option[String] = None, rating: Option[Int] = None) extends Entity
   /** GetResult implicit for fetching TasksRow objects using plain SQL queries */
   implicit def GetResultTasksRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[Long], e3: GR[Option[String]], e4: GR[Boolean], e5: GR[Option[Int]], e6: GR[scala.math.BigDecimal]): GR[TasksRow] = GR{
     prs => import prs._
-    TasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<[Int], <<?[String]))
+    TasksRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Long], <<[Int], <<[java.sql.Timestamp], <<?[String], <<[Boolean], <<[Int], <<?[Int], <<[Int], <<?[String], <<?[String], <<?[String], <<?[String], <<[Boolean], <<[scala.math.BigDecimal], <<[scala.math.BigDecimal], <<[Int], <<?[String], <<?[Int]))
   }
   /** Table description of table tasks. Objects of this class serve as prototypes for rows in queries. */
   class Tasks(_tableTag: Tag) extends BaseTable[TasksRow](_tableTag, "tasks") {
-                def * = (id, createdDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, jobAddress, jobPickupPhone, customerPhone, teamName, hasInteriorCleaning, latitude, longitude, timeSlotId, jobHash) <> (TasksRow.tupled, TasksRow.unapply)
+                def * = (id, createdDate, jobId, jobStatus, scheduledTime, images, submitted, userId, agentId, vehicleId, jobAddress, jobPickupPhone, customerPhone, teamName, hasInteriorCleaning, latitude, longitude, timeSlotId, jobHash, rating) <> (TasksRow.tupled, TasksRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(latitude), Rep.Some(longitude), Rep.Some(timeSlotId), jobHash).shaped.<>({r=>import r._; _1.map(_=> TasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get, _18.get, _19)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(jobId), Rep.Some(jobStatus), Rep.Some(scheduledTime), images, Rep.Some(submitted), Rep.Some(userId), agentId, Rep.Some(vehicleId), jobAddress, jobPickupPhone, customerPhone, teamName, Rep.Some(hasInteriorCleaning), Rep.Some(latitude), Rep.Some(longitude), Rep.Some(timeSlotId), jobHash, rating).shaped.<>({r=>import r._; _1.map(_=> TasksRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6, _7.get, _8.get, _9, _10.get, _11, _12, _13, _14, _15.get, _16.get, _17.get, _18.get, _19, _20)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -397,6 +401,8 @@ trait Tables {
     val timeSlotId: Rep[Int] = column[Int]("time_slot_id")
     /** Database column job_hash SqlType(varchar), Length(64,true), Default(None) */
     val jobHash: Rep[Option[String]] = column[Option[String]]("job_hash", O.Length(64,varying=true), O.Default(None))
+    /** Database column rating SqlType(int4), Default(None) */
+    val rating: Rep[Option[Int]] = column[Option[Int]]("rating", O.Default(None))
 
     /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
     lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)
@@ -495,8 +501,8 @@ trait Tables {
   /** Entity class storing rows of table Users
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param firstName Database column first_name SqlType(varchar), Length(150,true)
-   *  @param lastName Database column last_name SqlType(varchar), Length(150,true)
+   *  @param firstName Database column first_name SqlType(varchar), Length(150,true), Default()
+   *  @param lastName Database column last_name SqlType(varchar), Length(150,true), Default()
    *  @param email Database column email SqlType(varchar), Length(255,true)
    *  @param password Database column password SqlType(varchar), Length(255,true), Default(None)
    *  @param salt Database column salt SqlType(varchar), Length(255,true)
@@ -509,7 +515,7 @@ trait Tables {
    *  @param profilePicture Database column profile_picture SqlType(text), Default(None)
    *  @param stripeId Database column stripe_id SqlType(varchar), Length(32,true), Default(None)
    *  @param paymentMethod Database column payment_method SqlType(varchar), Length(32,true), Default(None) */
-  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, firstName: String, lastName: String, email: String, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None, stripeId: Option[String] = None, paymentMethod: Option[String] = None) extends Entity
+  case class UsersRow(id: Int, createdDate: java.sql.Timestamp, firstName: String = "", lastName: String = "", email: String, password: Option[String] = None, salt: String, facebookId: Option[String] = None, phoneCode: String, phone: String, userType: Int, verified: Boolean = false, code: Option[String] = None, profilePicture: Option[String] = None, stripeId: Option[String] = None, paymentMethod: Option[String] = None) extends Entity
   /** GetResult implicit for fetching UsersRow objects using plain SQL queries */
   implicit def GetResultUsersRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[UsersRow] = GR{
     prs => import prs._
@@ -525,10 +531,10 @@ trait Tables {
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column first_name SqlType(varchar), Length(150,true) */
-    val firstName: Rep[String] = column[String]("first_name", O.Length(150,varying=true))
-    /** Database column last_name SqlType(varchar), Length(150,true) */
-    val lastName: Rep[String] = column[String]("last_name", O.Length(150,varying=true))
+    /** Database column first_name SqlType(varchar), Length(150,true), Default() */
+    val firstName: Rep[String] = column[String]("first_name", O.Length(150,varying=true), O.Default(""))
+    /** Database column last_name SqlType(varchar), Length(150,true), Default() */
+    val lastName: Rep[String] = column[String]("last_name", O.Length(150,varying=true), O.Default(""))
     /** Database column email SqlType(varchar), Length(255,true) */
     val email: Rep[String] = column[String]("email", O.Length(255,varying=true))
     /** Database column password SqlType(varchar), Length(255,true), Default(None) */

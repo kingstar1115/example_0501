@@ -1,5 +1,6 @@
 package controllers.rest
 
+import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -44,6 +45,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   implicit val agentDtoFormat: Format[AgentDto] = Json.format[AgentDto]
   implicit val taskListDtoFormat: Format[TaskListDto] = Json.format[TaskListDto]
+  implicit val taskServiceDtoFormat: Format[TaskServiceDto] = Json.format[TaskServiceDto]
   implicit val taskDetailsDtoFormat: Format[TaskDetailsDto] = Json.format[TaskDetailsDto]
   implicit val tipDtoFormat: Format[TipDto] = Json.format[TipDto]
   implicit val customerReviewDtoFormat: Format[CustomerReviewDto] = Json.format[CustomerReviewDto]
@@ -165,14 +167,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
   def getPendingTask = authorized.async { request =>
     taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
-      val pendingTask = resultSet.headOption.map(row => convertToListDto(row))
+      val pendingTask = resultSet.headOption.map(TaskListDto.convert)
       ok(pendingTask)
     }
   }
 
   def getPendingTasks(version: String) = authorized.async { request =>
     taskService.pendingTasks(request.token.get.userInfo.id).map { resultSet =>
-      val pendingTasks = resultSet.map(row => convertToListDto(row))
+      val pendingTasks = resultSet.map(TaskListDto.convert)
       ok(pendingTasks)
     }
   }
@@ -207,19 +209,14 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
       .map { resultSet =>
-        val jobs = resultSet._2.map(row => convertToListDto(row)).toList
+        val jobs = resultSet._2.map(TaskListDto.convert).toList
         ok(ListResponse(jobs, limit, offset, resultSet._1))
       }
   }
 
   def getTask(version: String, id: Long) = authorized.async { request =>
-    val selectQuery = for {
-      (((task, agent), vehicle), paymentDetails) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id) join PaymentDetails on (_._1._1.id === _.taskId)
-      if task.userId === request.token.get.userInfo.id && task.jobId === id
-    } yield (task, agent, vehicle, paymentDetails)
-    db.run(selectQuery.result.headOption).map(_.map { row =>
-      ok(convertToDetailsDto(row))
-    }.getOrElse(notFound))
+    taskService.getTask(id, request.token.get.userInfo.id)
+      .map(_.map(taskDetails => ok(taskDetails)).getOrElse(notFound))
   }
 
   def onTaskUpdate(version: String) = Action { implicit request =>
@@ -241,44 +238,30 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
   }
 
   def getActiveTask(version: String) = authorized.async { request =>
-    val selectQuery = for {
-      (((task, agent), vehicle), paymentDetails) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id) join PaymentDetails on (_._1._1.id === _.taskId)
-      if task.userId === request.token.get.userInfo.id && task.jobStatus.inSet(TaskStatuses.activeStatuses)
-    } yield (task, agent, vehicle, paymentDetails)
-    db.run(selectQuery.sortBy(_._1.scheduledTime.asc).result.headOption).map { rowOpt =>
-      val activeTaskOpt = rowOpt.map(row => convertToDetailsDto(row))
-      ok(activeTaskOpt)
+    val userId = request.token.get.userInfo.id
+    val taskQuery = (
+      for {
+        ((((task, agent), vehicle), paymentDetails)) <- Tasks
+          .joinLeft(Agents).on(_.agentId === _.id)
+          .join(Vehicles).on(_._1.vehicleId === _.id)
+          .join(PaymentDetails).on(_._1._1.id === _.taskId)
+        if task.userId === userId && task.jobStatus.inSet(TaskStatuses.activeStatuses)
+      } yield (task, agent, vehicle, paymentDetails)
+      ).sortBy(_._1.scheduledTime.asc)
+    val servicesQuery = for {
+      (taskServices) <- TaskServices
+      if taskServices.taskId in Tasks
+        .filter(task => task.userId === userId && task.jobStatus.inSet(TaskStatuses.activeStatuses))
+        .sortBy(_.scheduledTime.asc)
+        .take(1)
+        .map(_.id)
+    } yield taskServices
+
+    db.run(taskQuery.result.headOption.zip(servicesQuery.result)).map { result =>
+      val activeTaskDto = result._1
+        .map(row => TaskDetailsDto.convert((row._1, row._2, row._3, row._4, null), result._2))
+      ok(activeTaskDto)
     }
-  }
-
-  private def convertToListDto[D](row: (TasksRow, Option[AgentsRow], VehiclesRow)) = {
-    convertInternal(row._2, row._3) { (agentDto, vehicleDto) =>
-      val task = row._1
-      TaskListDto(task.jobId, task.scheduledTime.toLocalDateTime, agentDto, getJobImages(task), vehicleDto,
-        task.jobStatus, task.submitted)
-    }
-  }
-
-  private def convertToDetailsDto(row: (TasksRow, Option[AgentsRow], VehiclesRow, PaymentDetailsRow)) = {
-    convertInternal(row._2, row._3) { (agentDto, vehicleDto) =>
-      val task = row._1
-      val paymentDetails = row._4
-      TaskDetailsDto(task.jobId, task.scheduledTime.toLocalDateTime, agentDto, getJobImages(task), vehicleDto, task.jobStatus,
-        task.submitted, task.teamName, task.jobAddress, task.jobPickupPhone, task.customerPhone, paymentDetails.paymentMethod,
-        task.hasInteriorCleaning, paymentDetails.price, task.latitude, task.longitude, paymentDetails.promotion, paymentDetails.tip)
-    }
-  }
-
-  private def convertInternal[D](agentOpt: Option[AgentsRow], vehicleRow: VehiclesRow)(consumer: (Option[AgentDto], VehicleDto) => D) = {
-    val agent = agentOpt.map(agent => AgentDto(agent.fleetId, agent.name, agent.fleetImage, agent.phone))
-      .orElse(None)
-    val vehicle = VehicleDto(Some(vehicleRow.id), vehicleRow.makerId, vehicleRow.makerNiceName, vehicleRow.modelId,
-      vehicleRow.modelNiceName, vehicleRow.yearId, vehicleRow.year, Option(vehicleRow.color), vehicleRow.licPlate)
-    consumer.apply(agent, vehicle)
-  }
-
-  private def getJobImages(task: TasksRow) = {
-    task.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
   }
 }
 
@@ -287,7 +270,14 @@ object TasksController {
   case class AgentDto(fleetId: Long,
                       name: String,
                       picture: String,
-                      phone: String)
+                      phone: String,
+                      rating: BigDecimal)
+
+  object AgentDto {
+    def fromAgent(agent: AgentsRow): AgentDto = {
+      AgentDto(agent.fleetId, agent.name, agent.fleetImage, agent.phone, agent.avrCustomerRating)
+    }
+  }
 
   case class TaskListDto(jobId: Long,
                          scheduledDateTime: LocalDateTime,
@@ -296,6 +286,28 @@ object TasksController {
                          vehicle: VehicleDto,
                          status: Int,
                          submitted: Boolean)
+
+  object TaskListDto {
+
+    type ListTaskDetails = (TasksRow, Option[AgentsRow], VehiclesRow)
+
+    def convert(taskDetails: ListTaskDetails): TaskListDto = {
+      val agentDto = taskDetails._2.map(AgentDto.fromAgent)
+      val vehicleDto = VehicleDto.convert(taskDetails._3)
+
+      TaskListDto(taskDetails._1.jobId, taskDetails._1.scheduledTime.toLocalDateTime, agentDto,
+        TaskDetailsDto.getJobImages(taskDetails._1), vehicleDto, taskDetails._1.jobStatus, taskDetails._1.submitted)
+    }
+  }
+
+  case class TaskServiceDto(name: String, price: Int, primary: Boolean)
+
+  object TaskServiceDto {
+    def fromService(serviceWithIndex: (TaskServicesRow, Int)): TaskServiceDto = {
+      TaskServiceDto(serviceWithIndex._1.name, serviceWithIndex._1.price,
+        serviceWithIndex._2 == 0)
+    }
+  }
 
   case class TaskDetailsDto(jobId: Long,
                             scheduledDateTime: LocalDateTime,
@@ -314,7 +326,40 @@ object TasksController {
                             latitude: BigDecimal,
                             longitude: BigDecimal,
                             promotion: Int,
-                            tip: Int)
+                            tip: Int,
+                            services: Seq[TaskServiceDto] = Seq.empty,
+                            rating: Option[Int])
+
+  object TaskDetailsDto {
+
+    type TaskDetails = (TasksRow, Option[AgentsRow], VehiclesRow, PaymentDetailsRow, TaskServicesRow)
+
+    implicit def ordered: Ordering[Timestamp] = new Ordering[Timestamp] {
+      def compare(x: Timestamp, y: Timestamp): Int = x compareTo y
+    }
+
+    def convert(taskDetails: TaskDetails, services: Seq[TaskServicesRow]): TaskDetailsDto = {
+      val servicesDto = convertServices(services)
+      val agentDto = taskDetails._2.map(AgentDto.fromAgent)
+      val vehicleDto = VehicleDto.convert(taskDetails._3)
+
+      TaskDetailsDto(taskDetails._1.jobId, taskDetails._1.scheduledTime.toLocalDateTime, agentDto, getJobImages(taskDetails._1),
+        vehicleDto, taskDetails._1.jobStatus, taskDetails._1.submitted, taskDetails._1.teamName, taskDetails._1.jobAddress,
+        taskDetails._1.jobPickupPhone, taskDetails._1.customerPhone, taskDetails._4.paymentMethod,
+        taskDetails._1.hasInteriorCleaning, services.head.price, taskDetails._1.latitude, taskDetails._1.longitude,
+        taskDetails._4.promotion, taskDetails._4.tip, servicesDto, taskDetails._1.rating)
+    }
+
+    private def convertServices(services: Seq[TaskServicesRow]): Seq[TaskServiceDto] = {
+      services.sortBy(service => service.createdDate)
+        .zipWithIndex
+        .map(TaskServiceDto.fromService)
+    }
+
+    def getJobImages(task: TasksRow): List[String] = {
+      task.images.map(_.split(";").filter(_.nonEmpty).toList).getOrElse(List.empty[String])
+    }
+  }
 
   //---------------------------------------Common-----------------------------------------------------------------------
 
