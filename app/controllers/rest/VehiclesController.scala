@@ -12,17 +12,21 @@ import play.api.libs.json.Json
 import play.api.mvc.Action
 import security.TokenStorage
 import services.EdmundsService
+import services.external.vehicles.VehicleDataService
+import services.external.vehicles.VehicleDataService.VehicleModel
 import slick.driver.PostgresDriver.api._
 
 //noinspection TypeAnnotation
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,
                                    edmundsService: EdmundsService,
+                                   vehicleDataService: VehicleDataService,
                                    val dbConfigProvider: DatabaseConfigProvider)
   extends BaseController
     with CRUDOperations[VehiclesRow, VehicleDto] {
 
   val db = dbConfigProvider.get.db
 
+  @deprecated
   def getVehiclesMakers(version: String) = Action.async {
     edmundsService.getCarMakers()
       .map { makersOpt =>
@@ -30,6 +34,21 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
           .map(makers => ok(makers.makes))
           .getOrElse(badRequest("Can't load makers data", InternalSError))
       }
+  }
+
+  def getAvailableYears() = Action.async { _ =>
+    vehicleDataService.getAvailableYears()
+      .map(years => ok(years))
+  }
+
+  def getMakesByYear(year: Int) = Action.async { _ =>
+    vehicleDataService.getMakesByYear(year)
+      .map(makes => ok(makes))
+  }
+
+  def getModelsByYearAndMake(year: Int, make: String) = Action.async { _ =>
+    vehicleDataService.getModelsByYearAndMake(year, make)
+      .map(models => ok(models))
   }
 
   def create(version: String) = authorized.async(parse.json) { implicit request =>
@@ -69,12 +88,12 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
+
   override def findByIdAndUserId(id: Int, userId: Int) = {
     for {
       v <- Vehicles if v.id === id && v.userId === userId && v.deleted === false
     } yield v
   }
-
 
   override def findByUser(userId: Int) = {
     for {

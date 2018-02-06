@@ -7,45 +7,32 @@ import dao.vehicles.{VehicleQueryObject, VehiclesDao}
 import models.Tables.VehiclesRow
 import play.api.libs.concurrent.Execution.Implicits._
 import services.EdmundsService
-import services.EdmundsService.Style
-import services.internal.vehicles.DefaultVehicleService._
+import services.external.vehicles.VehicleDataService
+import services.external.vehicles.VehicleDataService.VehicleModel
 
 import scala.concurrent.Future
 
 
 class DefaultVehicleService @Inject()(vehicleDao: VehiclesDao,
                                       slickDbService: SlickDbService,
-                                      edmundsService: EdmundsService) extends VehiclesService {
+                                      vehicleDataService: VehicleDataService) extends VehiclesService {
 
   override def findById(id: Int): Future[VehiclesRow] = {
     slickDbService.findOne(VehicleQueryObject.findByIdQuery(id))
   }
 
   override def addAdditionalPrice(id: Int, userId: Int): Future[Boolean] = {
-    addAdditionalPriceInternal(vehicleDao.findByIdAndUser(id, userId)
+    vehicleDao.findByIdAndUser(id, userId)
       .flatMap {
         case Some(vehicle) =>
-          edmundsService.getCarStyle(vehicle.makerNiceName, vehicle.modelNiceName, vehicle.year)
+          val vehicleModel = VehicleModel(vehicle.year, vehicle.makerNiceName, vehicle.modelNiceName)
+          vehicleDataService.isLargeVehicle(vehicleModel)
         case None =>
           throw new IllegalArgumentException("Can't find car for this user")
       }
-    )
   }
 
   override def addAdditionalPrice(make: String, model: String, year: Int): Future[Boolean] = {
-    addAdditionalPriceInternal(edmundsService.getCarStyle(make, model, year))
+    vehicleDataService.isLargeVehicle(VehicleModel(year, make, model))
   }
-
-  private def addAdditionalPriceInternal(styleSupplier: => Future[Option[Style]]): Future[Boolean] = {
-    styleSupplier.map {
-      case Some(style) =>
-        !carVehicleType.equalsIgnoreCase(style.categories.vehicleType)
-      case _ =>
-        false
-    }
-  }
-}
-
-object DefaultVehicleService {
-  private val carVehicleType = "Car"
 }
