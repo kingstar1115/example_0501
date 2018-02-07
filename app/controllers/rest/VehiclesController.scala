@@ -13,7 +13,6 @@ import play.api.mvc.Action
 import security.TokenStorage
 import services.EdmundsService
 import services.external.vehicles.VehicleDataService
-import services.external.vehicles.VehicleDataService.VehicleModel
 import slick.driver.PostgresDriver.api._
 
 //noinspection TypeAnnotation
@@ -111,7 +110,7 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 object VehiclesController {
 
   case class VehicleDto(id: Option[Int],
-                        makerId: Int,
+                        makerId: String,
                         makerName: String,
                         modelId: String,
                         modelName: String,

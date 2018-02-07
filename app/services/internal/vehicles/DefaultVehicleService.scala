@@ -6,7 +6,6 @@ import dao.SlickDbService
 import dao.vehicles.{VehicleQueryObject, VehiclesDao}
 import models.Tables.VehiclesRow
 import play.api.libs.concurrent.Execution.Implicits._
-import services.EdmundsService
 import services.external.vehicles.VehicleDataService
 import services.external.vehicles.VehicleDataService.VehicleModel
 
