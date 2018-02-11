@@ -47,7 +47,7 @@ class FuelEconomyVehicleDataService @Inject()(ws: WSClient) extends VehicleDataS
       id <- OptionT(getModelId(vehicleModel))
       vehicleSize <- OptionT(getVehicleSize(id))
     } yield vehicleSize).inner
-      .map(_.fold(false)(vehicleSize => !SmallCarSizes.contains(vehicleSize)))
+      .map(_.fold(false)(vehicleSize => !CompactCars.contains(vehicleSize)))
   }
 
   private def getModelId(vehicleModel: VehicleModel): Future[Option[String]] = {
@@ -79,14 +79,37 @@ object FuelEconomyVehicleDataService {
   val Models = "/menu/model"
   val Options = "/menu/options"
 
-  val SmallCarSizes = Seq(
-    "Two-Seaters",
+  val CompactCars = Seq(
+    "Two Seaters",
     "Minicompact Cars",
     "Subcompact Cars",
     "Compact Cars",
-    "Mid-Size Cars",
+    "Midsize Cars",
     "Large Cars",
     "Small Station Wagons",
-    "Mid-Size Cars Station Wagons"
+    "Midsize Station Wagons"
   )
+
+  //Full list
+  //  Set(
+  //    "Two Seaters",
+  //    "Minicompact Cars",
+  //    "Subcompact Cars",
+  //    "Compact Cars",
+  //    "Midsize Cars",
+  //    "Large Cars",
+  //    "Small Station Wagons",
+  //    "Midsize Station Wagons",
+  //    "Standard Pickup Trucks 4WD",
+  //    "Sport Utility Vehicle - 4WD",
+  //    "Small Pickup Trucks 2WD",
+  //    "Minivan - 2WD",
+  //    "Sport Utility Vehicle - 2WD",
+  //    "Vans, Cargo Type",
+  //    "Small Pickup Trucks 4WD",
+  //    "Standard Pickup Trucks 2WD",
+  //    "Special Purpose Vehicle 2WD",
+  //    "Vans, Passenger Type",
+  //    "Minivan - 4WD"
+  //  )
 }
