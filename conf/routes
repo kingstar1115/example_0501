@@ -44,11 +44,14 @@ GET           /api/$version<v[1-3]>/tasks/agents/:id/coordinates          @contr
 GET           /api/$version<v[1-3]>/tasks/:id/cancel                      @controllers.rest.TasksController.cancelTask(version, id: Long)
 
 #Vehicles
+GET           /api/v3/vehicles/years                                      @controllers.rest.VehiclesController.getAvailableYears()
+GET           /api/v3/vehicles/makes                                      @controllers.rest.VehiclesController.getMakesByYear(year: Int)
+GET           /api/v3/vehicles/models                                     @controllers.rest.VehiclesController.getModelsByYearAndMake(year: Int, make: String)
 GET           /api/$version<v[1-3]>/vehicles/makers                       @controllers.rest.VehiclesController.getVehiclesMakers(version)
-GET           /api/$version<v[1-3]>/vehicles/:id                          @controllers.rest.VehiclesController.get(version, id: Int)
-POST          /api/$version<v[1-3]>/vehicles/new                          @controllers.rest.VehiclesController.create(version)
-DELETE        /api/$version<v[1-3]>/vehicles/:id                          @controllers.rest.VehiclesController.delete(version, id: Int)
 GET           /api/$version<v[1-3]>/vehicles                              @controllers.rest.VehiclesController.list(version, offset: Int = 0, limit: Int = 10)
+POST          /api/$version<v[1-3]>/vehicles/new                          @controllers.rest.VehiclesController.create(version)
+GET           /api/$version<v[1-3]>/vehicles/:id                          @controllers.rest.VehiclesController.get(version, id: Int)
+DELETE        /api/$version<v[1-3]>/vehicles/:id                          @controllers.rest.VehiclesController.delete(version, id: Int)
 PUT           /api/$version<v[1-3]>/vehicles/:id                          @controllers.rest.VehiclesController.update(version, id: Int)
 
 #Payment Cards

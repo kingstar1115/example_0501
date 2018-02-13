@@ -128,7 +128,6 @@ class TookanService @Inject()(ws: WSClient,
       .concat("/")
       .concat(path)
     ws.url(url)
-      .withRequestTimeout(10000L)
       .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.JSON))
   }
 
@@ -157,7 +156,6 @@ class TookanService @Inject()(ws: WSClient,
 
   private def buildFormRequest(path: String) = {
     ws.url(BaseUrl.concat("/").concat(path))
-      .withRequestTimeout(10000L)
       .withHeaders((HeaderNames.CONTENT_TYPE, MimeTypes.FORM))
   }
 

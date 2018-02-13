@@ -571,7 +571,7 @@ trait Tables {
   /** Entity class storing rows of table Vehicles
    *  @param id Database column id SqlType(serial), AutoInc, PrimaryKey
    *  @param createdDate Database column created_date SqlType(timestamp)
-   *  @param makerId Database column maker_id SqlType(int4)
+   *  @param makerId Database column maker_id SqlType(varchar), Length(100,true)
    *  @param makerNiceName Database column maker_nice_name SqlType(varchar), Length(150,true)
    *  @param modelId Database column model_id SqlType(varchar), Length(255,true)
    *  @param modelNiceName Database column model_nice_name SqlType(varchar), Length(255,true)
@@ -581,11 +581,11 @@ trait Tables {
    *  @param licPlate Database column lic_plate SqlType(varchar), Length(255,true), Default(None)
    *  @param userId Database column user_id SqlType(int4)
    *  @param deleted Database column deleted SqlType(bool), Default(false) */
-  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, makerId: Int, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false) extends Entity
+  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, makerId: String, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false) extends Entity
   /** GetResult implicit for fetching VehiclesRow objects using plain SQL queries */
   implicit def GetResultVehiclesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[VehiclesRow] = GR{
     prs => import prs._
-    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[Int], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean]))
+    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean]))
   }
   /** Table description of table vehicles. Objects of this class serve as prototypes for rows in queries. */
   class Vehicles(_tableTag: Tag) extends BaseTable[VehiclesRow](_tableTag, "vehicles") {
@@ -597,8 +597,8 @@ trait Tables {
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     /** Database column created_date SqlType(timestamp) */
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
-    /** Database column maker_id SqlType(int4) */
-    val makerId: Rep[Int] = column[Int]("maker_id")
+    /** Database column maker_id SqlType(varchar), Length(100,true) */
+    val makerId: Rep[String] = column[String]("maker_id", O.Length(100,varying=true))
     /** Database column maker_nice_name SqlType(varchar), Length(150,true) */
     val makerNiceName: Rep[String] = column[String]("maker_nice_name", O.Length(150,varying=true))
     /** Database column model_id SqlType(varchar), Length(255,true) */

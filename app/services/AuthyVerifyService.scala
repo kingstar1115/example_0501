@@ -26,7 +26,7 @@ class AuthyVerifyService @Inject()(ws: WSClient,
    * @param phone phone number to verify
    * @param countryCode code of the country. Default - 1(USA)
    */
-  def sendVerifyCode(countryCode: Int = 1, phone: String) = {
+  def sendVerifyCode(countryCode: Int = 1, phone: String): Future[AuthyResponseDto] = {
     val requestDto = VerifyDto("sms", countryCode, phone)
     Try {
       req("start").withHeaders(HeaderNames.CONTENT_TYPE -> MimeTypes.JSON)
@@ -38,7 +38,7 @@ class AuthyVerifyService @Inject()(ws: WSClient,
     }
   }
 
-  def checkVerifyCode(countryCode: String, phone: String, verifyCode: String) = {
+  def checkVerifyCode(countryCode: String, phone: String, verifyCode: String): Future[AuthyResponseDto] = {
     Try {
       req("check")
         .withQueryString("api_key" -> apiKey, "country_code" -> countryCode,
@@ -52,7 +52,7 @@ class AuthyVerifyService @Inject()(ws: WSClient,
     }
   }
 
-  def req(path: String) = {
+  private def req(path: String) = {
     ws.url(s"$baseVerifyUrl/$path")
   }
 }
