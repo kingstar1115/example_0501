@@ -44,12 +44,14 @@ class EdmundsService @Inject()(ws: WSClient,
           case 200 =>
             wsResponse.json.validate[Styles](stylesFormat) match {
               case JsSuccess(styles, _) =>
+                Logger.debug(s"$uri - ${styles.styles.headOption}")
                 styles.styles.headOption
               case JsError(errors) =>
                 Logger.debug(s"Can't fetch  vehicle($make/$model/) styles. Errors: $errors")
                 None
             }
           case _ =>
+            Logger.debug(wsResponse.json.toString())
             None
         }
       }
