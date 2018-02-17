@@ -8,6 +8,7 @@ import models.Tables.VehiclesRow
 import play.api.libs.concurrent.Execution.Implicits._
 import services.external.vehicles.VehicleDataService
 import services.external.vehicles.VehicleDataService.VehicleModel
+import services.internal.vehicles.DefaultVehicleService._
 
 import scala.concurrent.Future
 
@@ -22,16 +23,48 @@ class DefaultVehicleService @Inject()(vehicleDao: VehiclesDao,
 
   override def addAdditionalPrice(id: Int, userId: Int): Future[Boolean] = {
     vehicleDao.findByIdAndUser(id, userId)
-      .flatMap {
+      .map {
         case Some(vehicle) =>
-          val vehicleModel = VehicleModel(vehicle.year, vehicle.makerNiceName, vehicle.modelNiceName)
-          vehicleDataService.isLargeVehicle(vehicleModel)
+          isLargeVehicle(vehicle.source, vehicle.vehicleSizeClass)
         case None =>
           throw new IllegalArgumentException("Can't find car for this user")
       }
   }
 
   override def addAdditionalPrice(make: String, model: String, year: Int): Future[Boolean] = {
-    vehicleDataService.isLargeVehicle(VehicleModel(year, make, model))
+    vehicleDataService.getVehicleSize(VehicleModel(year, make, model))
+      .map(vehicleSize => isLargeVehicle(Some(vehicleSize.provider), vehicleSize.body))
   }
+
+  def isLargeVehicle(sourceOption: Option[String], vehicleSizeOption: Option[String]): Boolean = {
+    (for {
+      source <- sourceOption
+      vehicleSize <- vehicleSizeOption
+    } yield (source, vehicleSize)).exists {
+      case (source: String, vehicleSize: String) =>
+        source match {
+          case "Edmunds" =>
+            !vehicleSize.equalsIgnoreCase("Car")
+          case _ =>
+            !EPASmallVehicleSizes.contains(vehicleSize)
+        }
+    }
+  }
+}
+
+object DefaultVehicleService {
+
+  val EdmundsDataProvider = "Edmunds"
+  val FuelEconomyDataProvider = "Fueleconomy"
+
+  val EPASmallVehicleSizes = Seq(
+    "Two Seaters",
+    "Minicompact Cars",
+    "Subcompact Cars",
+    "Compact Cars",
+    "Midsize Cars",
+    "Large Cars",
+    "Small Station Wagons",
+    "Midsize Station Wagons"
+  )
 }

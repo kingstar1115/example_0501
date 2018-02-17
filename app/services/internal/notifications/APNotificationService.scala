@@ -20,19 +20,19 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
                                       cacheService: CacheService,
                                       config: Configuration) extends PushNotificationService {
 
-  val p12FileName = config.getString("apns.certificate").get
-  val password = config.getString("apns.password").getOrElse("")
-  val serverAddress = p12FileName match {
+  private val p12FileName = config.getString("apns.certificate").get
+  private val password = config.getString("apns.password").getOrElse("")
+  private val serverAddress = p12FileName match {
     case "qweex_push.p12" => ApnsClient.PRODUCTION_APNS_HOST
     case _ => ApnsClient.DEVELOPMENT_APNS_HOST
   }
-  val topic = config.getString("apns.topic").get
+  private val topic = config.getString("apns.topic").get
 
-  var client = new ApnsClientBuilder()
+  private val client = new ApnsClientBuilder()
     .setClientCredentials(environment.resourceAsStream(p12FileName).get, password)
     .build()
   Logger.info(s"Connecting to APNs. Certificate $p12FileName. Topic $topic")
-  val connectFuture = toScalaFuture(client.connect(serverAddress))
+  toScalaFuture(client.connect(serverAddress))
     .map(_ => Logger.info("Connected to APNs"))
 
   lifecycle.addStopHook { () =>
@@ -65,7 +65,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
     }
   }
 
-  override def sendJobCompleteNotification(data: JobNotificationData, tokenString: String) = {
+  override def sendJobCompleteNotification(data: JobNotificationData, tokenString: String): Unit = {
     sendNotification(tokenString, data) { data =>
       Logger.debug(s"Building job complete notification: ${data.toString}")
       new ApnsPayloadBuilder()
@@ -105,7 +105,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
     promise.future
   }
 
-  override def getCacheService = cacheService
+  override def getCacheService: CacheService = cacheService
 }
 
 object APNotificationService {

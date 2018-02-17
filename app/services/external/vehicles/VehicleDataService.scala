@@ -16,7 +16,7 @@ trait VehicleDataService {
 
   def getModelsByYearAndMake(year: Int, make: String): Future[Seq[Item]]
 
-  def isLargeVehicle(vehicleModel: VehicleModel): Future[Boolean]
+  def getVehicleSize(vehicleModel: VehicleModel): Future[VehicleSize]
 }
 
 object VehicleDataService {
@@ -28,4 +28,6 @@ object VehicleDataService {
   }
 
   case class VehicleModel(year: Int, make: String, model: String)
+
+  case class VehicleSize(provider: String, body: Option[String])
 }

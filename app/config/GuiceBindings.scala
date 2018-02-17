@@ -1,7 +1,7 @@
 package config
 
-import actors.schedulers.{EdmundsMigrationScheduler, TimeSlotGenerationScheduler}
-import actors.{EdmundsMigrationActor, TaskTimeSlotMigrationActor, TimeSlotGenerationActor}
+import actors.schedulers.{FuelEconomyMigrationScheduler, TimeSlotGenerationScheduler}
+import actors.{FuelEconomyMigrationActor, TaskTimeSlotMigrationActor, TimeSlotGenerationActor}
 import com.google.inject.AbstractModule
 import play.api.libs.concurrent.AkkaGuiceSupport
 import services.internal.notifications.{APNotificationService, PushNotificationService}
@@ -15,14 +15,14 @@ class GuiceBindings extends AbstractModule with AkkaGuiceSupport {
     bindSchedulers()
   }
 
-  private def bindSchedulers() = {
+  private def bindSchedulers(): Unit = {
     bind(classOf[TimeSlotGenerationScheduler]).asEagerSingleton()
-    bind(classOf[EdmundsMigrationScheduler]).asEagerSingleton()
+    bind(classOf[FuelEconomyMigrationScheduler]).asEagerSingleton()
   }
 
-  private def bindActors() = {
+  private def bindActors(): Unit = {
     bindActor[TimeSlotGenerationActor]("timeSlotGenerationActor")
     bindActor[TaskTimeSlotMigrationActor]("taskTimeSlotMigrationActor")
-    bindActor[EdmundsMigrationActor]("edmundsMigrationActor")
+    bindActor[FuelEconomyMigrationActor]("fuelEconomyMigrationActor")
   }
 }

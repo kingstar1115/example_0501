@@ -2,38 +2,26 @@ package controllers.rest
 
 import javax.inject.Inject
 
-import commons.enums.InternalSError
 import controllers.rest.VehiclesController._
 import controllers.rest.base._
 import models.Tables._
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json.Json
+import play.api.libs.json.{Format, Json}
 import play.api.mvc.Action
 import security.TokenStorage
-import services.EdmundsService
 import services.external.vehicles.VehicleDataService
+import services.external.vehicles.VehicleDataService.{VehicleModel, VehicleSize}
 import slick.driver.PostgresDriver.api._
 
 //noinspection TypeAnnotation
 class VehiclesController @Inject()(val tokenStorage: TokenStorage,
-                                   edmundsService: EdmundsService,
                                    vehicleDataService: VehicleDataService,
                                    val dbConfigProvider: DatabaseConfigProvider)
   extends BaseController
     with CRUDOperations[VehiclesRow, VehicleDto] {
 
   val db = dbConfigProvider.get.db
-
-  @deprecated
-  def getVehiclesMakers(version: String) = Action.async {
-    edmundsService.getCarMakers()
-      .map { makersOpt =>
-        makersOpt
-          .map(makers => ok(makers.makes))
-          .getOrElse(badRequest("Can't load makers data", InternalSError))
-      }
-  }
 
   def getAvailableYears() = Action.async { _ =>
     vehicleDataService.getAvailableYears()
@@ -52,24 +40,38 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   def create(version: String) = authorized.async(parse.json) { implicit request =>
     processRequestF[VehicleDto](request.body) { dto =>
-      val userId = request.token.get.userInfo.id
-      val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
-        v.year, v.color, v.licPlate, v.userId)) returning Vehicles.map(_.id) += (dto.makerId, dto.makerName,
-        dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate, userId)
+      def saveVehicle(vehicleBody: VehicleSize) = {
+        val userId = request.token.get.userInfo.id
+        val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
+          v.year, v.color, v.licPlate, v.userId, v.source, v.vehicleSizeClass)) returning Vehicles.map(_.id) += (dto.makerId,
+          dto.makerName, dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate,
+          userId, Some(vehicleBody.provider), vehicleBody.body)
+        db.run(createQuery)
+      }
 
-      db.run(createQuery)
-        .map(vehiclesId => created(routes.VehiclesController.get(version, vehiclesId).absoluteURL()))
-    }(vehicleDtoFormat)
+      (for {
+        body <- vehicleDataService.getVehicleSize(VehicleModel(dto.yearId, dto.makerId, dto.modelId))
+        vehicleId <- saveVehicle(body)
+      } yield vehicleId)
+        .map(vehicleId => created(routes.VehiclesController.get(version, vehicleId).absoluteURL()))
+    }
   }
 
   def update(version: String, id: Int) = authorized.async(parse.json) { request =>
     processRequestF[VehicleDto](request.body) { dto =>
-      val userId = request.token.get.userInfo.id
-      val updateQuery = Vehicles.filter(v => v.id === id && v.userId === userId && v.deleted === false)
-        .map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.year, v.yearId, v.color, v.licPlate))
-        .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
-          dto.color.getOrElse("None"), dto.licPlate)
-      db.run(updateQuery).map {
+      def update(vehicleBody: VehicleSize) = {
+        val userId = request.token.get.userInfo.id
+        val updateQuery = Vehicles.filter(v => v.id === id && v.userId === userId && v.deleted === false)
+          .map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.year, v.yearId, v.color, v.licPlate, v.source, v.vehicleSizeClass))
+          .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
+            dto.color.getOrElse("None"), dto.licPlate, Some(vehicleBody.provider), vehicleBody.body)
+        db.run(updateQuery)
+      }
+
+      (for {
+        body <- vehicleDataService.getVehicleSize(VehicleModel(dto.yearId, dto.makerId, dto.modelId))
+        count <- update(body)
+      } yield count).map {
         case 1 => success
         case _ => notFound
       }
@@ -120,13 +122,15 @@ object VehiclesController {
                         licPlate: Option[String])
 
   object VehicleDto {
+
+    implicit val JsonFormat: Format[VehicleDto] = Json.format[VehicleDto]
+
     def convert(vehicle: VehiclesRow): VehicleDto = {
       VehicleDto(Some(vehicle.id), vehicle.makerId, vehicle.makerNiceName, vehicle.modelId,
         vehicle.modelNiceName, vehicle.yearId, vehicle.year, Option(vehicle.color), vehicle.licPlate)
     }
   }
 
-  implicit val vehicleDtoFormat = Json.format[VehicleDto]
 }
 
 

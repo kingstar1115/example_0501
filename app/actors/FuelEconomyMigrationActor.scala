@@ -2,22 +2,23 @@ package actors
 
 import javax.inject.Inject
 
-import actors.EdmundsMigrationActor.MigrateEdmundsData
+import actors.FuelEconomyMigrationActor.MigrateEdmundsData
 import akka.actor.{Actor, ActorSystem}
 import models.Tables.{Vehicles, VehiclesRow}
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
-import services.EdmundsService
+import services.external.vehicles.VehicleDataService
+import services.external.vehicles.VehicleDataService.VehicleModel
 import services.internal.vehicles.VehiclesService
 import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
-class EdmundsMigrationActor @Inject()(edmundsService: EdmundsService,
-                                      vehiclesService: VehiclesService,
-                                      val dbConfigProvider: DatabaseConfigProvider,
-                                      system: ActorSystem) extends Actor
+class FuelEconomyMigrationActor @Inject()(vehicleDataService: VehicleDataService,
+                                          vehiclesService: VehiclesService,
+                                          val dbConfigProvider: DatabaseConfigProvider,
+                                          system: ActorSystem) extends Actor
   with HasDatabaseConfigProvider[JdbcProfile] {
 
   import driver.api._
@@ -29,11 +30,11 @@ class EdmundsMigrationActor @Inject()(edmundsService: EdmundsService,
           vehicles.zipWithIndex.map {
             case (vehicle: VehiclesRow, index: Int) =>
               system.scheduler.scheduleOnce(index.second) {
-                edmundsService.getCarStyle(vehicle.makerNiceName, vehicle.modelNiceName, vehicle.year)
-                  .map(style => {
+                vehicleDataService.getVehicleSize(VehicleModel(vehicle.year, vehicle.makerNiceName, vehicle.modelNiceName))
+                  .map(vehicleSize => {
                     val updateQuery = Vehicles.filter(_.id === vehicle.id)
                       .map(vehicle => (vehicle.source, vehicle.vehicleSizeClass))
-                      .update(Some("Edmunds"), Some(style.map(_.categories.vehicleType).getOrElse("Car")))
+                      .update(Some("Fueleconomy"), vehicleSize.body)
                     db.run(updateQuery)
                   })
               }
@@ -43,10 +44,9 @@ class EdmundsMigrationActor @Inject()(edmundsService: EdmundsService,
   }
 
 
-
 }
 
-object EdmundsMigrationActor {
+object FuelEconomyMigrationActor {
 
   case object MigrateEdmundsData
 

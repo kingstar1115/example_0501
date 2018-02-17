@@ -6,7 +6,7 @@ import commons.monads.transformers.OptionT
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.ws.{WSClient, WSResponse}
 import services.external.vehicles.FuelEconomyVehicleDataService._
-import services.external.vehicles.VehicleDataService.{Item, VehicleModel}
+import services.external.vehicles.VehicleDataService.{Item, VehicleSize, VehicleModel}
 
 import scala.concurrent.Future
 import scala.xml.NodeSeq
@@ -42,12 +42,12 @@ class FuelEconomyVehicleDataService @Inject()(ws: WSClient) extends VehicleDataS
     Item((menuItem \ "text").text, (menuItem \ "value").text)
   }
 
-  override def isLargeVehicle(vehicleModel: VehicleModel): Future[Boolean] = {
+  def getVehicleSize(vehicleModel: VehicleModel): Future[VehicleSize] = {
     (for {
       id <- OptionT(getModelId(vehicleModel))
       vehicleSize <- OptionT(getVehicleSize(id))
     } yield vehicleSize).inner
-      .map(_.fold(false)(vehicleSize => !CompactCars.contains(vehicleSize)))
+      .map(VehicleSize("Fueleconomy", _))
   }
 
   private def getModelId(vehicleModel: VehicleModel): Future[Option[String]] = {
@@ -78,17 +78,6 @@ object FuelEconomyVehicleDataService {
   val Makes = "/menu/make"
   val Models = "/menu/model"
   val Options = "/menu/options"
-
-  val CompactCars = Seq(
-    "Two Seaters",
-    "Minicompact Cars",
-    "Subcompact Cars",
-    "Compact Cars",
-    "Midsize Cars",
-    "Large Cars",
-    "Small Station Wagons",
-    "Midsize Station Wagons"
-  )
 
   //Full list
   //  Set(

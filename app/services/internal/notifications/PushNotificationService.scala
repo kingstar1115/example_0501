@@ -19,7 +19,7 @@ trait PushNotificationService {
       .getOrElse(List.empty)
   }
 
-  def setUserDeviceTokens(userId: Int, tokens: List[String]) = {
+  def setUserDeviceTokens(userId: Int, tokens: List[String]): Boolean = {
     getCacheService.set(userId.toString, tokens.mkString(" ").trim)
   }
 
