@@ -33,21 +33,15 @@ class DefaultVehicleService @Inject()(vehicleDao: VehiclesDao,
 
   override def addAdditionalPrice(make: String, model: String, year: Int): Future[Boolean] = {
     vehicleDataService.getVehicleSize(VehicleModel(year, make, model))
-      .map(vehicleSize => isLargeVehicle(Some(vehicleSize.provider), vehicleSize.body))
+      .map(vehicleSize => isLargeVehicle(vehicleDataService.getSource, vehicleSize))
   }
 
-  def isLargeVehicle(sourceOption: Option[String], vehicleSizeOption: Option[String]): Boolean = {
-    (for {
-      source <- sourceOption
-      vehicleSize <- vehicleSizeOption
-    } yield (source, vehicleSize)).exists {
-      case (source: String, vehicleSize: String) =>
-        source match {
-          case "Edmunds" =>
-            !vehicleSize.equalsIgnoreCase("Car")
-          case _ =>
-            !EPASmallVehicleSizes.contains(vehicleSize)
-        }
+  def isLargeVehicle(source: String, vehicleSize: String): Boolean = {
+    source match {
+      case EdmundsDataProvider =>
+        !vehicleSize.equalsIgnoreCase("Car")
+      case _ =>
+        !EPASmallVehicleSizes.contains(vehicleSize)
     }
   }
 }

@@ -581,19 +581,19 @@ trait Tables {
    *  @param licPlate Database column lic_plate SqlType(varchar), Length(255,true), Default(None)
    *  @param userId Database column user_id SqlType(int4)
    *  @param deleted Database column deleted SqlType(bool), Default(false)
-   *  @param source Database column source SqlType(varchar), Length(30,true), Default(None)
-   *  @param vehicleSizeClass Database column vehicle_size_class SqlType(varchar), Length(150,true), Default(None) */
-  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, makerId: String, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false, source: Option[String] = None, vehicleSizeClass: Option[String] = None) extends Entity
+   *  @param source Database column source SqlType(varchar), Length(30,true)
+   *  @param vehicleSizeClass Database column vehicle_size_class SqlType(varchar), Length(150,true) */
+  case class VehiclesRow(id: Int, createdDate: java.sql.Timestamp, makerId: String, makerNiceName: String, modelId: String, modelNiceName: String, yearId: Int, year: Int, color: String = "None", licPlate: Option[String] = None, userId: Int, deleted: Boolean = false, source: String, vehicleSizeClass: String) extends Entity
   /** GetResult implicit for fetching VehiclesRow objects using plain SQL queries */
   implicit def GetResultVehiclesRow(implicit e0: GR[Int], e1: GR[java.sql.Timestamp], e2: GR[String], e3: GR[Option[String]], e4: GR[Boolean]): GR[VehiclesRow] = GR{
     prs => import prs._
-    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean], <<?[String], <<?[String]))
+    VehiclesRow.tupled((<<[Int], <<[java.sql.Timestamp], <<[String], <<[String], <<[String], <<[String], <<[Int], <<[Int], <<[String], <<?[String], <<[Int], <<[Boolean], <<[String], <<[String]))
   }
   /** Table description of table vehicles. Objects of this class serve as prototypes for rows in queries. */
   class Vehicles(_tableTag: Tag) extends BaseTable[VehiclesRow](_tableTag, "vehicles") {
                 def * = (id, createdDate, makerId, makerNiceName, modelId, modelNiceName, yearId, year, color, licPlate, userId, deleted, source, vehicleSizeClass) <> (VehiclesRow.tupled, VehiclesRow.unapply)
     /** Maps whole row to an option. Useful for outer joins. */
-    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), Rep.Some(color), licPlate, Rep.Some(userId), Rep.Some(deleted), source, vehicleSizeClass).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11.get, _12.get, _13, _14)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
+    def ? = (Rep.Some(id), Rep.Some(createdDate), Rep.Some(makerId), Rep.Some(makerNiceName), Rep.Some(modelId), Rep.Some(modelNiceName), Rep.Some(yearId), Rep.Some(year), Rep.Some(color), licPlate, Rep.Some(userId), Rep.Some(deleted), Rep.Some(source), Rep.Some(vehicleSizeClass)).shaped.<>({r=>import r._; _1.map(_=> VehiclesRow.tupled((_1.get, _2.get, _3.get, _4.get, _5.get, _6.get, _7.get, _8.get, _9.get, _10, _11.get, _12.get, _13.get, _14.get)))}, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))
 
     /** Database column id SqlType(serial), AutoInc, PrimaryKey */
     val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
@@ -619,10 +619,10 @@ trait Tables {
     val userId: Rep[Int] = column[Int]("user_id")
     /** Database column deleted SqlType(bool), Default(false) */
     val deleted: Rep[Boolean] = column[Boolean]("deleted", O.Default(false))
-    /** Database column source SqlType(varchar), Length(30,true), Default(None) */
-    val source: Rep[Option[String]] = column[Option[String]]("source", O.Length(30,varying=true), O.Default(None))
-    /** Database column vehicle_size_class SqlType(varchar), Length(150,true), Default(None) */
-    val vehicleSizeClass: Rep[Option[String]] = column[Option[String]]("vehicle_size_class", O.Length(150,varying=true), O.Default(None))
+    /** Database column source SqlType(varchar), Length(30,true) */
+    val source: Rep[String] = column[String]("source", O.Length(30,varying=true))
+    /** Database column vehicle_size_class SqlType(varchar), Length(150,true) */
+    val vehicleSizeClass: Rep[String] = column[String]("vehicle_size_class", O.Length(150,varying=true))
 
     /** Foreign key referencing Users (database name vehicles_user_id_fkey) */
     lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate=ForeignKeyAction.NoAction, onDelete=ForeignKeyAction.NoAction)

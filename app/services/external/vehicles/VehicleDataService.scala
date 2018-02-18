@@ -10,13 +10,15 @@ import scala.concurrent.Future
 @ImplementedBy(classOf[FuelEconomyVehicleDataService])
 trait VehicleDataService {
 
-  def getAvailableYears(): Future[Seq[Item]]
+  def getSource: String
+
+  def getAvailableYears: Future[Seq[Item]]
 
   def getMakesByYear(year: Int): Future[Seq[Item]]
 
   def getModelsByYearAndMake(year: Int, make: String): Future[Seq[Item]]
 
-  def getVehicleSize(vehicleModel: VehicleModel): Future[VehicleSize]
+  def getVehicleSize(vehicleModel: VehicleModel): Future[String]
 }
 
 object VehicleDataService {

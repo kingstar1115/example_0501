@@ -23,8 +23,8 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
-  def getAvailableYears() = Action.async { _ =>
-    vehicleDataService.getAvailableYears()
+  def getAvailableYears = Action.async { _ =>
+    vehicleDataService.getAvailableYears
       .map(years => ok(years))
   }
 
@@ -40,12 +40,12 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   def create(version: String) = authorized.async(parse.json) { implicit request =>
     processRequestF[VehicleDto](request.body) { dto =>
-      def saveVehicle(vehicleBody: VehicleSize) = {
+      def saveVehicle(vehicleBody: String) = {
         val userId = request.token.get.userInfo.id
         val createQuery = Vehicles.map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.yearId,
           v.year, v.color, v.licPlate, v.userId, v.source, v.vehicleSizeClass)) returning Vehicles.map(_.id) += (dto.makerId,
           dto.makerName, dto.modelId, dto.modelName, dto.yearId, dto.year, dto.color.getOrElse("None"), dto.licPlate,
-          userId, Some(vehicleBody.provider), vehicleBody.body)
+          userId, vehicleDataService.getSource, vehicleBody)
         db.run(createQuery)
       }
 
@@ -59,12 +59,12 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   def update(version: String, id: Int) = authorized.async(parse.json) { request =>
     processRequestF[VehicleDto](request.body) { dto =>
-      def update(vehicleBody: VehicleSize) = {
+      def update(vehicleBody: String) = {
         val userId = request.token.get.userInfo.id
         val updateQuery = Vehicles.filter(v => v.id === id && v.userId === userId && v.deleted === false)
           .map(v => (v.makerId, v.makerNiceName, v.modelId, v.modelNiceName, v.year, v.yearId, v.color, v.licPlate, v.source, v.vehicleSizeClass))
           .update(dto.makerId, dto.makerName, dto.modelId, dto.modelName, dto.year, dto.yearId,
-            dto.color.getOrElse("None"), dto.licPlate, Some(vehicleBody.provider), vehicleBody.body)
+            dto.color.getOrElse("None"), dto.licPlate, vehicleDataService.getSource, vehicleBody)
         db.run(updateQuery)
       }
 

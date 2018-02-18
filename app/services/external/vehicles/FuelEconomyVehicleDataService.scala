@@ -3,17 +3,21 @@ package services.external.vehicles
 import javax.inject.Inject
 
 import commons.monads.transformers.OptionT
+import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.ws.{WSClient, WSResponse}
 import services.external.vehicles.FuelEconomyVehicleDataService._
-import services.external.vehicles.VehicleDataService.{Item, VehicleSize, VehicleModel}
+import services.external.vehicles.VehicleDataService.{Item, VehicleModel}
 
 import scala.concurrent.Future
 import scala.xml.NodeSeq
 
 class FuelEconomyVehicleDataService @Inject()(ws: WSClient) extends VehicleDataService {
 
-  override def getAvailableYears(): Future[Seq[Item]] = {
+
+  override def getSource: String = "Fueleconomy"
+
+  override def getAvailableYears: Future[Seq[Item]] = {
     ws.url(BaseURL.concat(Years)).get()
       .map(response => convertResponse(response))
   }
@@ -42,12 +46,17 @@ class FuelEconomyVehicleDataService @Inject()(ws: WSClient) extends VehicleDataS
     Item((menuItem \ "text").text, (menuItem \ "value").text)
   }
 
-  def getVehicleSize(vehicleModel: VehicleModel): Future[VehicleSize] = {
+  def getVehicleSize(vehicleModel: VehicleModel): Future[String] = {
     (for {
       id <- OptionT(getModelId(vehicleModel))
       vehicleSize <- OptionT(getVehicleSize(id))
     } yield vehicleSize).inner
-      .map(VehicleSize("Fueleconomy", _))
+      .map {
+        case Some(value) => value
+        case None =>
+          Logger.warn(s"Failed to load vehicle size for: $vehicleModel")
+          throw new IllegalStateException("Can't load vehicle type data")
+      }
   }
 
   private def getModelId(vehicleModel: VehicleModel): Future[Option[String]] = {

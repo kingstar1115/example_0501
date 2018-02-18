@@ -44,7 +44,7 @@ GET           /api/$version<v[1-3]>/tasks/agents/:id/coordinates          @contr
 GET           /api/$version<v[1-3]>/tasks/:id/cancel                      @controllers.rest.TasksController.cancelTask(version, id: Long)
 
 #Vehicles
-GET           /api/v3/vehicles/years                                      @controllers.rest.VehiclesController.getAvailableYears()
+GET           /api/v3/vehicles/years                                      @controllers.rest.VehiclesController.getAvailableYears
 GET           /api/v3/vehicles/makes                                      @controllers.rest.VehiclesController.getMakesByYear(year: Int)
 GET           /api/v3/vehicles/models                                     @controllers.rest.VehiclesController.getModelsByYearAndMake(year: Int, make: String)
 GET           /api/$version<v[1-3]>/vehicles                              @controllers.rest.VehiclesController.list(version, offset: Int = 0, limit: Int = 10)
