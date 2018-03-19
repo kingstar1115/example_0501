@@ -73,6 +73,11 @@ class DefaultServicesService @Inject()(servicesDao: ServicesDao,
 
   }
 
+  override def getServicePrice(service: ServicesRow, vehicleId: Int, userId: Int): Future[Int] = {
+    settingsService.getIntValue(SettingsService.serviceAdditionalCost, DefaultAdditionalCost)
+      .flatMap(additionalPrice => getServicePriceInternal(service, vehiclesService.addAdditionalPrice(vehicleId, userId), additionalPrice))
+  }
+
   private def getServicePriceInternal(service: ServicesRow, addAdditionalPrice: => Future[Boolean], additionalPrice: Int) = {
     if (service.isCarDependentPrice) {
       addAdditionalPrice.flatMap {

@@ -59,7 +59,7 @@ object TasksService {
   case class Vehicle(maker: String, model: String, year: Int, color: String, licPlate: Option[String])
     extends AbstractVehicle
 
-  case class PersistedVehicle(maker: String, model: String, year: Int, color: String, licPlate: Option[String], id: Int)
+  case class PersistedVehicle(maker: String, model: String, year: Int, color: String, licPlate: Option[String], id: Int, userId: Int)
     extends AbstractVehicle
 
 

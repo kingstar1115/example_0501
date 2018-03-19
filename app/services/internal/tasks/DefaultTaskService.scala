@@ -290,12 +290,21 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   def getServiceInformation[V <: AbstractVehicle](appointmentTask: AppointmentTask, vehicle: V): Future[ServiceInformation] = {
+    def getServicePrice(service: ServicesRow) = {
+      vehicle match {
+        case persistedVehicle: PersistedVehicle =>
+          servicesService.getServicePrice(service, persistedVehicle.id, persistedVehicle.userId)
+        case _ =>
+          servicesService.getServicePrice(service, vehicle.maker, vehicle.model, vehicle.year)
+      }
+    }
+
     //TODO: improve error handling
     appointmentTask match {
       case dto: ServicesInformation =>
         val servicesFuture = for {
           serviceWithExtras <- servicesService.getServiceWithExtras(dto.serviceId, dto.extras)
-          servicePrice <- servicesService.getServicePrice(serviceWithExtras.service, vehicle.maker, vehicle.model, vehicle.year)
+          servicePrice <- getServicePrice(serviceWithExtras.service)
         } yield (serviceWithExtras, servicePrice)
 
         servicesFuture.map { tuple =>
@@ -312,11 +321,10 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
           servicesService.getExteriorCleaningService
 
         (for {
-          serviceRow <- serviceFuture
-          servicePrice <- servicesService.getServicePrice(serviceRow, vehicle.maker, vehicle.model, vehicle.year)
-        } yield (serviceRow, servicePrice)).map { tuple =>
-          val service = Service(tuple._1.name, tuple._2)
-          ServiceInformation(Seq(service), dto.hasInteriorCleaning)
+          service <- serviceFuture
+          servicePrice <- getServicePrice(service)
+        } yield (service, servicePrice)).map { tuple =>
+          ServiceInformation(Seq(Service(tuple._1.name, tuple._2)), dto.hasInteriorCleaning)
         }
     }
   }
@@ -366,7 +374,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     } yield (task, user)
     slickDbService.run(taskWithUser.result.headOption).map {
       case None =>
-        Logger.debug(s"Task $jobId for user $userId was not found for completing")
+        Logger.warn(s"Task $jobId for user $userId was not found for completing")
         Left(ServerError("Failed to complete task"))
       case Some((task, user)) =>
         Right((task, user))
@@ -427,7 +435,7 @@ object DefaultTaskService {
 
   implicit class ExtVehiclesRow(vehicle: VehiclesRow) {
     def toPersistedVehicle = PersistedVehicle(vehicle.makerNiceName, vehicle.modelNiceName, vehicle.year,
-      vehicle.color, vehicle.licPlate, vehicle.id)
+      vehicle.color, vehicle.licPlate, vehicle.id, vehicle.userId)
   }
 
   case class Service(name: String, price: Int)

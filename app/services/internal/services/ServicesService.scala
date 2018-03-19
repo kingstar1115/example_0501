@@ -24,6 +24,8 @@ trait ServicesService {
   def getAllServicesWithExtras(make: String, model: String, year: Int): Future[ServicesWithExtrasDto]
 
   def getServicePrice(service: ServicesRow, make: String, model: String, year: Int): Future[Int]
+
+  def getServicePrice(service: ServicesRow, vehicleId: Int, userId: Int): Future[Int]
 }
 
 object ServicesService {

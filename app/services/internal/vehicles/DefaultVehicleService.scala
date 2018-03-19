@@ -5,6 +5,7 @@ import javax.inject.Inject
 import dao.SlickDbService
 import dao.vehicles.{VehicleQueryObject, VehiclesDao}
 import models.Tables.VehiclesRow
+import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 import services.external.vehicles.VehicleDataService
 import services.external.vehicles.VehicleDataService.VehicleModel
@@ -27,6 +28,7 @@ class DefaultVehicleService @Inject()(vehicleDao: VehiclesDao,
         case Some(vehicle) =>
           isLargeVehicle(vehicle.source, vehicle.vehicleSizeClass)
         case None =>
+          Logger.warn(s"Can't find vehicle $id for user $userId")
           throw new IllegalArgumentException("Can't find car for this user")
       }
   }

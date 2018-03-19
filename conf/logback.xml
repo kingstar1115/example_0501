@@ -15,8 +15,9 @@
     <logger name="play" level="INFO"/>
     <logger name="application" level="DEBUG"/>
     <logger name="slick" level="ERROR"/>
+    <logger name="request" level="INFO"/>
 
-    <root level="ERROR">
+    <root level="OFF">
         <appender-ref ref="STDOUT"/>
     </root>
 

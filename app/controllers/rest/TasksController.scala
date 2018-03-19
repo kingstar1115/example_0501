@@ -186,6 +186,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         case Right(_) =>
           success
         case Left(error) =>
+          Logger.warn(s"[${LocalDateTime.now()}] - Failed to complete task for user($userId, ${request.token}). Error: $error " +
+            s"Request body: \n\t $dto")
           error.errorType
             .map(errorType => badRequest(error.message, errorType))
             .getOrElse(badRequest(error.message))
