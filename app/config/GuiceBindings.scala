@@ -1,7 +1,7 @@
 package config
 
-import actors.schedulers.TimeSlotGenerationScheduler
-import actors.{TaskTimeSlotMigrationActor, TimeSlotGenerationActor}
+import actors.schedulers.{TaskStatusUpdateScheduler, TimeSlotGenerationScheduler}
+import actors.{TaskStatusUpdateActor, TimeSlotGenerationActor}
 import com.google.inject.AbstractModule
 import play.api.libs.concurrent.AkkaGuiceSupport
 import services.internal.notifications.{APNotificationService, PushNotificationService}
@@ -17,10 +17,11 @@ class GuiceBindings extends AbstractModule with AkkaGuiceSupport {
 
   private def bindSchedulers(): Unit = {
     bind(classOf[TimeSlotGenerationScheduler]).asEagerSingleton()
+    bind(classOf[TaskStatusUpdateScheduler]).asEagerSingleton()
   }
 
   private def bindActors(): Unit = {
     bindActor[TimeSlotGenerationActor]("timeSlotGenerationActor")
-    bindActor[TaskTimeSlotMigrationActor]("taskTimeSlotMigrationActor")
+    bindActor[TaskStatusUpdateActor]("taskStatusUpdateActor")
   }
 }

@@ -20,6 +20,8 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
                                       cacheService: CacheService,
                                       config: Configuration) extends PushNotificationService {
 
+  private val logger = Logger(this.getClass)
+
   private val p12FileName = config.getString("apns.certificate").get
   private val password = config.getString("apns.password").getOrElse("")
   private val serverAddress = p12FileName match {
@@ -31,19 +33,19 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
   private val client = new ApnsClientBuilder()
     .setClientCredentials(environment.resourceAsStream(p12FileName).get, password)
     .build()
-  Logger.info(s"Connecting to APNs. Certificate $p12FileName. Topic $topic")
+  logger.info(s"Connecting to APNs. Certificate $p12FileName. Topic $topic")
   toScalaFuture(client.connect(serverAddress))
-    .map(_ => Logger.info("Connected to APNs"))
+    .map(_ => logger.info("Connected to APNs"))
 
   lifecycle.addStopHook { () =>
-    Logger.info("Stopping APNs service")
+    logger.info("Stopping APNs service")
     toScalaFuture(client.disconnect())
-      .map(_ => Logger.info("APNs service is stopped"))
+      .map(_ => logger.info("APNs service is stopped"))
   }
 
   override def sendJobStartedNotification(data: JobNotificationData, token: String): Unit = {
     sendNotification(token, data) { data =>
-      Logger.debug(s"Building job started notification: ${data.toString}")
+      logger.info(s"Building job started notification: ${data.toString}")
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)
@@ -55,7 +57,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
 
   override def sendJobInProgressNotification(data: JobNotificationData, token: String): Unit = {
     sendNotification(token, data) { data =>
-      Logger.debug(s"Building job in progress notification: ${data.toString}")
+      logger.info(s"Building job in progress notification: ${data.toString}")
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)
@@ -67,7 +69,7 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
 
   override def sendJobCompleteNotification(data: JobNotificationData, tokenString: String): Unit = {
     sendNotification(tokenString, data) { data =>
-      Logger.debug(s"Building job complete notification: ${data.toString}")
+      logger.info(s"Building job complete notification: ${data.toString}")
       new ApnsPayloadBuilder()
         .addCustomProperty(JobId, data.jobId)
         .addCustomProperty(JobStatus, data.jobStatus)
@@ -84,17 +86,18 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
     toScalaFuture(client.sendNotification(notification)).map { pushNotificationResponse =>
       pushNotificationResponse.isAccepted match {
         case true =>
-          Logger.debug("Push notification accepted by APNs gateway")
+          logger.info("Push notification accepted by APNs gateway")
         case _ =>
-          Logger.debug(s"Notification rejected by the APNs gateway: ${pushNotificationResponse.getRejectionReason}")
+          logger.info(s"Notification rejected by the APNs gateway: ${pushNotificationResponse.getRejectionReason}")
           if (pushNotificationResponse.getTokenInvalidationTimestamp != null) {
-            Logger.debug(s"Invalid token: $deviceToken for user ${notificationData.userId}")
+            logger.info(s"Invalid token: $deviceToken for user ${notificationData.userId}")
             unsubscribeDevice(notificationData.userId, deviceToken)
           }
       }
     }
   }
 
+  //noinspection ConvertExpressionToSAM
   private def toScalaFuture[T](jFuture: => JFuture[T]) = {
     val promise = Promise[T]()
     new Thread(new Runnable {

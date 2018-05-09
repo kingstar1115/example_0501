@@ -22,6 +22,8 @@ class TasksActor(tookanService: TookanService,
                  pushNotificationService: PushNotificationService,
                  bookingService: BookingService) extends Actor {
 
+  private val logger = Logger(this.getClass)
+
   override def receive: PartialFunction[Any, Unit] = {
     case t: RefreshTaskData => updateTaskData(t.jobId)
     case _ =>
@@ -46,7 +48,7 @@ class TasksActor(tookanService: TookanService,
               val task = tuple._1
               tookanTask.jobStatus match {
                 case Deleted.code =>
-                  Logger.debug(s"Deleting task with id: ${task.id}")
+                  logger.info(s"Deleting task with id: ${task.id}")
                   for {
                     _ <- bookingService.releaseBooking(tuple._2)
                     count <- db.run(Tasks.filter(_.id === task.id).delete)
@@ -57,16 +59,16 @@ class TasksActor(tookanService: TookanService,
             }
 
           case (_, Left(e)) =>
-            Logger.debug(s"Can't get team information. Message: `${e.message}`")
+            logger.warn(s"Can't get team information for task $jobId. Message: `${e.message}`")
             Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
         }
 
-      case _ => Logger.debug(s"Can't find job with id: $jobId")
+      case _ => logger.warn(s"Can't find task with id: $jobId")
     }
   }
 
   private def update(taskRow: TasksRow, appointment: AppointmentDetails, agentId: Option[Int], teamName: String) = {
-    Logger.debug(s"Old status: ${taskRow.jobStatus}. New status: ${appointment.jobStatus}")
+    logger.info(s"Updating task ${taskRow.jobId}: old status: ${taskRow.jobStatus}, new status: ${appointment.jobStatus}")
 
     val images = appointment.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
     val taskUpdateQuery = Tasks.filter(_.jobId === appointment.jobId)
@@ -76,7 +78,7 @@ class TasksActor(tookanService: TookanService,
         Option(appointment.pickupPhone), Option(appointment.customerPhone), Option(teamName), Option(appointment.jobHash)))
 
     dbConfigProvider.get.db.run(taskUpdateQuery).map { _ =>
-      Logger.debug(s"Task with id: ${taskRow.id} and jobId: ${appointment.jobId} updated!")
+      logger.info(s"Task ${appointment.jobId} is updated")
       if (taskRow.jobStatus != appointment.jobStatus && agentId.isDefined) {
         sendJobStatusChangeNotification(taskRow, agentId.get, appointment.jobStatus)
       }
@@ -126,17 +128,17 @@ class TasksActor(tookanService: TookanService,
     def loadAgent(fleetId: Long) = {
       tookanService.getAgent(fleetId).flatMap {
         case Right(agent) =>
-              val agentQuery = for {
-                agent <- Agents if agent.fleetId === fleetId
-              } yield agent
-              db.run(agentQuery.result.headOption)
-                .flatMap { agentOpt =>
-                  agentOpt.map(persistedAgent => updateAgent(persistedAgent.id, agent))
-                    .getOrElse(saveAgent(agent))
-                }
+          val agentQuery = for {
+            agent <- Agents if agent.fleetId === fleetId
+          } yield agent
+          db.run(agentQuery.result.headOption)
+            .flatMap { agentOpt =>
+              agentOpt.map(persistedAgent => updateAgent(persistedAgent.id, agent))
+                .getOrElse(saveAgent(agent))
+            }
 
         case Left(response) =>
-          Logger.error(s"Can't load agents. Status: ${response.status} Message: ${response.message}")
+          logger.warn(s"Can't load agents. Status: ${response.status} Message: ${response.message}")
           Future(None)
       }
     }

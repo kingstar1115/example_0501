@@ -2,3 +2,5 @@ email.forget.title=Password Restore
 email.forget.body=<html><body><p>Hi there,<br>We're sending you this email because a password reset request was submitted for your account.<br>Please click on the following link or copy & paste the URL below into your browser's address bar to reset your password:</p><p>{0}</p><p>If you did not make this request, please ignore this email. Your password will remain unchanged.<br>Thanks,<br>Qweex team</p></body></html>
 email.registration.title=New user registration
 email.registration.body=<html><body><p>New customer {0} {1} with email: {2} has been registered.<br><br>Thanks,<br>Qweex team</p></body></html>
+email.tasks.overdue.title=Overdue tasks
+email.tasks.overdue.body=<html><body><p>Found overdue tasks for date {0} : <br>{1}</p></body></html>

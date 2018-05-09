@@ -4,8 +4,13 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%coloredLevel - %logger - %message%n%xException</pattern>
+            <pattern>%date [%coloredLevel] from [%logger] - %message%n%xException</pattern>
         </encoder>
+    </appender>
+
+    <appender name="ASYNCSTDOUT" class="ch.qos.logback.classic.AsyncAppender"
+              queueSize="1000" discardingThreshold="0">
+        <appender-ref ref="STDOUT" />
     </appender>
 
     <!--
@@ -15,10 +20,16 @@
     <logger name="play" level="INFO"/>
     <logger name="application" level="DEBUG"/>
     <logger name="slick" level="ERROR"/>
-    <logger name="request" level="INFO"/>
+
+    <logger name="actors" level="DEBUG"/>
+    <logger name="config" level="DEBUG"/>
+    <logger name="controllers" level="DEBUG"/>
+    <logger name="dao" level="DEBUG"/>
+    <logger name="security" level="DEBUG"/>
+    <logger name="services" level="DEBUG"/>
 
     <root level="OFF">
-        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="ASYNCSTDOUT"/>
     </root>
 
 </configuration>

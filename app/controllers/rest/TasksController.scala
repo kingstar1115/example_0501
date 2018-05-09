@@ -3,12 +3,12 @@ package controllers.rest
 import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import javax.inject.Inject
 
 import commons.enums.{TaskStatuses, ValidationError => VError}
 import controllers.rest.TasksController._
 import controllers.rest.VehiclesController._
 import controllers.rest.base._
+import javax.inject.Inject
 import models.Tables._
 import play.api.data.Forms.{email => _, _}
 import play.api.data.validation.ValidationError
@@ -42,6 +42,8 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
                                 taskService: TasksService,
                                 usersService: UsersService,
                                 bookingService: BookingService) extends BaseController {
+
+  private val logger = Logger(this.getClass)
 
   implicit val agentDtoFormat: Format[AgentDto] = Json.format[AgentDto]
   implicit val taskListDtoFormat: Format[TaskListDto] = Json.format[TaskListDto]
@@ -226,6 +228,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       "job_id" -> Forms.longNumber,
       "job_status" -> Forms.number
     )(TaskHook.apply)(TaskHook.unapply)).bindFromRequest().get
+    logger.info(s"Request to refresh task: $formData")
     taskService.refreshTask(formData.jobId)
     NoContent
   }
