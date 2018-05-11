@@ -16,8 +16,8 @@ class TaskStatusUpdateScheduler @Inject()(system: ActorSystem,
   schedule()
 
   def schedule(): Cancellable = {
-    logger.info(s"Scheduling 'TaskStatusUpdateActor' with interval ${30.minutes}")
-    system.scheduler.schedule(0.seconds, 30.minutes, taskStatusUpdateActor, UpdateOverdueTasks)
+    logger.info(s"Scheduling 'TaskStatusUpdateActor' with interval ${1.hour}")
+    system.scheduler.schedule(1.minute, 1.hour, taskStatusUpdateActor, UpdateOverdueTasks)
   }
 
 }

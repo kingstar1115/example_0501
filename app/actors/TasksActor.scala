@@ -48,7 +48,7 @@ class TasksActor(tookanService: TookanService,
               val task = tuple._1
               tookanTask.jobStatus match {
                 case Deleted.code =>
-                  logger.info(s"Deleting task with id: ${task.id}")
+                  logger.info(s"Deleting task: ${task.jobId}")
                   for {
                     _ <- bookingService.releaseBooking(tuple._2)
                     count <- db.run(Tasks.filter(_.id === task.id).delete)

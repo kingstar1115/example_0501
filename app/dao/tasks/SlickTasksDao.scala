@@ -4,26 +4,24 @@ import java.sql.Timestamp
 import java.time.LocalDateTime
 
 import commons.enums.TaskStatuses
-import dao.SlickDriver
 import javax.inject.Inject
 import models.Tables._
-import play.api.db.slick.DatabaseConfigProvider
+import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
+import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 
+class SlickTasksDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
+  extends TasksDao with HasDatabaseConfigProvider[JdbcProfile] {
 
-class SlickTasksDao @Inject()(val dbConfigProvider: DatabaseConfigProvider) extends TasksDao with SlickDriver {
-
-  import profile.api._
+  import driver.api._
 
   override def query: TableQuery[Tasks] = Tasks
 
   override def getOverdueTasks(scheduledDateTime: LocalDateTime): Future[Seq[TasksRow]] = {
-    val query = for {
-      task <- Tasks
-      //Calling `plusHours` because car wash usually takes one hour
-      if task.jobStatus.inSet(TaskStatuses.activeStatuses) && task.scheduledTime < Timestamp.valueOf(scheduledDateTime.plusHours(1))
-    } yield task
-    this.run(query.result)
+    val query = sql"""SELECT * FROM tasks
+         WHERE job_status IN (#${TaskStatuses.activeStatuses.mkString(",")})
+         AND (scheduled_time + '2 hours'::interval) < ${Timestamp.valueOf(scheduledDateTime)}""".as[TasksRow]
+    this.run(query)
   }
 }

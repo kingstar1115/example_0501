@@ -7,9 +7,9 @@ import akka.actor.Actor
 import dao.tasks.TasksDao
 import javax.inject.Inject
 import play.api.Logger
+import play.api.libs.concurrent.Execution.Implicits._
 import services.EmailService
 import services.internal.tasks.TasksService
-import play.api.libs.concurrent.Execution.Implicits._
 
 class TaskStatusUpdateActor @Inject()(tasksDao: TasksDao,
                                       tasksService: TasksService,
