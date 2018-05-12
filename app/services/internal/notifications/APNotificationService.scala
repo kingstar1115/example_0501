@@ -84,15 +84,14 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
     val token = TokenUtil.sanitizeTokenString(deviceToken)
     val notification = new SimpleApnsPushNotification(token, topic, payload)
     toScalaFuture(client.sendNotification(notification)).map { pushNotificationResponse =>
-      pushNotificationResponse.isAccepted match {
-        case true =>
-          logger.info("Push notification accepted by APNs gateway")
-        case _ =>
-          logger.info(s"Notification rejected by the APNs gateway: ${pushNotificationResponse.getRejectionReason}")
-          if (pushNotificationResponse.getTokenInvalidationTimestamp != null) {
-            logger.info(s"Invalid token: $deviceToken for user ${notificationData.userId}")
-            unsubscribeDevice(notificationData.userId, deviceToken)
-          }
+      if (pushNotificationResponse.isAccepted) {
+        logger.info(s"Push notification `$notification` accepted by APNs gateway")
+      } else {
+        logger.info(s"Push notification `$notification` rejected by the APNs gateway: ${pushNotificationResponse.getRejectionReason}")
+        if (pushNotificationResponse.getTokenInvalidationTimestamp != null) {
+          logger.info(s"Invalid token: $deviceToken for user ${notificationData.userId}")
+          unsubscribeDevice(notificationData.userId, deviceToken)
+        }
       }
     }
   }

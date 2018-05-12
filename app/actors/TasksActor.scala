@@ -29,7 +29,7 @@ class TasksActor(tookanService: TookanService,
     case _ =>
   }
 
-  private def updateTaskData(jobId: Long) = {
+  private def updateTaskData(jobId: Long): Unit = {
     val db = dbConfigProvider.get.db
 
     tookanService.getTask(jobId).map {
@@ -64,7 +64,9 @@ class TasksActor(tookanService: TookanService,
         }
 
       case _ => logger.warn(s"Can't find task with id: $jobId")
-    }
+    }.onFailure({
+      case t: Throwable => logger.error(s"Update of $jobId task finished with error", t)
+    })
   }
 
   private def update(taskRow: TasksRow, appointment: AppointmentDetails, agentId: Option[Int], teamName: String) = {
