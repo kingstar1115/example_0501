@@ -12,8 +12,7 @@ import services.EmailService
 import services.internal.tasks.TasksService
 
 class TaskStatusUpdateActor @Inject()(tasksDao: TasksDao,
-                                      tasksService: TasksService,
-                                      mailService: EmailService) extends Actor {
+                                      tasksService: TasksService) extends Actor {
 
   private val logger = Logger(this.getClass)
 
@@ -24,8 +23,10 @@ class TaskStatusUpdateActor @Inject()(tasksDao: TasksDao,
         .filter(_.nonEmpty)
         .map(overdueTasks => {
           logger.warn(s"Found ${overdueTasks.length} overdue tasks in progress for $pstDateTime")
-          overdueTasks.foreach(overdueTask => tasksService.refreshTask(overdueTask.jobId))
-          mailService.sendOverdueTasksNotification(pstDateTime, overdueTasks)
+          overdueTasks.foreach(overdueTask => {
+            logger.info(s"Refreshing task ${overdueTask.jobId}:${overdueTask.scheduledTime}")
+            tasksService.refreshTask(overdueTask.jobId)
+          })
         })
 
     case _ =>
