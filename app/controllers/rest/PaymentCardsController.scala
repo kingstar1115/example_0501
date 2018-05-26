@@ -1,19 +1,19 @@
 package controllers.rest
 
-import javax.inject.Inject
-
-import com.stripe.model.Card
+import com.stripe.model.{Card, EphemeralKey, EphemeralKeyAssociatedObject}
 import controllers.rest.PaymentCardsController._
 import controllers.rest.base._
+import javax.inject.Inject
 import models.Tables.{UsersRow, _}
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.json._
-import play.api.mvc.Result
+import play.api.mvc.{Action, Result}
 import security.TokenStorage
 import services.StripeService
 import services.StripeService.ErrorResponse
 import slick.driver.PostgresDriver.api._
+import scala.collection.JavaConverters._
 
 import scala.concurrent.Future
 
@@ -103,6 +103,25 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
+  def createEphemeralKey(version: String, apiVersion: String) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val stripeQuery = for {
+      user <- Users
+      if user.id === userId
+    } yield user.stripeId
+    db.run(stripeQuery.result.headOption)
+      .flatMap(result => {
+        (for {
+          stripeIdOpt <- result
+          stripeId <- stripeIdOpt
+        } yield stripeId)
+          .map(stripeId => processStripe(stripeService.createEphemeralKey(stripeId, apiVersion)) { key =>
+            Future(ok(EphemeralKeyDto.create(key)))
+          })
+          .getOrElse(Future(notFound))
+      })
+  }
+
   def processStripe[T](result: Future[Either[ErrorResponse, T]])(f: T => Future[Result]) = {
     result.flatMap {
       case Left(error) => Future.successful(badRequest(error.message, error.errorType))
@@ -130,5 +149,33 @@ object PaymentCardsController {
                      expYear: Int,
                      last4: String,
                      funding: String)
+
+  case class EphemeralKeyAssociatedObjectDto(`type`: String,
+                                             id: String)
+
+  object EphemeralKeyAssociatedObjectDto {
+
+    implicit val ephemeralKeyAssociatedObjectDtoFormat: Format[EphemeralKeyAssociatedObjectDto] = Json.format[EphemeralKeyAssociatedObjectDto]
+
+    def create(ephemeralKeyAssociatedObject: EphemeralKeyAssociatedObject): EphemeralKeyAssociatedObjectDto = {
+      EphemeralKeyAssociatedObjectDto(ephemeralKeyAssociatedObject.getType, ephemeralKeyAssociatedObject.getId)
+    }
+  }
+
+  case class EphemeralKeyDto(id: String,
+                             `object`: String,
+                             created: Long,
+                             expires: Long,
+                             liveMode: Boolean,
+                             secret: String,
+                             associatedObjects: Seq[EphemeralKeyAssociatedObjectDto])
+
+  object EphemeralKeyDto {
+
+    implicit val ephemeralKeyDtoFormat: Format[EphemeralKeyDto] = Json.format[EphemeralKeyDto]
+
+    def create(key: EphemeralKey): EphemeralKeyDto = EphemeralKeyDto(key.getId, key.getObject, key.getCreated,
+      key.getExpires, key.getLivemode, key.getSecret, key.getAssociatedObjects.asScala.map(EphemeralKeyAssociatedObjectDto.create))
+  }
 
 }

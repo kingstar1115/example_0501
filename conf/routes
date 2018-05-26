@@ -57,6 +57,7 @@ PUT           /api/$version<v[1-3]>/vehicles/:id                          @contr
 POST          /api/$version<v[1-3]>/cards/new                             @controllers.rest.PaymentCardsController.addPaymentCard(version)
 GET           /api/$version<v[1-3]>/cards                                 @controllers.rest.PaymentCardsController.listPaymentCards(version)
 DELETE        /api/$version<v[1-3]>/cards/:id                             @controllers.rest.PaymentCardsController.removePaymentCard(version, id: String)
+GET           /api/$version<v[3]>/cards/ephemeral-key                     @controllers.rest.PaymentCardsController.createEphemeralKey(version, apiVersion: String)
 
 #Notifications
 POST          /api/$version<v[1-3]>/notifications/subscribe               @controllers.rest.PushNotificationsController.subscribe(version)

@@ -1,11 +1,12 @@
 package services
 
 import java.util
-import javax.inject.{Inject, Singleton}
 
+import javax.inject.{Inject, Singleton}
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model._
+import com.stripe.net.RequestOptions
 import commons.enums.{ErrorType, InternalSError, StripeError}
 import play.api.Configuration
 import play.api.libs.concurrent.Execution.Implicits._
@@ -74,7 +75,8 @@ class StripeService @Inject()(configuration: Configuration) {
     process(customer.getSources.retrieve(cardId).delete)
   }
 
-  def chargeFromCard(amount: Int, paymentSource: PaymentSource, description: String, metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
+  def chargeFromCard(amount: Int, paymentSource: PaymentSource, description: String,
+                     metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
     chargeInternal(amount, description, metaData)({ parameters =>
       parameters.put("customer", paymentSource.customerId)
       paymentSource.sourceId match {
@@ -84,13 +86,15 @@ class StripeService @Inject()(configuration: Configuration) {
     })
   }
 
-  def chargeFromToken(amount: Int, source: String, description: String, metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
+  def chargeFromToken(amount: Int, source: String, description: String,
+                      metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
     chargeInternal(amount, description, metaData)({ parameters =>
       parameters.put("source", source)
     })
   }
 
-  private def chargeInternal(amount: Int, description: String, metaData: Map[String, String])(addParameters: (util.HashMap[String, Object]) => Unit) = {
+  private def chargeInternal(amount: Int, description: String, metaData: Map[String, String])
+                            (addParameters: (util.HashMap[String, Object]) => Unit) = {
     val metadataMap = new util.HashMap[String, String]() {
       metaData.foreach(entry => put(entry._1, entry._2))
     }
@@ -119,6 +123,16 @@ class StripeService @Inject()(configuration: Configuration) {
       put("charge", chargeId)
     }
     process(Refund.create(params))
+  }
+
+  def createEphemeralKey(customerId: String, apiVersion: String): Future[Either[ErrorResponse, EphemeralKey]] = {
+    val params = new util.HashMap[String, Object]() {
+      put("customer", customerId)
+    }
+    val requestOptions = new RequestOptions.RequestOptionsBuilder()
+      .setStripeVersion(apiVersion)
+      .build()
+    process(EphemeralKey.create(params, requestOptions))
   }
 }
 
