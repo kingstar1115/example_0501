@@ -197,18 +197,16 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def listTasks(version: String, offset: Int, limit: Int) = authorized.async { request =>
+  def listTasks(version: String, offset: Int, limit: Int, status: Set[Int], ignore: Set[Int]) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
-    val inStatuses = request.queryString.get("status").map(_.map(_.toInt).toSet)
-    val notInStatuses = request.queryString.get("ignore").map(_.map(_.toInt).toSet)
     val submitted = request.getQueryString("submitted").map(_.toBoolean)
 
     val baseQuery = for {
       ((task, agent), vehicle) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if task.userId === userId
     } yield (task, agent, vehicle)
-    val filteredByInStatus = inStatuses.map(s => baseQuery.filter(_._1.jobStatus.inSet(s))).getOrElse(baseQuery)
-    val filteredByNotInStatus = notInStatuses.map(s => filteredByInStatus.filterNot(_._1.jobStatus.inSet(s))).getOrElse(filteredByInStatus)
+    val filteredByInStatus = if (status.nonEmpty) baseQuery.filter(_._1.jobStatus.inSet(status)) else baseQuery
+    val filteredByNotInStatus = if (ignore.nonEmpty) filteredByInStatus.filterNot(_._1.jobStatus.inSet(ignore)) else filteredByInStatus
     val listQuery = submitted.map(s => filteredByInStatus.filter(_._1.submitted === s)).getOrElse(filteredByNotInStatus)
 
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)

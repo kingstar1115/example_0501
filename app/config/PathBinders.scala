@@ -38,4 +38,21 @@ object PathBinders {
     override def unbind(key: String, value: LocalDate): String = s"$key=${value.toString}"
   }
 
+  implicit object IntSetQueryStringBindable extends QueryStringBindable[Set[Int]] {
+    override def bind(key: String, params: Map[String, Seq[String]]): Option[Either[String, Set[Int]]] = {
+      val values = if (params.get(key).nonEmpty) params.get(key) else params.get(s"$key[]")
+      Try {
+        values.map(_.map(_.toInt).toSet)
+      } match {
+        case Success(Some(items)) => Some(Right(items))
+        case Failure(error) => Some(Left(error.getMessage))
+        case _ => Some(Right(Set.empty[Int]))
+      }
+    }
+
+    override def unbind(key: String, value: Set[Int]): String = {
+      value.map(item => s"$key[]=$item").mkString("?")
+    }
+  }
+
 }
