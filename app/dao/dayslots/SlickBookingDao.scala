@@ -1,33 +1,31 @@
 package dao.dayslots
 
 import java.sql.{Date, Time}
-import javax.inject.Inject
 
 import commons.utils.implicits.OrderingExt._
 import dao.dayslots.BookingDao.BookingSlot
-import models.Tables
+import javax.inject.Inject
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
+import services.internal.bookings.DefaultBookingService.DaySlotWithTimeSlots
 import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
 class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
   extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
 
-  import driver.api._
+  val logger = Logger(this.getClass)
 
-  override def query: TableQuery[DaySlots] = DaySlots
+  import driver.api._
 
   private val daySlotQueryObject = DaySlotQueryObject
   private val timeSlotQueryObject = TimeSlotQueryObject
 
-  override def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]] = {
-    val daySlotQuery = daySlotQueryObject.filter(_.date inSet dates).sortBy(_.date.asc)
-    db.run(daySlotQuery.result)
+  override def findByDates(dates: Set[Date]): StreamingDBIO[Seq[DaySlotsRow], DaySlotsRow] = {
+    daySlotQueryObject.filter(_.date.inSet(dates)).result
   }
 
   override def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
@@ -75,19 +73,19 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
       .map(_ > 0)
   }
 
-  override def insertDaySlot(daySlot: Tables.DaySlotsRow, timeSlots: Seq[Tables.TimeSlotsRow]): Future[(Tables.DaySlotsRow, Seq[Tables.TimeSlotsRow])] = {
-    val insertAction = (for {
-      savedDaySlot <- daySlotQueryObject.insertQuery += daySlot
-      savedTimeSlots <- timeSlotQueryObject.insertQuery ++= timeSlots.map(timeSlot => timeSlot.copy(daySlotId = savedDaySlot.id))
-    } yield (savedDaySlot, savedTimeSlots)).transactionally
-    val insertFuture = db.run(insertAction)
-    insertFuture.onComplete {
-      case Success((savedDaySlot, _)) =>
-        Logger.info(s"Successfully created day slot for '${savedDaySlot.date}' with id: ${savedDaySlot.id}")
-      case Failure(e) =>
-        Logger.info(s"Failed to save day slot for '${daySlot.date}'", e)
-    }
-    insertFuture
+  override def createDaySlots(daySlotsWithTimeSlots: Seq[DaySlotWithTimeSlots]): DBIOAction[Seq[DaySlotWithTimeSlots], NoStream, Effect.Write with Effect.Transactional] = {
+    DBIO.sequence {
+      daySlotsWithTimeSlots.map { daySlotWithTimeSlots =>
+        (for {
+          savedDaySlot <- daySlotQueryObject.insertQuery += daySlotWithTimeSlots.daySlot
+          savedTimeSlots <- timeSlotQueryObject.insertQuery ++= daySlotWithTimeSlots.timeSlots
+            .map(timeSlot => timeSlot.copy(daySlotId = savedDaySlot.id))
+        } yield DaySlotWithTimeSlots(savedDaySlot, savedTimeSlots)).map { savedEntity =>
+          logger.info(s"Successfully created day slot for '(${savedEntity.daySlot.date}, ${savedEntity.daySlot.countryId})'")
+          savedEntity
+        }
+      }
+    }.transactionally
   }
 }
 

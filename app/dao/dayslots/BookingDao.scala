@@ -3,16 +3,17 @@ package dao.dayslots
 import java.sql.{Date, Time}
 
 import com.google.inject.ImplementedBy
-import dao.EntityDao
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
+import services.internal.bookings.DefaultBookingService.DaySlotWithTimeSlots
+import slick.dbio.{DBIOAction, Effect, NoStream, StreamingDBIO}
 
 import scala.concurrent.Future
 
 @ImplementedBy(classOf[SlickBookingDao])
-trait BookingDao extends EntityDao[DaySlots, DaySlotsRow] {
+trait BookingDao {
 
-  def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]]
+  def findByDates(dates: Set[Date]): StreamingDBIO[Seq[DaySlotsRow], DaySlotsRow]
 
   def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]]
 
@@ -20,13 +21,13 @@ trait BookingDao extends EntityDao[DaySlots, DaySlotsRow] {
 
   def increaseBooking(timeSlot: TimeSlotsRow): Future[Int]
 
-  def decreaseBooking(timeSlot: TimeSlotsRow): Future[(TimeSlotsRow)]
+  def decreaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow]
 
   def findBookingSlots(startDate: Date, endDate: Date): Future[Seq[BookingSlot]]
 
   def hasBookingSlotsAfterDate(date: Date): Future[Boolean]
 
-  def insertDaySlot(daySlot: DaySlotsRow, timeSlots: Seq[TimeSlotsRow]): Future[(DaySlotsRow, Seq[TimeSlotsRow])]
+  def createDaySlots(daySlots: Seq[DaySlotWithTimeSlots]): DBIOAction[Seq[DaySlotWithTimeSlots], NoStream, Effect.Write with Effect.Transactional]
 }
 
 object BookingDao {

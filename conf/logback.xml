@@ -19,7 +19,8 @@
     -->
     <logger name="play" level="INFO"/>
     <logger name="application" level="DEBUG"/>
-    <logger name="slick" level="ERROR"/>
+    <logger name="slick" level="info"/>
+    <logger name="com.zaxxer.hikari.pool" level="debug"/>
 
     <logger name="actors" level="DEBUG"/>
     <logger name="config" level="DEBUG"/>

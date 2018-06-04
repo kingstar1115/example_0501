@@ -7,6 +7,7 @@ import com.google.inject.ImplementedBy
 import commons.ServerError
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
+import services.internal.bookings.DefaultBookingService.DaySlotWithTimeSlots
 
 import scala.concurrent.Future
 
@@ -28,6 +29,6 @@ trait BookingService {
 
   def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean]
 
-  def createDaySlotWithTimeSlots(date: Date): Future[(DaySlotsRow, Seq[TimeSlotsRow])]
+  def createDaySlotWithTimeSlots(dates: Set[Date]): Future[Seq[DaySlotWithTimeSlots]]
 }
 
