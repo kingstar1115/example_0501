@@ -20,6 +20,7 @@
     <logger name="play" level="INFO"/>
     <logger name="application" level="DEBUG"/>
     <logger name="slick" level="ERROR"/>
+    <logger name="akka" level="INFO" />
 
     <logger name="actors" level="DEBUG"/>
     <logger name="config" level="DEBUG"/>
