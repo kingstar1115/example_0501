@@ -3,92 +3,119 @@ package actors
 import java.sql.Timestamp
 
 import actors.TasksActor._
-import akka.actor.{Actor, Props}
+import akka.actor.Actor
+import akka.pattern.pipe
 import commons.enums.TaskStatuses._
+import commons.monads.transformers.EitherT
+import javax.inject.Inject
 import models.Tables._
 import play.api.Logger
-import play.api.db.slick.DatabaseConfigProvider
+import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
 import services.TookanService
 import services.TookanService.{Agent, AppointmentDetails}
 import services.internal.bookings.BookingService
 import services.internal.notifications.{JobNotificationData, PushNotificationService}
+import slick.driver.JdbcProfile
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.Future
 
-class TasksActor(tookanService: TookanService,
-                 dbConfigProvider: DatabaseConfigProvider,
-                 pushNotificationService: PushNotificationService,
-                 bookingService: BookingService) extends Actor {
+class TasksActor @Inject()(tookanService: TookanService,
+                           val dbConfigProvider: DatabaseConfigProvider,
+                           pushNotificationService: PushNotificationService,
+                           bookingService: BookingService)
+  extends Actor with HasDatabaseConfigProvider[JdbcProfile] {
 
   private val logger = Logger(this.getClass)
 
   override def receive: PartialFunction[Any, Unit] = {
-    case t: RefreshTaskData => updateTaskData(t.jobId)
+    case refreshTaskMessage: RefreshTaskData =>
+      logger.info(s"Dispatching `Refresh` message for task ${refreshTaskMessage.jobId}")
+      updateTaskData(refreshTaskMessage.jobId)
+        .pipeTo(sender())
     case _ =>
+      logger.warn(s"Unknown message")
   }
 
-  private def updateTaskData(jobId: Long): Unit = {
-    val db = dbConfigProvider.get.db
+  private def updateTaskData(jobId: Long): Future[Either[String, AppointmentDetails]] = {
 
-    tookanService.getTask(jobId).map {
-      case Right(tookanTask) =>
+    def loadTask: Future[(TasksRow, TimeSlotsRow)] = {
+      val taskSelectQuery = for {
+        task <- Tasks if task.jobId === jobId
+        timeSlot <- TimeSlots if timeSlot.id === task.timeSlotId
+      } yield (task, timeSlot)
+      db.run(taskSelectQuery.result.head)
+    }
+
+    def updateTask(task: TasksRow, appointmentDetails: AppointmentDetails, timeSlot: TimeSlotsRow,
+                   agent: AgentDto): Future[Either[String, AppointmentDetails]] = {
+      appointmentDetails.jobStatus match {
+        case Deleted.code =>
+          logger.info(s"Deleting task: ${appointmentDetails.jobId}")
+          (for {
+            _ <- bookingService.releaseBooking(timeSlot)
+            count <- db.run(Tasks.filter(_.jobId === appointmentDetails.jobId).delete)
+          } yield count)
+            .map(_ => Right(appointmentDetails))
+            .recover({
+              case t: Throwable =>
+                logger.warn(s"Failed to delete task ${appointmentDetails.jobId}", t)
+                Left(t.getLocalizedMessage)
+            })
+        case _ =>
+          saveChanges(task, appointmentDetails, agent)
+            .map(_ => Right(appointmentDetails))
+            .recover({
+              case t: Throwable =>
+                logger.warn(s"Failed to save changes for task ${appointmentDetails.jobId}", t)
+                Left(t.getLocalizedMessage)
+            })
+      }
+    }
+
+    (for {
+      tookanTask <- EitherT(tookanService.getTask(jobId))
+      team <- EitherT(tookanService.getTeam)
+    } yield (tookanTask, team)).inner.flatMap {
+      case Right((tookanTask, team)) =>
         (for {
           agentId <- updateOrCreateAgent(tookanTask.fleetId)
-          team <- tookanService.getTeam
-        } yield (agentId, team)).flatMap {
-          case (agentId, Right(team)) =>
-            val taskSelectQuery = for {
-              task <- Tasks if task.jobId === jobId
-              timeSlot <- TimeSlots if timeSlot.id === task.timeSlotId
-            } yield (task, timeSlot)
+          (task, timeSlot) <- loadTask
+        } yield (agentId, task, timeSlot)).flatMap(result => {
+          val (agentId, task, timeSlot) = result
+          val agent = AgentDto(agentId, team.teamName)
 
-            db.run(taskSelectQuery.result.head).map { tuple =>
-              val task = tuple._1
-              tookanTask.jobStatus match {
-                case Deleted.code =>
-                  logger.info(s"Deleting task: ${task.jobId}")
-                  for {
-                    _ <- bookingService.releaseBooking(tuple._2)
-                    count <- db.run(Tasks.filter(_.id === task.id).delete)
-                  } yield count
-                case _ =>
-                  update(task, tookanTask, agentId, team.teamName)
-              }
-            }
+          updateTask(task, tookanTask, timeSlot, agent)
+        })
 
-          case (_, Left(e)) =>
-            logger.warn(s"Can't get team information for task $jobId. Message: `${e.message}`")
-            Future.failed(new RuntimeException(s"${e.message}. Status: ${e.status}"))
-        }
-
-      case _ => logger.warn(s"Can't find task with id: $jobId")
-    }.onFailure({
-      case t: Throwable => logger.error(s"Update of $jobId task finished with error", t)
-    })
+      case Left(error) =>
+        logger.info(s"Failed to update task `$jobId` due: $error")
+        Future(Left(s"${error.message}:${error.status}"))
+    }
   }
 
-  private def update(taskRow: TasksRow, appointment: AppointmentDetails, agentId: Option[Int], teamName: String) = {
-    logger.info(s"Updating task ${taskRow.jobId}: old status: ${taskRow.jobStatus}, new status: ${appointment.jobStatus}")
+  private def saveChanges(taskRow: TasksRow, appointmentDetails: AppointmentDetails, agent: AgentDto): Future[AppointmentDetails] = {
+    logger.info(s"Updating task ${taskRow.jobId}: old status: ${taskRow.jobStatus}, new status: ${appointmentDetails.jobStatus}")
 
-    val images = appointment.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
-    val taskUpdateQuery = Tasks.filter(_.jobId === appointment.jobId)
+    val images = appointmentDetails.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
+    val taskUpdateQuery = Tasks.filter(_.jobId === appointmentDetails.jobId)
       .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
         job.jobPickupPhone, job.customerPhone, job.teamName, job.jobHash))
-      .update((appointment.jobStatus, agentId, Option(images), Timestamp.valueOf(appointment.getDate), Option(appointment.address),
-        Option(appointment.pickupPhone), Option(appointment.customerPhone), Option(teamName), Option(appointment.jobHash)))
+      .update((appointmentDetails.jobStatus, agent.id, Option(images), Timestamp.valueOf(appointmentDetails.getDate),
+        Option(appointmentDetails.address), Option(appointmentDetails.pickupPhone), Option(appointmentDetails.customerPhone),
+        Option(agent.teamName), Option(appointmentDetails.jobHash)))
 
-    dbConfigProvider.get.db.run(taskUpdateQuery).map { _ =>
-      logger.info(s"Task ${appointment.jobId} is updated")
-      if (taskRow.jobStatus != appointment.jobStatus && agentId.isDefined) {
-        sendJobStatusChangeNotification(taskRow, agentId.get, appointment.jobStatus)
+    db.run(taskUpdateQuery).map { _ =>
+      logger.info(s"Task ${appointmentDetails.jobId} is updated")
+      if (taskRow.jobStatus != appointmentDetails.jobStatus && agent.id.isDefined) {
+        sendJobStatusChangeNotification(taskRow, agent.id.get, appointmentDetails.jobStatus)
       }
+      appointmentDetails
     }
   }
 
   private def sendJobStatusChangeNotification(job: TasksRow, agentId: Int, jobStatus: Int) = {
-    val db = dbConfigProvider.get.db
     val agentQuery = for {
       agent <- Agents if agent.id === agentId
     } yield agent.name
@@ -110,7 +137,6 @@ class TasksActor(tookanService: TookanService,
   }
 
   private def updateOrCreateAgent(fleetId: Option[Long]) = {
-    val db = dbConfigProvider.get.db
 
     def saveAgent(agent: Agent): Future[Option[Int]] = {
       val insertQuery = (
@@ -152,10 +178,8 @@ class TasksActor(tookanService: TookanService,
 
 object TasksActor {
 
-  def props(tookanService: TookanService, dbConfigProvider: DatabaseConfigProvider,
-            pushNotificationService: PushNotificationService, bookingService: BookingService) =
-    Props(new TasksActor(tookanService, dbConfigProvider, pushNotificationService, bookingService))
-
   case class RefreshTaskData(jobId: Long)
+
+  case class AgentDto(id: Option[Int], teamName: String)
 
 }

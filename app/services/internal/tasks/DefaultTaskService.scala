@@ -2,11 +2,10 @@ package services.internal.tasks
 
 import java.sql.Timestamp
 import java.time.LocalDateTime
-import javax.inject.Inject
 
-import actors.TasksActor
 import actors.TasksActor.RefreshTaskData
-import akka.actor.ActorSystem
+import akka.actor.ActorRef
+import akka.pattern.ask
 import com.stripe.model.Charge
 import commons.ServerError
 import commons.enums.TaskStatuses.Successful
@@ -15,16 +14,15 @@ import commons.monads.transformers.EitherT
 import controllers.rest.TasksController
 import controllers.rest.TasksController.{CompleteTaskDto, TaskDetailsDto}
 import dao.SlickDbService
+import javax.inject.{Inject, Named}
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits._
 import services.StripeService.ErrorResponse
-import services.TookanService.{AppointmentResponse, Metadata}
+import services.TookanService.{AppointmentDetails, AppointmentResponse, Metadata}
 import services.internal.bookings.BookingService
-import services.internal.notifications.PushNotificationService
 import services.internal.services.ServicesService
-import services.internal.settings.SettingsService
 import services.internal.tasks.DefaultTaskService._
 import services.internal.tasks.TasksService._
 import services.internal.users.UsersService
@@ -32,13 +30,12 @@ import services.{StripeService, TookanService}
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 
 class DefaultTaskService @Inject()(tookanService: TookanService,
-                                   settingsService: SettingsService,
                                    stripeService: StripeService,
                                    dbConfigProvider: DatabaseConfigProvider,
-                                   system: ActorSystem,
-                                   pushNotificationService: PushNotificationService,
+                                   @Named("taskActor") tasksActor: ActorRef,
                                    servicesService: ServicesService,
                                    usersService: UsersService,
                                    bookingService: BookingService,
@@ -329,8 +326,9 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  override def refreshTask(taskId: Long): Unit = {
-    system.actorOf(TasksActor.props(tookanService, dbConfigProvider, pushNotificationService, bookingService)) ! RefreshTaskData(taskId)
+  override def refreshTask(taskId: Long): Future[Either[String, AppointmentDetails]] = {
+    tasksActor.?(RefreshTaskData(taskId))(30.seconds)
+      .mapTo[Either[String, AppointmentDetails]]
   }
 
   override def pendingTasks(userId: Int): Future[Seq[(TasksRow, Option[AgentsRow], VehiclesRow)]] = {
@@ -356,7 +354,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
         val updated = task.copy(submitted = true, rating = dto.customerReview.map(_.rating))
         val updateAction = chargeOptional.map { charge =>
           DBIO.seq(
-            PaymentDetails.filter(_.taskId === updated.id).map(_.tip).update(charge.getAmount),
+            PaymentDetails.filter(_.taskId === updated.id).map(_.tip).update(charge.getAmount.toInt),
             Tasks.update(updated)
           ).transactionally
         }.getOrElse(Tasks.update(updated))
