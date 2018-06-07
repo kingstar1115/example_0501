@@ -13,7 +13,7 @@ import play.api.Logger
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
 import services.TookanService
-import services.TookanService.{Agent, AppointmentDetails}
+import services.TookanService.{Agent, AppointmentDetails, Team}
 import services.internal.bookings.BookingService
 import services.internal.notifications.{JobNotificationData, PushNotificationService}
 import slick.driver.JdbcProfile
@@ -32,111 +32,59 @@ class TasksActor @Inject()(tookanService: TookanService,
   override def receive: PartialFunction[Any, Unit] = {
     case refreshTaskMessage: RefreshTaskData =>
       logger.info(s"Dispatching `Refresh` message for task ${refreshTaskMessage.jobId}")
-      updateTaskData(refreshTaskMessage.jobId)
+      refreshTask(refreshTaskMessage.jobId)
         .pipeTo(sender())
     case _ =>
       logger.warn(s"Unknown message")
   }
 
-  private def updateTaskData(jobId: Long): Future[Either[String, AppointmentDetails]] = {
-
-    def loadTask: Future[(TasksRow, TimeSlotsRow)] = {
-      val taskSelectQuery = for {
-        task <- Tasks if task.jobId === jobId
-        timeSlot <- TimeSlots if timeSlot.id === task.timeSlotId
-      } yield (task, timeSlot)
-      db.run(taskSelectQuery.result.head)
-    }
-
-    def updateTask(task: TasksRow, appointmentDetails: AppointmentDetails, timeSlot: TimeSlotsRow,
-                   agent: AgentDto): Future[Either[String, AppointmentDetails]] = {
-      appointmentDetails.jobStatus match {
-        case Deleted.code =>
-          logger.info(s"Deleting task: ${appointmentDetails.jobId}")
-          (for {
-            _ <- bookingService.releaseBooking(timeSlot)
-            count <- db.run(Tasks.filter(_.jobId === appointmentDetails.jobId).delete)
-          } yield count)
-            .map(_ => Right(appointmentDetails))
-            .recover({
-              case t: Throwable =>
-                logger.warn(s"Failed to delete task ${appointmentDetails.jobId}", t)
-                Left(t.getLocalizedMessage)
-            })
-        case _ =>
-          saveChanges(task, appointmentDetails, agent)
-            .map(_ => Right(appointmentDetails))
-            .recover({
-              case t: Throwable =>
-                logger.warn(s"Failed to save changes for task ${appointmentDetails.jobId}", t)
-                Left(t.getLocalizedMessage)
-            })
-      }
-    }
-
+  private def refreshTask(jobId: Long): Future[Either[String, AppointmentDetails]] = {
     (for {
-      tookanTask <- EitherT(tookanService.getTask(jobId))
+      taskInfo <- EitherT(loadTask(jobId))
+      appointmentInfo <- EitherT(loadAppointment(taskInfo))
+    } yield AppointmentContext(taskInfo, appointmentInfo)).inner.flatMap({
+      case Right(appointmentContext) =>
+        val appointment = appointmentContext.appointmentInfo.appointment
+
+        updateOrCreateAgent(appointment.fleetId)
+          .flatMap(agentId => {
+            val agent = AgentDto(agentId, appointmentContext.appointmentInfo.team.teamName)
+            deleteOrUpdateTask(appointmentContext, agent)
+          })
+      case Left(message) =>
+        Future(Left(message))
+    })
+  }
+
+  private def loadTask(jobId: Long): Future[Either[String, TaskInfo]] = {
+    val taskSelectQuery = for {
+      task <- Tasks if task.jobId === jobId
+      timeSlot <- TimeSlots if timeSlot.id === task.timeSlotId
+    } yield (task, timeSlot)
+    db.run(taskSelectQuery.result.headOption)
+      .map({
+        case Some((task, timeSlot)) =>
+          Right(TaskInfo(task, timeSlot))
+        case None =>
+          logger.info(s"Task `$jobId` is not exists or created by anonymous user")
+          Left(s"Task `$jobId` is not exists or created by anonymous user")
+      })
+  }
+
+  private def loadAppointment(task: TaskInfo): Future[Either[String, AppointmentInfo]] = {
+    (for {
+      appointmentDetails <- EitherT(tookanService.getTask(task.task.jobId))
       team <- EitherT(tookanService.getTeam)
-    } yield (tookanTask, team)).inner.flatMap {
-      case Right((tookanTask, team)) =>
-        (for {
-          agentId <- updateOrCreateAgent(tookanTask.fleetId)
-          (task, timeSlot) <- loadTask
-        } yield (agentId, task, timeSlot)).flatMap(result => {
-          val (agentId, task, timeSlot) = result
-          val agent = AgentDto(agentId, team.teamName)
-
-          updateTask(task, tookanTask, timeSlot, agent)
-        })
-
+    } yield (appointmentDetails, team)).inner.map {
+      case Right((appointmentDetails, team)) =>
+        Right(AppointmentInfo(appointmentDetails, team))
       case Left(error) =>
-        logger.info(s"Failed to update task `$jobId` due: $error")
-        Future(Left(s"${error.message}:${error.status}"))
+        logger.info(s"Failed to update task `${task.task.jobId}` due: $error")
+        Left(s"${error.message}:${error.status}")
     }
   }
 
-  private def saveChanges(taskRow: TasksRow, appointmentDetails: AppointmentDetails, agent: AgentDto): Future[AppointmentDetails] = {
-    logger.info(s"Updating task ${taskRow.jobId}: old status: ${taskRow.jobStatus}, new status: ${appointmentDetails.jobStatus}")
-
-    val images = appointmentDetails.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
-    val taskUpdateQuery = Tasks.filter(_.jobId === appointmentDetails.jobId)
-      .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
-        job.jobPickupPhone, job.customerPhone, job.teamName, job.jobHash))
-      .update((appointmentDetails.jobStatus, agent.id, Option(images), Timestamp.valueOf(appointmentDetails.getDate),
-        Option(appointmentDetails.address), Option(appointmentDetails.pickupPhone), Option(appointmentDetails.customerPhone),
-        Option(agent.teamName), Option(appointmentDetails.jobHash)))
-
-    db.run(taskUpdateQuery).map { _ =>
-      logger.info(s"Task ${appointmentDetails.jobId} is updated")
-      if (taskRow.jobStatus != appointmentDetails.jobStatus && agent.id.isDefined) {
-        sendJobStatusChangeNotification(taskRow, agent.id.get, appointmentDetails.jobStatus)
-      }
-      appointmentDetails
-    }
-  }
-
-  private def sendJobStatusChangeNotification(job: TasksRow, agentId: Int, jobStatus: Int) = {
-    val agentQuery = for {
-      agent <- Agents if agent.id === agentId
-    } yield agent.name
-    db.run(agentQuery.result.head).map { agentName =>
-      val data = JobNotificationData(job.jobId, agentName, jobStatus, job.userId)
-      pushNotificationService.getUserDeviceTokens(job.userId)
-        .foreach { token =>
-          jobStatus match {
-            case x if x == Started.code =>
-              pushNotificationService.sendJobStartedNotification(data, token)
-            case x if x == InProgress.code =>
-              pushNotificationService.sendJobInProgressNotification(data, token)
-            case x if x == Successful.code =>
-              pushNotificationService.sendJobCompleteNotification(data, token)
-            case _ =>
-          }
-        }
-    }
-  }
-
-  private def updateOrCreateAgent(fleetId: Option[Long]) = {
+  private def updateOrCreateAgent(fleetId: Option[Long]): Future[Option[Int]] = {
 
     def saveAgent(agent: Agent): Future[Option[Int]] = {
       val insertQuery = (
@@ -174,11 +122,85 @@ class TasksActor @Inject()(tookanService: TookanService,
     fleetId.map(loadAgent).getOrElse(Future(None))
   }
 
+  private def deleteOrUpdateTask(appointmentContext: AppointmentContext, agent: AgentDto): Future[Either[String, AppointmentDetails]] = {
+    appointmentContext.appointmentInfo.appointment.jobStatus match {
+      case Deleted.code =>
+        logger.info(s"Deleting task: ${appointmentContext.appointmentInfo.appointment.jobId}")
+        (for {
+          _ <- bookingService.releaseBooking(appointmentContext.taskInfo.timeSlot)
+          count <- db.run(Tasks.filter(_.jobId === appointmentContext.appointmentInfo.appointment.jobId).delete)
+        } yield count)
+          .map(_ => Right(appointmentContext.appointmentInfo.appointment))
+          .recover({
+            case t: Throwable =>
+              logger.warn(s"Failed to delete task ${appointmentContext.appointmentInfo.appointment.jobId}", t)
+              Left(t.getLocalizedMessage)
+          })
+      case _ =>
+        updateTask(appointmentContext, agent)
+          .map(_ => Right(appointmentContext.appointmentInfo.appointment))
+          .recover({
+            case t: Throwable =>
+              logger.warn(s"Failed to save changes for task ${appointmentContext.appointmentInfo.appointment.jobId}", t)
+              Left(t.getLocalizedMessage)
+          })
+    }
+  }
+
+  private def updateTask(appointmentContext: AppointmentContext, agent: AgentDto): Future[AppointmentDetails] = {
+    val task = appointmentContext.taskInfo.task
+    val appointmentDetails = appointmentContext.appointmentInfo.appointment
+    logger.info(s"Updating task ${task.jobId}: old status: ${task.jobStatus}, new status: ${appointmentDetails.jobStatus}")
+
+    val images = appointmentDetails.taskHistory.filter(_.isImageAction).map(_.description).mkString(";")
+    val taskUpdateQuery = Tasks.filter(_.jobId === appointmentDetails.jobId)
+      .map(job => (job.jobStatus, job.agentId, job.images, job.scheduledTime, job.jobAddress,
+        job.jobPickupPhone, job.customerPhone, job.teamName, job.jobHash))
+      .update((appointmentDetails.jobStatus, agent.id, Option(images), Timestamp.valueOf(appointmentDetails.getDate),
+        Option(appointmentDetails.address), Option(appointmentDetails.pickupPhone), Option(appointmentDetails.customerPhone),
+        Option(agent.teamName), Option(appointmentDetails.jobHash)))
+
+    db.run(taskUpdateQuery).map { _ =>
+      logger.info(s"Task ${appointmentDetails.jobId} is updated")
+      if (task.jobStatus != appointmentDetails.jobStatus && agent.id.isDefined) {
+        sendJobStatusChangeNotification(task, agent.id.get, appointmentDetails.jobStatus)
+      }
+      appointmentDetails
+    }
+  }
+
+  private def sendJobStatusChangeNotification(job: TasksRow, agentId: Int, jobStatus: Int) = {
+    val agentQuery = for {
+      agent <- Agents if agent.id === agentId
+    } yield agent.name
+    db.run(agentQuery.result.head).map { agentName =>
+      val data = JobNotificationData(job.jobId, agentName, jobStatus, job.userId)
+      pushNotificationService.getUserDeviceTokens(job.userId)
+        .foreach { token =>
+          jobStatus match {
+            case x if x == Started.code =>
+              pushNotificationService.sendJobStartedNotification(data, token)
+            case x if x == InProgress.code =>
+              pushNotificationService.sendJobInProgressNotification(data, token)
+            case x if x == Successful.code =>
+              pushNotificationService.sendJobCompleteNotification(data, token)
+            case _ =>
+          }
+        }
+    }
+  }
+
 }
 
 object TasksActor {
 
   case class RefreshTaskData(jobId: Long)
+
+  case class TaskInfo(task: TasksRow, timeSlot: TimeSlotsRow)
+
+  case class AppointmentInfo(appointment: AppointmentDetails, team: Team)
+
+  case class AppointmentContext(taskInfo: TaskInfo, appointmentInfo: AppointmentInfo)
 
   case class AgentDto(id: Option[Int], teamName: String)
 
