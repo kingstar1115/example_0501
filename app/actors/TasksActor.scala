@@ -20,6 +20,7 @@ import slick.driver.JdbcProfile
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.Future
+import scala.util.Try
 
 class TasksActor @Inject()(tookanService: TookanService,
                            val dbConfigProvider: DatabaseConfigProvider,
@@ -114,7 +115,7 @@ class TasksActor @Inject()(tookanService: TookanService,
             }
 
         case Left(response) =>
-          logger.warn(s"Can't load agents. Status: ${response.status} Message: ${response.message}")
+          logger.warn(s"Can't load agent `$fleetId`. Status: ${response.status} Message: ${response.message}")
           Future(None)
       }
     }

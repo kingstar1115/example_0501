@@ -2,10 +2,10 @@ package services
 
 import java.time.{LocalDate, LocalDateTime}
 import java.time.format.DateTimeFormatter
-import javax.inject.{Inject, Singleton}
 
+import javax.inject.{Inject, Singleton}
 import commons.enums.TaskStatuses.TaskStatus
-import play.api.Configuration
+import play.api.{Configuration, Logger}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
@@ -19,6 +19,8 @@ import scala.concurrent.Future
 @Singleton
 class TookanService @Inject()(ws: WSClient,
                               configuration: Configuration) {
+
+  private val logger = Logger(this.getClass)
 
   implicit val config: Config = Config(
     configuration.getString("tookan.key").get,
@@ -169,7 +171,13 @@ class TookanService @Inject()(ws: WSClient,
     def convert[T](path: JsPath = JsPath \ "data")(implicit reads: Reads[T]): Either[TookanResponse, T] = {
       val response = getResponse
       response.status match {
-        case 200 => Right(path.asSingleJson(jsonBody).as[T])
+        case 200 =>
+          path.asSingleJson(jsonBody).asOpt[T]
+            .map(jsValue => Right(jsValue))
+            .getOrElse({
+              logger.warn(s"Failed to find path `$path` in ${Json.prettyPrint(jsonBody)}")
+              Left(response)
+            })
         case _ => Left(response)
       }
     }
