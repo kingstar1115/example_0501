@@ -44,6 +44,13 @@ class StripeService @Inject()(configuration: Configuration) {
     process(Customer.create(params))
   }
 
+  def createCustomer(email: String): Future[Customer] = {
+    val params = new util.HashMap[String, Object]() {
+      put("email", email)
+    }
+    Future(Customer.create(params))
+  }
+
   def getCustomer(id: String): Future[Either[ErrorResponse, Customer]] = {
     process(Customer.retrieve(id))
   }
