@@ -2,12 +2,12 @@ package services
 
 import java.util
 
-import javax.inject.{Inject, Singleton}
 import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model._
 import com.stripe.net.RequestOptions
 import commons.enums.{ErrorType, InternalSError, StripeError}
+import javax.inject.{Inject, Singleton}
 import play.api.Configuration
 import play.api.libs.concurrent.Execution.Implicits._
 import services.StripeService._
@@ -44,11 +44,15 @@ class StripeService @Inject()(configuration: Configuration) {
     process(Customer.create(params))
   }
 
-  def createCustomer(email: String): Future[Customer] = {
-    val params = new util.HashMap[String, Object]() {
-      put("email", email)
+  def createCustomerIfNotExists(email: String): Future[Customer] = {
+    Future {
+      val params = new util.HashMap[String, Object]() {
+        put("email", email)
+      }
+      val customers = Customer.list(params).getData
+
+      if (customers.isEmpty) Customer.create(params) else customers.get(0)
     }
-    Future(Customer.create(params))
   }
 
   def getCustomer(id: String): Future[Either[ErrorResponse, Customer]] = {

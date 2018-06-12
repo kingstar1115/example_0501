@@ -49,7 +49,7 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
         case other =>
           Future(badRequest(other.message, AuthyError))
       }).recover {
-        case n: NoSuchElementException =>
+        case _: NoSuchElementException =>
           badRequest("User with such email or phone already exists")
       }
     }
@@ -60,7 +60,7 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
     val hashedPassword = signUpDto.password.bcrypt(salt)
 
     val insert = for {
-      customer <- DBIO.from(stripeService.createCustomer(signUpDto.email))
+      customer <- DBIO.from(stripeService.createCustomerIfNotExists(signUpDto.email))
       userId <- Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.salt,
         u.password, u.userType, u.stripeId)) returning Users.map(_.id) += (signUpDto.firstName, signUpDto.lastName, signUpDto.email,
         signUpDto.phoneCode, signUpDto.phone, salt, Option(hashedPassword), EmailUserType, Option(customer.getId))
@@ -147,11 +147,11 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
 
   private def saveFaceBookUser(fbUser: FacebookProfile)(implicit sighUpDto: FacebookSighUpDto, requestHeader: RequestHeader) = {
     val saveUser = for {
-      stripeCustomer <- DBIO.from(stripeService.createCustomer(sighUpDto.email))
+      customer <- DBIO.from(stripeService.createCustomerIfNotExists(sighUpDto.email))
       userId <- (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
         u.facebookId, u.userType, u.salt, u.profilePicture, u.stripeId)) returning Users.map(_.id)) += (sighUpDto.firstName,
         sighUpDto.lastName, sighUpDto.email, sighUpDto.phoneCode, sighUpDto.phone, Some(fbUser.id), FacebookUserType,
-        generateSalt, Option(fbUser.picture.data.url), Option(stripeCustomer.getId))
+        generateSalt, Option(fbUser.picture.data.url), Option(customer.getId))
     } yield userId
 
     db.run(saveUser.asTry).map {
@@ -230,4 +230,5 @@ object SignUpController {
   object FBSighUpResponseDto {
     implicit val jsonFormat: Format[FBSighUpResponseDto] = Json.format[FBSighUpResponseDto]
   }
+
 }
