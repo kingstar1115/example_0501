@@ -123,7 +123,7 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
   }
 
   private def verifyPhone(phoneCode: String, phone: String): Future[Either[ServerError, AuthyResponseDto]] = {
-    verifyService.sendVerifyCode(phoneCode.toInt, phoneCode).map {
+    verifyService.sendVerifyCode(phoneCode.toInt, phone).map {
       case response if response.success =>
         Right(response)
       case failed =>
