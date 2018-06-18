@@ -58,12 +58,12 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
   private def saveUser(signUpDto: EmailSignUpDto)(implicit requestHeader: RequestHeader) = {
     val salt = generateSalt
     val hashedPassword = signUpDto.password.bcrypt(salt)
+    val stripeCustomer = stripeService.createCustomerIfNotExists(signUpDto.email)
 
     val insert = for {
-      customer <- DBIO.from(stripeService.createCustomerIfNotExists(signUpDto.email))
       userId <- Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone, u.salt,
         u.password, u.userType, u.stripeId)) returning Users.map(_.id) += (signUpDto.firstName, signUpDto.lastName, signUpDto.email,
-        signUpDto.phoneCode, signUpDto.phone, salt, Option(hashedPassword), EmailUserType, Option(customer.getId))
+        signUpDto.phoneCode, signUpDto.phone, salt, Option(hashedPassword), EmailUserType, Option(stripeCustomer.getId))
     } yield userId
 
     db.run(insert.asTry).map {
@@ -146,12 +146,12 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
   }
 
   private def saveFaceBookUser(fbUser: FacebookProfile)(implicit sighUpDto: FacebookSighUpDto, requestHeader: RequestHeader) = {
+    val stripeCustomer = stripeService.createCustomerIfNotExists(sighUpDto.email)
     val saveUser = for {
-      customer <- DBIO.from(stripeService.createCustomerIfNotExists(sighUpDto.email))
       userId <- (Users.map(u => (u.firstName, u.lastName, u.email, u.phoneCode, u.phone,
         u.facebookId, u.userType, u.salt, u.profilePicture, u.stripeId)) returning Users.map(_.id)) += (sighUpDto.firstName,
         sighUpDto.lastName, sighUpDto.email, sighUpDto.phoneCode, sighUpDto.phone, Some(fbUser.id), FacebookUserType,
-        generateSalt, Option(fbUser.picture.data.url), Option(customer.getId))
+        generateSalt, Option(fbUser.picture.data.url), Option(stripeCustomer.getId))
     } yield userId
 
     db.run(saveUser.asTry).map {
