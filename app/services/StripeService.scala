@@ -215,7 +215,6 @@ class StripeService @Inject()(configuration: Configuration) {
 object StripeService {
 
   val TipDescription = "Tip"
-  val ApplePay = "apple_pay"
 
   sealed trait ChargeRequest {
     def amount: Int
