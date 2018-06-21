@@ -94,16 +94,16 @@ class StripeService @Inject()(configuration: Configuration) {
       case TokenCharge(Some(email), source, _, _) =>
         val token = Token.retrieve(source)
         Option(token.getCard)
-          .filter(card => card.getTokenizationMethod == ApplePay)
-          .map(_ => chargeApplePay(chargeRequest, metaData, email, source))
+          .map(_ => chargeFromTokenCard(chargeRequest, metaData, email, source))
           .getOrElse {
             chargeInternal(chargeRequest, metaData) { chargeParameters =>
-              logger.warn(s"Failed retrieve card from token ${Json.prettyPrint(Json.parse(token.toJson))}")
+              logger.warn(s"No card retrieved from token ${Json.prettyPrint(Json.parse(token.toJson))}")
               chargeParameters.put("source", source)
             }
           }
 
       case TokenCharge(None, token, _, _) =>
+        logger.warn(s"Charging `$token` token for anonymous")
         chargeInternal(chargeRequest, metaData) { chargeParameters =>
           chargeParameters.put("source", token)
         }
@@ -125,7 +125,7 @@ class StripeService @Inject()(configuration: Configuration) {
     }
   }
 
-  private def chargeApplePay(chargeRequest: ChargeRequest, metaData: Map[String, String], email: String, source: String) = {
+  private def chargeFromTokenCard(chargeRequest: ChargeRequest, metaData: Map[String, String], email: String, source: String) = {
     val customer = createCustomerIfNotExists(email)
     val params = new util.HashMap[String, Object]() {
       put("source", source)
