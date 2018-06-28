@@ -1,10 +1,25 @@
 package dao.countries
 
 import com.google.inject.ImplementedBy
-import models.Country
-import slick.dbio.StreamingDBIO
+import dao.countries.CountryDao._
+import slick.dbio.Effect.Read
+import slick.dbio.{DBIOAction, NoStream, Streaming}
 
 @ImplementedBy(classOf[SlickCountryDao])
 trait CountryDao {
-  def getAllCountries: StreamingDBIO[Seq[Country], Country]
+  def getAllCountries: DBIOAction[Seq[Country], Streaming[Country], Read]
+
+  def getCountriesWithZipCodes: DBIOAction[Seq[CountryWithZipCodes], NoStream, Read]
+
+  def getDefaultCountry: DBIOAction[Country, NoStream, Read]
+}
+
+object CountryDao {
+
+  case class Country(id: Int, createdDate: java.sql.Timestamp, name: String, default: Boolean)
+
+  case class ZipCode(id: Int, createdDate: java.sql.Timestamp, zipCode: String, countryId: Int)
+
+  case class CountryWithZipCodes(country: Country, zipCodes: Set[ZipCode])
+
 }

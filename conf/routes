@@ -70,7 +70,7 @@ GET           /api/$version<v[3]>/services/:vehicleId                     @contr
 GET           /api/$version<v[3]>/services/:make/:model/:year             @controllers.rest.ServicesController.getServices(version, make, model, year: Int)
 
 #Bookings
-GET           /api/$version<v[3]>/booking-slots                           @controllers.rest.BookingsController.getBookingSlots(version)
+GET           /api/$version<v[3-4]>/booking-slots                           @controllers.rest.BookingsController.getBookingSlots(version)
 
 #---------------------------------------------------   Admin panel   ---------------------------------------------------
 GET           /admin                                                      @controllers.admin.DashboardController.getAdminDashboard

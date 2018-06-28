@@ -1,5 +1,7 @@
 package models
 
+import dao.countries.SlickCountryDao
+
 // AUTO-GENERATED Slick data model
 /** Stand-alone Slick data model for immediate use */
 object Tables extends {
@@ -99,7 +101,7 @@ trait Tables {
 
     /** Uniqueness Index over (date) (database name day_slots_date_key) */
     val index1 = index("day_slots_date_country_id_unique", (date, countryId), unique = true)
-    lazy val countriesFk = foreignKey("day_slots_country_id_fkey", countryId, CountriesTable.Countries)(r => r.id,
+    lazy val countriesFk = foreignKey("day_slots_country_id_fkey", countryId, SlickCountryDao.Countries)(r => r.id,
       onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
   }
 

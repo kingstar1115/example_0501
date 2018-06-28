@@ -10,14 +10,14 @@ import commons.monads.transformers.OptionT
 import commons.utils.TimeUtils._
 import dao.SlickDbService
 import dao.countries.CountryDao
+import dao.countries.CountryDao.{Country, CountryWithZipCodes}
 import dao.dayslots.BookingDao.BookingSlot
 import dao.dayslots._
 import javax.inject.Inject
-import models.Country
 import models.Tables._
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
-import services.internal.bookings.DefaultBookingService.{CapacitySettings, DaySlotWithTimeSlots}
+import services.internal.bookings.DefaultBookingService.{Capacity, CountryDaySlots, DaySlotWithTimeSlots}
 import services.internal.settings.SettingsService
 
 import scala.concurrent.Future
@@ -25,7 +25,7 @@ import scala.concurrent.Future
 
 class DefaultBookingService @Inject()(bookingDao: BookingDao,
                                       countryDao: CountryDao,
-                                      slickDbService: SlickDbService,
+                                      dbService: SlickDbService,
                                       settingsService: SettingsService) extends BookingService {
 
   private val logger = Logger(this.getClass)
@@ -60,12 +60,36 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
     bookingDao.decreaseBooking(timeSlot)
   }
 
+  @deprecated(message = "Use getBookingSlotsByCountries", since = "v4")
   override def getBookingSlots(startDate: LocalDate = LocalDate.now(),
                                endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[BookingSlot]] = {
-    bookingDao.findBookingSlots(startDate.toSqlDate, endDate.toSqlDate).map { bookingSlots =>
+    dbService.run {
+      for {
+        defaultCountry <- countryDao.getDefaultCountry
+        countryDaySlots <- bookingDao.findDaySlotsForCountries(Set(defaultCountry.id), startDate.toSqlDate, endDate.toSqlDate)
+      } yield countryDaySlots
+    }.map { bookingSlots =>
       bookingSlots
         .map(bookingSlot => filterTimeSlots(bookingSlot))
         .filterNot(_.timeSlots.isEmpty)
+    }
+  }
+
+  override def getBookingSlotsByCountries(startDate: LocalDate = LocalDate.now(),
+                                          endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[CountryDaySlots]] = {
+    dbService.run {
+      (for {
+        countries <- countryDao.getCountriesWithZipCodes
+        daySlots <- bookingDao.findDaySlotsForCountries(countries.map(_.country.id).toSet, startDate.toSqlDate, endDate.toSqlDate)
+      } yield (countries, daySlots)).map {
+        case (countries, daySlots) =>
+          countries.map(countryWithZipCodes => {
+            val countryDaySlots = daySlots.filter(_.daySlot.countryId == countryWithZipCodes.country.id)
+              .map(bookingSlot => filterTimeSlots(bookingSlot))
+              .filterNot(_.timeSlots.isEmpty)
+            CountryDaySlots(countryWithZipCodes, countryDaySlots)
+          })
+      }
     }
   }
 
@@ -81,14 +105,14 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
   }
 
   override def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]] = {
-    slickDbService.findOneOption(TimeSlotQueryObject.findByIdQuery(id))
+    dbService.findOneOption(TimeSlotQueryObject.findByIdQuery(id))
   }
 
   override def increaseCapacity(id: Int, newCapacity: Int): Future[Either[ServerError, TimeSlotsRow]] = {
     findTimeSlot(id).flatMap {
       case Some(timeSlot) if timeSlot.reserved <= newCapacity =>
         val updatedTimeSlot = timeSlot.copy(capacity = newCapacity)
-        slickDbService.run(TimeSlotQueryObject.updateQuery(updatedTimeSlot))
+        dbService.run(TimeSlotQueryObject.updateQuery(updatedTimeSlot))
           .map(_ => Right(updatedTimeSlot))
       case Some(timeSlot) =>
         Future.successful(Left(ServerError(s"Capacity must be greater than reserved amount ${timeSlot.reserved}", Some(ValidationError))))
@@ -105,18 +129,19 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
     (for {
       numberOfTimeSlotsPerDay <- settingsService.getIntValue(DaySlotCapacity, DefaultDaySlotCapacity)
       timeSlotCapacity <- settingsService.getIntValue(TimeSlotCapacity, DefaultTimeSlotCapacity)
-    } yield CapacitySettings(numberOfTimeSlotsPerDay, timeSlotCapacity)).flatMap { implicit capacity =>
-      val value = for {
-        countries <- countryDao.getAllCountries
-        daySlots <- bookingDao.findByDates(dates)
-        createdDaySlots <- createMissingDaySlots(dates, countries, daySlots)
-      } yield createdDaySlots
-      slickDbService.run(value)
+    } yield Capacity(numberOfTimeSlotsPerDay, timeSlotCapacity)).flatMap { implicit capacity =>
+      dbService.run {
+        for {
+          countries <- countryDao.getAllCountries
+          daySlots <- bookingDao.findByDates(dates)
+          createdDaySlots <- createMissingDaySlots(dates, countries, daySlots)
+        } yield createdDaySlots
+      }
     }
   }
 
   private def createMissingDaySlots(dates: Set[Date], countries: Seq[Country], existingDaySlots: Seq[DaySlotsRow])
-                                   (implicit capacity: CapacitySettings) = {
+                                   (implicit capacity: Capacity) = {
     val newDaySlots = countries.flatMap(country => {
       val countryDaySlots = existingDaySlots.filter(daySlot => daySlot.countryId == country.id)
       dates.filter(date => !countryDaySlots.exists(_.date == date))
@@ -130,18 +155,22 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
     bookingDao.createDaySlots(newDaySlots)
   }
 
-  private def createTimeSlots(date: Date)(implicit capacity: CapacitySettings): Seq[TimeSlotsRow] = {
+  private def createTimeSlots(date: Date)(implicit capacity: Capacity): List[TimeSlotsRow] = {
     val bookingSlotTimestamp = date.toSqlTimestamp
     0.until(capacity.timeSlotsPerDay).map { index =>
       val startHour = TimeSlotsStartHour + index
       TimeSlotsRow(0, currentTimestamp, capacity.timeSlotCapacity, 0, bookingSlotTimestamp.resetToHour(startHour).toSqlTime,
         bookingSlotTimestamp.resetToHour(startHour + 1).toSqlTime, 0)
-    }
+    }.toList
   }
 }
 
 object DefaultBookingService {
-  case class CapacitySettings(timeSlotsPerDay: Int, timeSlotCapacity: Int)
+
+  case class Capacity(timeSlotsPerDay: Int, timeSlotCapacity: Int)
 
   case class DaySlotWithTimeSlots(daySlot: DaySlotsRow, timeSlots: Seq[TimeSlotsRow])
+
+  case class CountryDaySlots(country: CountryWithZipCodes, bookingSlots: List[BookingSlot])
+
 }

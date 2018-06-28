@@ -6,6 +6,7 @@ import com.google.inject.ImplementedBy
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
 import services.internal.bookings.DefaultBookingService.DaySlotWithTimeSlots
+import slick.dbio.Effect.Read
 import slick.dbio.{DBIOAction, Effect, NoStream, StreamingDBIO}
 
 import scala.concurrent.Future
@@ -24,6 +25,9 @@ trait BookingDao {
   def decreaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow]
 
   def findBookingSlots(startDate: Date, endDate: Date): Future[Seq[BookingSlot]]
+
+  def findDaySlotsForCountries(countries: Set[Int], startDate: Date, endDate: Date)
+  : DBIOAction[List[BookingSlot], NoStream, Read]
 
   def hasBookingSlotsAfterDate(date: Date): Future[Boolean]
 

@@ -10,6 +10,7 @@ import play.api.Logger
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.bookings.DefaultBookingService.DaySlotWithTimeSlots
+import slick.dbio.Effect.Read
 import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
@@ -66,6 +67,19 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
       resultSet.groupBy(_._1)
         .map(entry => BookingSlot(entry._1, entry._2.map(_._2).sortBy(_.startTime))).toSeq.sortBy(_.daySlot.date)
     }
+  }
+
+  override def findDaySlotsForCountries(countries: Set[Int], startDate: Date, endDate: Date)
+  : DBIOAction[List[BookingSlot], NoStream, Read] = {
+    daySlotQueryObject
+      .filter(daySlot => daySlot.countryId.inSet(countries) && daySlot.date >= startDate && daySlot.date <= endDate)
+      .join(TimeSlots).on(_.id === _.daySlotId).result
+      .map(_.groupBy(_._1.id).map({
+        case (_, daySlotTuples) =>
+          val (daySlot, timeSlot) = daySlotTuples.head
+          val timeSlots = List(timeSlot) ::: daySlotTuples.tail.map(_._2).toList
+          BookingSlot(daySlot, timeSlots.sortBy(_.startTime))
+      }).toList.sortBy(_.daySlot.date))
   }
 
   override def hasBookingSlotsAfterDate(date: Date): Future[Boolean] = {

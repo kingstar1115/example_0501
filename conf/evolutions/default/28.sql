@@ -3,10 +3,11 @@
 CREATE TABLE countries (
   id           SERIAL PRIMARY KEY,
   created_date TIMESTAMP    NOT NULL DEFAULT now(),
-  name         VARCHAR(100) NOT NULL
+  name         VARCHAR(100) NOT NULL,
+  "default"    BOOLEAN      NOT NULL DEFAULT false
 );
 
-INSERT INTO countries (name) VALUES ('San Mateo County');
+INSERT INTO countries (name, "default") VALUES ('San Mateo County', true);
 INSERT INTO countries (name) VALUES ('Santa Clara County');
 INSERT INTO countries (name) VALUES ('San Francisco County');
 
