@@ -18,8 +18,9 @@ class SlickCountryDao @Inject()(protected val dbConfigProvider: DatabaseConfigPr
     Countries.result
   }
 
-  override def getCountriesWithZipCodes: DBIOAction[Seq[CountryWithZipCodes], NoStream, Read] = {
-    Countries.joinLeft(ZipCodes)
+  override def getCountriesWithZipCodes(ids: Set[Int]): DBIOAction[Seq[CountryWithZipCodes], NoStream, Read] = {
+    val countries = if (ids.isEmpty) Countries else Countries.filter(_.id.inSet(ids))
+    countries.joinLeft(ZipCodes)
       .on(_.id === _.countryId).result.map(rows => {
       rows.groupBy(_._1.id).map { result =>
         val country = result._2.head._1

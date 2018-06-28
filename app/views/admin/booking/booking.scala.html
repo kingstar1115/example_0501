@@ -1,22 +1,22 @@
 @import views.html.admin.main
 @import java.time.LocalDate
-@import dto.BookingDto.DaySlotDto
+@import dto.BookingDto._
 
-@(bookingDaySlots: Seq[DaySlotDto], prevDate: Option[LocalDate], nextDate: Option[LocalDate], requestedDate: LocalDate)(implicit req: RequestHeader)
+@(country: CountryDto, prevDate: Option[LocalDate], nextDate: Option[LocalDate], requestedDate: LocalDate)(implicit req: RequestHeader)
 
-@main() {
+@main(activeLink = s"bookingDays:${country.id}") {
     <div class="bookingSlots">
         <div class="row">
             <div class="col-md-6 col-xs-6">
-                <h2>Booking Dates:</h2>
+                <h2>`@country.name`:</h2>
             </div>
             <div class="col-md-6 col-xs-6">
                 <div class="btn-group pull-right">
-                    <a href="@if(prevDate.isDefined) {@controllers.admin.routes.BookingSlotController.getBookingSlots(prevDate.get)} else {#}"
+                    <a href="@if(prevDate.isDefined) {@controllers.admin.routes.BookingSlotController.getBookingSlots(country.id, prevDate.get)} else {#}"
                     class="btn btn-default btn-flat @if(prevDate.isEmpty) {disabled}">
                         <i class="fa fa-arrow-left"></i>
                     </a>
-                    <a href="@if(nextDate.isDefined) {@controllers.admin.routes.BookingSlotController.getBookingSlots(nextDate.get)} else {#}"
+                    <a href="@if(nextDate.isDefined) {@controllers.admin.routes.BookingSlotController.getBookingSlots(country.id, nextDate.get)} else {#}"
                     class="btn btn-default btn-flat @if(nextDate.isEmpty) {disabled}">
                         <i class="fa fa-arrow-right"></i>
                     </a>
@@ -28,7 +28,7 @@
             <div class="col-sm-12">
                 <div class="nav-tabs-custom">
                     <ul class="nav nav-tabs">
-                    @for(bookingDate <- bookingDaySlots) {
+                    @for(bookingDate <- country.daySlots) {
                         <li class="@if(bookingDate.date.equals(requestedDate)) {active}">
                             <a href="#tab_@bookingDate.id" data-toggle="tab" aria-expanded="@if(bookingDate.date.equals(requestedDate)) {true} else {false}">
                             @bookingDate.dateStr
@@ -37,7 +37,7 @@
                     }
                     </ul>
                     <div class="tab-content">
-                    @for(bookingDate <- bookingDaySlots) {
+                    @for(bookingDate <- country.daySlots) {
                         <div class="tab-pane @if(bookingDate.date.equals(requestedDate)) {active}" id="tab_@bookingDate.id">
                             <div class="no-padding">
                                 <table class="table table-striped">
@@ -58,7 +58,8 @@
                                             <td>@slot.capacity</td>
                                             <td>@slot.reserved</td>
                                             <td>
-                                                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlot(slot.id, bookingDate.date)" class="pull-right" style="font-size:25px;">
+                                                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlot(slot.id, country.id, bookingDate.date)"
+                                                class="pull-right" style="font-size:25px;">
                                                     <i class="fa fa-pencil-square"></i>
                                                 </a>
                                             </td>

@@ -75,11 +75,12 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
     }
   }
 
-  override def getBookingSlotsByCountries(startDate: LocalDate = LocalDate.now(),
+  override def getBookingSlotsByCountries(ids: Set[Int] = Set.empty,
+                                          startDate: LocalDate = LocalDate.now(),
                                           endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[CountryDaySlots]] = {
     dbService.run {
       (for {
-        countries <- countryDao.getCountriesWithZipCodes
+        countries <- countryDao.getCountriesWithZipCodes(ids)
         daySlots <- bookingDao.findDaySlotsForCountries(countries.map(_.country.id).toSet, startDate.toSqlDate, endDate.toSqlDate)
       } yield (countries, daySlots)).map {
         case (countries, daySlots) =>

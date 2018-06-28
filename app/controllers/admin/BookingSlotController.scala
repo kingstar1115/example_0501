@@ -1,14 +1,13 @@
 package controllers.admin
 
 import java.time.{DayOfWeek, LocalDate}
-import javax.inject.Inject
 
 import commons.ServerError
 import commons.enums.ValidationError
 import controllers.admin.BookingSlotController._
-import dao.dayslots.BookingDao
 import dto.BookingDto._
 import forms.bookings.TimeSlotForm
+import javax.inject.Inject
 import play.api.i18n.{I18nSupport, MessagesApi}
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.mvc.{Action, Controller}
@@ -24,22 +23,24 @@ import scala.concurrent.Future
 class BookingSlotController @Inject()(bookingService: BookingService,
                                       val messagesApi: MessagesApi) extends Controller with I18nSupport {
 
-  def getBookingSlots(date: LocalDate = LocalDate.now()) = Action.async { implicit request =>
+  def getBookingSlots(countryId: Int, date: LocalDate = LocalDate.now()) = Action.async { implicit request =>
     val bookingRange = getBookingRange(date)
     (for {
-      bookingSlots <- bookingService.getBookingSlots(bookingRange.start, bookingRange.end)
+      countryDaySlots <- bookingService.getBookingSlotsByCountries(Set(countryId) ,bookingRange.start, bookingRange.end)
       hasNext <- bookingService.hasBookingSlotsAfterDate(bookingRange.end.plusDays(1))
-    } yield (bookingSlots, hasNext)).map {
-      case (bookingSlots: Seq[BookingDao.BookingSlot], hasNext: Boolean) =>
-        val daySlotDtos = bookingSlots.map(DaySlotDto.fromBookingSlot)
+    } yield (countryDaySlots, hasNext)).map {
+      case (Seq(countryWithDaySlots), hasNext: Boolean) =>
+        val countryDto =  CountryDto(countryWithDaySlots)
         val prevDate = getPrevDate(bookingRange)
         val nextDate = getNextDate(bookingRange, hasNext)
-        val selectedDate = if (daySlotDtos.exists(daySlot => daySlot.date.isEqual(date))) {
+        val selectedDate = if (countryDto.daySlots.exists(daySlot => daySlot.date.isEqual(date))) {
           date
         } else {
-          daySlotDtos.head.date
+          countryDto.daySlots.head.date
         }
-        Ok(booking(daySlotDtos, prevDate, nextDate, selectedDate))
+        Ok(booking(countryDto, prevDate, nextDate, selectedDate))
+      case _ =>
+        BadRequest(notFound())
     }
   }
 
@@ -73,17 +74,17 @@ class BookingSlotController @Inject()(bookingService: BookingService,
     }
   }
 
-  def getBookingSlot(id: Int, date: LocalDate = LocalDate.now()) = Action.async { _ =>
+  def getBookingSlot(id: Int, countryId: Int, date: LocalDate = LocalDate.now()) = Action.async { _ =>
     bookingService.findTimeSlot(id).map {
       case None =>
         BadRequest
       case Some(timeSlotRow) =>
-        Ok(timeslot(TimeSlotForm(timeSlotRow.id, date.toString, timeSlotRow.startTime.toString, timeSlotRow.endTime.toString,
-          timeSlotRow.capacity, timeSlotRow.reserved).wrapToForm()))
+        Ok(timeslot(TimeSlotForm(timeSlotRow.id, countryId ,date.toString, timeSlotRow.startTime.toString,
+          timeSlotRow.endTime.toString, timeSlotRow.capacity, timeSlotRow.reserved).wrapToForm()))
     }
   }
 
-  def updateBookingSlot(id: Int) = Action.async { implicit request =>
+  def updateBookingSlot(countryId: Int, id: Int) = Action.async { implicit request =>
     TimeSlotForm.form().bindFromRequest().fold(
       formWithErrors =>
         Future.successful(BadRequest(timeslot(formWithErrors))),
@@ -94,7 +95,7 @@ class BookingSlotController @Inject()(bookingService: BookingService,
           case Left(_) =>
             BadRequest(notFound())
           case Right(_) =>
-            Redirect(controllers.admin.routes.BookingSlotController.getBookingSlots(LocalDate.parse(form.date)))
+            Redirect(controllers.admin.routes.BookingSlotController.getBookingSlots(form.countryId, LocalDate.parse(form.date)))
         }
       }
     )

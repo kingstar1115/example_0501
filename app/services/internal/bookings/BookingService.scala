@@ -24,7 +24,8 @@ trait BookingService {
   def getBookingSlots(startDate: LocalDate = LocalDate.now(),
                       endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[BookingSlot]]
 
-  def getBookingSlotsByCountries(startDate: LocalDate = LocalDate.now(),
+  def getBookingSlotsByCountries(ids: Set[Int] = Set.empty,
+                                 startDate: LocalDate = LocalDate.now(),
                                  endDate: LocalDate = LocalDate.now().plusDays(14)): Future[Seq[CountryDaySlots]]
 
   def findTimeSlot(id: Int): Future[Option[TimeSlotsRow]]

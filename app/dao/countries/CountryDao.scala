@@ -9,7 +9,7 @@ import slick.dbio.{DBIOAction, NoStream, Streaming}
 trait CountryDao {
   def getAllCountries: DBIOAction[Seq[Country], Streaming[Country], Read]
 
-  def getCountriesWithZipCodes: DBIOAction[Seq[CountryWithZipCodes], NoStream, Read]
+  def getCountriesWithZipCodes(ids: Set[Int]): DBIOAction[Seq[CountryWithZipCodes], NoStream, Read]
 
   def getDefaultCountry: DBIOAction[Country, NoStream, Read]
 }

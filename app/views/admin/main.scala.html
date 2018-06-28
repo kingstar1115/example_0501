@@ -1,4 +1,4 @@
-@(contentHeader: Html = Html(""), scripts: Html = Html(""))(content: Html)
+@(contentHeader: Html = Html(""), scripts: Html = Html(""), activeLink: String = "")(content: Html)
 <!DOCTYPE html>
 <html lang="en">
     <head>
@@ -33,17 +33,38 @@
             </nav>
         </header>
 
-        <div class="main-sidebar">
-            <div class="sidebar">
+        <aside class="main-sidebar">
+            <section class="sidebar">
                 <ul class="sidebar-menu">
-                    <li>
-                        <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots()">
-                            <span>Booking Slots</span>
+                    <li class="treeview @if(activeLink.startsWith("bookingDays")){active menu-open}">
+                        <a href="#">
+                            <i class="fa fa-calendar"></i>
+                            <span>Booking slots</span>
+                            <span class="pull-right-container">
+                                <i class="fa fa-angle-left pull-right"></i>
+                            </span>
                         </a>
+                        <ul class="treeview-menu @if(activeLink.startsWith("bookingDays")){active}">
+                            <li class="@if(activeLink.equals("bookingDays:1")){active}">
+                                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(1)">
+                                    <span>San Mateo County</span>
+                                </a>
+                            </li>
+                            <li class="@if(activeLink.equals("bookingDays:2")){active}">
+                                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(2)">
+                                    <span>Santa Clara County</span>
+                                </a>
+                            </li>
+                            <li class="@if(activeLink.equals("bookingDays:3")){active}">
+                                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(3)">
+                                    <span>San Francisco County</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 </ul>
-            </div>
-        </div>
+            </section>
+        </aside>
 
         <div class="content-wrapper">
             <section class="content-header">@contentHeader</section>
