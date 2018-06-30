@@ -164,6 +164,13 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
         bookingSlotTimestamp.resetToHour(startHour + 1).toSqlTime, 0)
     }.toList
   }
+
+  override def getBookingTime(timeSlotId: Int): Future[Option[LocalDateTime]] = {
+    dbService.run(bookingDao.findTimeSlot(timeSlotId)).map {
+      case Some((timeSlot, daySlot)) =>
+        Some(LocalDateTime.of(daySlot.date.toLocalDate, timeSlot.startTime.toLocalTime))
+    }
+  }
 }
 
 object DefaultBookingService {

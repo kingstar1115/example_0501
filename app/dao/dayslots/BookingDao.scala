@@ -32,6 +32,8 @@ trait BookingDao {
   def hasBookingSlotsAfterDate(date: Date): Future[Boolean]
 
   def createDaySlots(daySlots: Seq[DaySlotWithTimeSlots]): DBIOAction[Seq[DaySlotWithTimeSlots], NoStream, Effect.Write with Effect.Transactional]
+
+  def findTimeSlot(timeSlotId: Int): DBIOAction[Option[(TimeSlotsRow, DaySlotsRow)], NoStream, Effect.Read]
 }
 
 object BookingDao {

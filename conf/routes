@@ -30,18 +30,18 @@ GET           /api/$version<v[1-3]>/locations                             @contr
 PUT           /api/$version<v[1-3]>/locations/:id                         @controllers.rest.LocationController.update(version, id: Int)
 
 #Tasks
-POST          /api/$version<v[1-3]>/tasks/new                             @controllers.rest.TasksController.createCustomerTask(version)
-POST          /api/$version<v[2-3]>/tasks/anonymous/new                   @controllers.rest.TasksController.createAnonymousTask(version)
-POST          /api/$version<v[2-3]>/tasks/partnership/new                 @controllers.rest.TasksController.createPartnershipTask(version)
-GET           /api/$version<v[1-3]>/tasks                                 @controllers.rest.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
-POST          /api/$version<v[1-3]>/tasks/refresh                         @controllers.rest.TasksController.onTaskUpdate(version)
-POST          /api/$version<v[1-3]>/tasks/complete                        @controllers.rest.TasksController.completeTask(version)
+POST          /api/$version<v[1-4]>/tasks/new                             @controllers.rest.TasksController.createCustomerTask(version)
+POST          /api/$version<v[2-4]>/tasks/anonymous/new                   @controllers.rest.TasksController.createAnonymousTask(version)
+POST          /api/$version<v[2-4]>/tasks/partnership/new                 @controllers.rest.TasksController.createPartnershipTask(version)
+GET           /api/$version<v[1-4]>/tasks                                 @controllers.rest.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
+POST          /api/$version<v[1-4]>/tasks/refresh                         @controllers.rest.TasksController.onTaskUpdate(version)
+POST          /api/$version<v[1-4]>/tasks/complete                        @controllers.rest.TasksController.completeTask(version)
 GET           /api/v1/tasks/pending                                       @controllers.rest.TasksController.getPendingTask
-GET           /api/$version<v[2-3]>/tasks/pending                         @controllers.rest.TasksController.getPendingTasks(version)
-GET           /api/$version<v[1-3]>/tasks/active                          @controllers.rest.TasksController.getActiveTask(version)
-GET           /api/$version<v[1-3]>/tasks/:id                             @controllers.rest.TasksController.getTask(version, id: Long)
-GET           /api/$version<v[1-3]>/tasks/agents/:id/coordinates          @controllers.rest.TasksController.getAgentCoordinates(version, id: Long)
-GET           /api/$version<v[1-3]>/tasks/:id/cancel                      @controllers.rest.TasksController.cancelTask(version, id: Long)
+GET           /api/$version<v[2-4]>/tasks/pending                         @controllers.rest.TasksController.getPendingTasks(version)
+GET           /api/$version<v[1-4]>/tasks/active                          @controllers.rest.TasksController.getActiveTask(version)
+GET           /api/$version<v[1-4]>/tasks/:id                             @controllers.rest.TasksController.getTask(version, id: Long)
+GET           /api/$version<v[1-4]>/tasks/agents/:id/coordinates          @controllers.rest.TasksController.getAgentCoordinates(version, id: Long)
+GET           /api/$version<v[1-4]>/tasks/:id/cancel                      @controllers.rest.TasksController.cancelTask(version, id: Long)
 
 #Vehicles
 GET           /api/v3/vehicles/years                                      @controllers.rest.VehiclesController.getAvailableYears

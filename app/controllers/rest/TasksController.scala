@@ -4,10 +4,11 @@ import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-import commons.enums.{TaskStatuses, ValidationError => VError}
+import commons.enums.TaskStatuses
 import controllers.rest.TasksController._
 import controllers.rest.VehiclesController._
 import controllers.rest.base._
+import dto.rest.v4.{Task => V4}
 import javax.inject.Inject
 import models.Tables._
 import play.api.data.Forms.{email => _, _}
@@ -64,6 +65,18 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
 
     version match {
+      case "v4" =>
+        processRequestF[V4.CustomerTaskDto](request.body){ dto =>
+          bookingService.getBookingTime(dto.timeSlotId).flatMap {
+            case None =>
+              Future.successful(badRequest(s"Time slot `${dto.timeSlotId}` not found"))
+            case Some(bookingTime) =>
+              val paymentInformation = CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId)
+              implicit val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude,
+                dto.longitude, bookingTime, paymentInformation, dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
+              createTask(dto.vehicleId)
+          }
+        }
       case "v3" =>
         processRequestF[CustomerTaskWithServicesDto](request.body) { dto =>
           implicit val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,

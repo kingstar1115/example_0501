@@ -101,5 +101,11 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
       }
     }.transactionally
   }
+
+  override def findTimeSlot(timeSlotId: Int): DBIOAction[Option[(TimeSlotsRow, DaySlotsRow)], NoStream, Effect.Read] = {
+    TimeSlotQueryObject.filter(_.id === timeSlotId)
+      .join(DaySlotQueryObject.query).on(_.daySlotId === _.id)
+      .result.headOption
+  }
 }
 

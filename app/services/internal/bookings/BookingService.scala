@@ -35,5 +35,7 @@ trait BookingService {
   def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean]
 
   def createDaySlotWithTimeSlots(dates: Set[Date]): Future[Seq[DaySlotWithTimeSlots]]
+
+  def getBookingTime(timeSlotId: Int): Future[Option[LocalDateTime]]
 }
 
