@@ -14,8 +14,7 @@ import scala.concurrent.Future
 @ImplementedBy(classOf[DefaultBookingService])
 trait BookingService {
 
-  def findFreeTimeSlot(dataTime: LocalDateTime): Future[Option[TimeSlotsRow]]
-
+  @deprecated
   def reserveBooking(dateTime: LocalDateTime): Future[Option[TimeSlotsRow]]
 
   def releaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow]

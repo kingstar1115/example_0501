@@ -30,12 +30,7 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
 
   private val logger = Logger(this.getClass)
 
-  override def findFreeTimeSlot(timestamp: LocalDateTime): Future[Option[TimeSlotsRow]] = {
-    val bookingDate = timestamp.toSqlDate
-    val bookingTime = timestamp.toSqlTime
-    bookingDao.findFreeTimeSlotByDateTime(bookingDate, bookingTime)
-  }
-
+  @deprecated
   override def reserveBooking(dateTime: LocalDateTime): Future[Option[TimeSlotsRow]] = {
     if (LocalDateTime.now().isBefore(dateTime)) {
       (for {
@@ -45,6 +40,12 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
     } else {
       Future.successful(None)
     }
+  }
+
+  def findFreeTimeSlot(timestamp: LocalDateTime): Future[Option[TimeSlotsRow]] = {
+    val bookingDate = timestamp.toSqlDate
+    val bookingTime = timestamp.toSqlTime
+    bookingDao.findFreeTimeSlotByDateTime(bookingDate, bookingTime)
   }
 
   private def reserveBookingInternal(timeSlot: TimeSlotsRow): Future[Option[TimeSlotsRow]] = {

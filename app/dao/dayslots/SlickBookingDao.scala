@@ -3,6 +3,7 @@ package dao.dayslots
 import java.sql.{Date, Time}
 
 import commons.utils.implicits.OrderingExt._
+import dao.countries.CountryDao
 import dao.dayslots.BookingDao.BookingSlot
 import javax.inject.Inject
 import models.Tables._
@@ -15,8 +16,8 @@ import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
 
-class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
-  extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
+class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
+                                countryDao: CountryDao) extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
 
   val logger = Logger(this.getClass)
 
@@ -38,10 +39,17 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
   }
 
   override def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[TimeSlotsRow]] = {
-    val freeTimeSlotQuery = daySlotQueryObject.withTimeSlots
-      .filter(pair => pair._1.date === date && pair._2.startTime === time && pair._2.reserved < pair._2.capacity)
-      .map(_._2)
-    db.run(freeTimeSlotQuery.result.headOption)
+    val timeSlotDBIAction = for {
+      country <- countryDao.getDefaultCountry
+      timeSlot <- daySlotQueryObject.withTimeSlots
+        .filter {
+          case (daySlotRow, timeSlotRow) => (daySlotRow.countryId === country.id && daySlotRow.date === date
+            && timeSlotRow.startTime === time && timeSlotRow.reserved < timeSlotRow.capacity)
+        }
+        .map(_._2)
+        .result.headOption
+    } yield timeSlot
+    db.run(timeSlotDBIAction)
   }
 
   def increaseBooking(timeSlot: TimeSlotsRow): Future[Int] = {

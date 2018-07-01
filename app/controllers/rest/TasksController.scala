@@ -66,7 +66,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
 
     version match {
       case "v4" =>
-        processRequestF[V4.CustomerTaskDto](request.body){ dto =>
+        processRequestF[V4.CustomerTaskDto](request.body) { dto =>
           bookingService.getBookingTime(dto.timeSlotId).flatMap {
             case None =>
               Future.successful(badRequest(s"Time slot `${dto.timeSlotId}` not found"))
@@ -107,6 +107,18 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
 
     version match {
+      case "v4" =>
+        processRequestF[V4.AnonymousTaskDto](request.body) { dto =>
+          bookingService.getBookingTime(dto.timeSlotId).flatMap {
+            case None =>
+              Future.successful(badRequest(s"Time slot `${dto.timeSlotId}` not found"))
+            case Some(bookingTime) =>
+              implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude,
+                bookingTime, AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.tip,
+                dto.serviceDto.id, dto.serviceDto.extras)
+              createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
+          }
+        }
       case "v3" =>
         processRequestF[AnonymousTaskWithServicesDto](request.body) { dto =>
           implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude,
