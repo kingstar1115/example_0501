@@ -4,7 +4,7 @@ import java.sql.Timestamp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-import commons.enums.{TaskStatuses, ValidationError => VError}
+import commons.enums.TaskStatuses
 import controllers.rest.TasksController._
 import controllers.rest.VehiclesController._
 import controllers.rest.base._
@@ -221,14 +221,18 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
       .map(_.map(taskDetails => ok(taskDetails)).getOrElse(notFound))
   }
 
-  def onTaskUpdate(version: String) = Action { implicit request =>
+  def onTaskUpdate(version: String) = Action.async { implicit request =>
     val formData = Form(mapping(
       "job_id" -> Forms.longNumber,
       "job_status" -> Forms.number
     )(TaskHook.apply)(TaskHook.unapply)).bindFromRequest().get
     logger.info(s"Request to refresh task: $formData")
-    taskService.refreshTask(formData.jobId)
-    NoContent
+    taskService.refreshTask(formData.jobId).map {
+      case Right(_) =>
+        success
+      case Left(error) =>
+        badRequest(error)
+    }
   }
 
   def getAgentCoordinates(version: String, fleetId: Long) = authorized.async { request =>
