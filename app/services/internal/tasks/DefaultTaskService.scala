@@ -49,7 +49,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   override def createTaskForCustomer(userId: Int, vehicleId: Int)
                                     (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, TookanService.AppointmentResponse]] = {
 
-    reserveBooking(appointmentTask.dateTime) { timeSlot =>
+    reserveBooking(appointmentTask) { timeSlot =>
       (for {
         taskData <- EitherT(loadCustomerTaskData(userId, vehicleId, timeSlot))
         charge <- EitherT(charge(taskData))
@@ -89,7 +89,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createTaskForAnonymous(user: User, vehicle: Vehicle)
                                      (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    reserveBooking(appointmentTask.dateTime) { timeSlot =>
+    reserveBooking(appointmentTask) { timeSlot =>
       getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
         val taskData = TaskData(user, vehicle, timeSlot, serviceInformation)
         (for {
@@ -111,7 +111,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createPartnershipTask(user: User, vehicle: Vehicle)
                                     (implicit appointmentTask: AppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    reserveBooking(appointmentTask.dateTime) { timeSlot =>
+    reserveBooking(appointmentTask) { timeSlot =>
       getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
         val taskData = TaskData(user, vehicle, timeSlot, serviceInformation)
         createTookanAppointment(taskData)
@@ -119,12 +119,16 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
   }
 
-  private def reserveBooking[T](dateTime: LocalDateTime)(mapper: TimeSlotsRow => Future[Either[ServerError, T]]): Future[Either[ServerError, T]] = {
-    bookingService.reserveBooking(dateTime).flatMap {
+  private def reserveBooking[T](appointmentTask: AppointmentTask)(mapper: TimeSlotsRow => Future[Either[ServerError, T]]): Future[Either[ServerError, T]] = {
+    (appointmentTask match {
+      case appointmentWithTimeSlot: ZonedTimeSlot =>
+        bookingService.reserveBooking(appointmentWithTimeSlot.timeSlot)
+      case _ =>
+        bookingService.reserveBooking(appointmentTask.dateTime)
+    }).flatMap {
       case Some(timeSlot) =>
         mapper.apply(timeSlot)
       case None =>
-        Logger.info(s"Failed to book time slot for $dateTime")
         Future.successful(Left(ServerError("Oops! We are sorry, but this time is no longer available. Please select another one.")))
     }
   }

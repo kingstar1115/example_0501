@@ -102,6 +102,10 @@ object TasksService {
     def hasInteriorCleaning: Boolean
   }
 
+  trait ZonedTimeSlot {
+    def timeSlot: Int
+  }
+
   case class PaidCustomerTaskWithInteriorCleaning(description: String,
                                                   address: String,
                                                   latitude: Double,
@@ -120,6 +124,18 @@ object TasksService {
                                                 promotion: Option[Int],
                                                 serviceId: Int,
                                                 extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation
+
+  case class PaidCustomerTaskWithTimeSlot(description: String,
+                                          address: String,
+                                          latitude: Double,
+                                          longitude: Double,
+                                          timeSlot: Int,
+                                          paymentInformation: CustomerPaymentInformation,
+                                          promotion: Option[Int],
+                                          serviceId: Int,
+                                          extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation with ZonedTimeSlot {
+    override def dateTime: LocalDateTime = throw new UnsupportedOperationException("Use time slot id instead of date/time")
+  }
 
   case class PaidAnonymousTaskWithInteriorCleaning(description: String,
                                                    address: String,
@@ -140,6 +156,19 @@ object TasksService {
                                                  tip: Option[Int],
                                                  serviceId: Int,
                                                  extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation
+
+  case class PaidAnonymousTaskWithTimeSlot(description: String,
+                                           address: String,
+                                           latitude: Double,
+                                           longitude: Double,
+                                           timeSlot: Int,
+                                           paymentInformation: AnonymousPaymentInformation,
+                                           promotion: Option[Int],
+                                           tip: Option[Int],
+                                           serviceId: Int,
+                                           extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation with ZonedTimeSlot {
+    override def dateTime: LocalDateTime = throw new UnsupportedOperationException("Use time slot id instead of date/time")
+  }
 
   case class PartnershipTaskWithInteriorCleaning(description: String,
                                                  address: String,

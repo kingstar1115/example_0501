@@ -67,15 +67,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     version match {
       case "v4" =>
         processRequestF[V4.CustomerTaskDto](request.body) { dto =>
-          bookingService.getBookingTime(dto.timeSlotId).flatMap {
-            case None =>
-              Future.successful(badRequest(s"Time slot `${dto.timeSlotId}` not found"))
-            case Some(bookingTime) =>
-              val paymentInformation = CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId)
-              implicit val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude,
-                dto.longitude, bookingTime, paymentInformation, dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
-              createTask(dto.vehicleId)
-          }
+          val paymentInformation = CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId)
+          implicit val appointmentTask = PaidCustomerTaskWithTimeSlot(dto.description, dto.address, dto.latitude,
+            dto.longitude, dto.timeSlotId, paymentInformation, dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
+          createTask(dto.vehicleId)
         }
       case "v3" =>
         processRequestF[CustomerTaskWithServicesDto](request.body) { dto =>
@@ -109,15 +104,10 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     version match {
       case "v4" =>
         processRequestF[V4.AnonymousTaskDto](request.body) { dto =>
-          bookingService.getBookingTime(dto.timeSlotId).flatMap {
-            case None =>
-              Future.successful(badRequest(s"Time slot `${dto.timeSlotId}` not found"))
-            case Some(bookingTime) =>
-              implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude,
-                bookingTime, AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.tip,
-                dto.serviceDto.id, dto.serviceDto.extras)
-              createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
-          }
+          implicit val appointmentTask = PaidAnonymousTaskWithTimeSlot(dto.description, dto.address, dto.latitude, dto.longitude,
+            dto.timeSlotId, AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.tip,
+            dto.serviceDto.id, dto.serviceDto.extras)
+          createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
         }
       case "v3" =>
         processRequestF[AnonymousTaskWithServicesDto](request.body) { dto =>
@@ -271,7 +261,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     val userId = request.token.get.userInfo.id
     val taskQuery = (
       for {
-        ((((task, agent), vehicle), paymentDetails)) <- Tasks
+        (((task, agent), vehicle), paymentDetails) <- Tasks
           .joinLeft(Agents).on(_.agentId === _.id)
           .join(Vehicles).on(_._1.vehicleId === _.id)
           .join(PaymentDetails).on(_._1._1.id === _.taskId)

@@ -17,6 +17,8 @@ trait BookingService {
   @deprecated
   def reserveBooking(dateTime: LocalDateTime): Future[Option[TimeSlotsRow]]
 
+  def reserveBooking(timeSlotId: Int): Future[Option[TimeSlotsRow]]
+
   def releaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow]
 
   @deprecated
@@ -34,7 +36,5 @@ trait BookingService {
   def hasBookingSlotsAfterDate(date: LocalDate): Future[Boolean]
 
   def createDaySlotWithTimeSlots(dates: Set[Date]): Future[Seq[DaySlotWithTimeSlots]]
-
-  def getBookingTime(timeSlotId: Int): Future[Option[LocalDateTime]]
 }
 
