@@ -6,7 +6,7 @@ import com.google.inject.ImplementedBy
 import commons.ServerError
 import controllers.rest.TasksController.{CompleteTaskDto, TaskDetailsDto}
 import models.Tables.{AgentsRow, TasksRow, VehiclesRow}
-import services.TookanService.AppointmentResponse
+import services.TookanService.{AppointmentDetails, AppointmentResponse}
 import services.internal.tasks.TasksService._
 
 import scala.concurrent.Future
@@ -20,7 +20,7 @@ trait TasksService {
 
   def createPartnershipTask(user: User, vehicle: Vehicle)(implicit appointmentTask: AppointmentTask): Future[Either[ServerError, AppointmentResponse]]
 
-  def refreshTask(taskId: Long): Unit
+  def refreshTask(taskId: Long): Future[Either[String, AppointmentDetails]]
 
   def pendingTasks(userId: Int): Future[Seq[(TasksRow, Option[AgentsRow], VehiclesRow)]]
 

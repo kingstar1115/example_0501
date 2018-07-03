@@ -1,10 +1,9 @@
 package controllers.rest
 
-import javax.inject.Inject
-
 import com.stripe.model.Card
 import controllers.rest.PaymentCardsController._
 import controllers.rest.base._
+import javax.inject.Inject
 import models.Tables.{UsersRow, _}
 import play.api.db.slick.DatabaseConfigProvider
 import play.api.libs.concurrent.Execution.Implicits._
@@ -103,6 +102,25 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
+  def createEphemeralKey(version: String, apiVersion: String) = authorized.async { request =>
+    val userId = request.token.get.userInfo.id
+    val stripeQuery = for {
+      user <- Users
+      if user.id === userId
+    } yield user.stripeId
+    db.run(stripeQuery.result.headOption)
+      .flatMap(result => {
+        (for {
+          stripeIdOpt <- result
+          stripeId <- stripeIdOpt
+        } yield stripeId)
+          .map(stripeId => processStripe(stripeService.createEphemeralKey(stripeId, apiVersion)) { key =>
+            Future(ok(key.getRawJson))
+          })
+          .getOrElse(Future(notFound))
+      })
+  }
+
   def processStripe[T](result: Future[Either[ErrorResponse, T]])(f: T => Future[Result]) = {
     result.flatMap {
       case Left(error) => Future.successful(badRequest(error.message, error.errorType))
@@ -114,7 +132,7 @@ class PaymentCardsController @Inject()(val tokenStorage: TokenStorage,
 object PaymentCardsController {
 
   implicit class CardExt(card: Card) {
-    def toDto = {
+    def toDto: CardDto = {
       CardDto(card.getId, card.getBrand, card.getCountry, card.getDynamicLast4, card.getExpMonth, card.getExpYear,
         card.getLast4, card.getFunding)
     }

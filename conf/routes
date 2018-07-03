@@ -33,7 +33,7 @@ PUT           /api/$version<v[1-4]>/locations/:id                         @contr
 POST          /api/$version<v[1-4]>/tasks/new                             @controllers.rest.TasksController.createCustomerTask(version)
 POST          /api/$version<v[2-4]>/tasks/anonymous/new                   @controllers.rest.TasksController.createAnonymousTask(version)
 POST          /api/$version<v[2-4]>/tasks/partnership/new                 @controllers.rest.TasksController.createPartnershipTask(version)
-GET           /api/$version<v[1-4]>/tasks                                 @controllers.rest.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10)
+GET           /api/$version<v[1-4]>/tasks                                 @controllers.rest.TasksController.listTasks(version, offset: Int = 0, limit: Int = 10, status: Set[Int], ignore: Set[Int])
 POST          /api/$version<v[1-4]>/tasks/refresh                         @controllers.rest.TasksController.onTaskUpdate(version)
 POST          /api/$version<v[1-4]>/tasks/complete                        @controllers.rest.TasksController.completeTask(version)
 GET           /api/v1/tasks/pending                                       @controllers.rest.TasksController.getPendingTask
@@ -57,6 +57,7 @@ PUT           /api/$version<v[1-4]>/vehicles/:id                          @contr
 POST          /api/$version<v[1-4]>/cards/new                             @controllers.rest.PaymentCardsController.addPaymentCard(version)
 GET           /api/$version<v[1-4]>/cards                                 @controllers.rest.PaymentCardsController.listPaymentCards(version)
 DELETE        /api/$version<v[1-4]>/cards/:id                             @controllers.rest.PaymentCardsController.removePaymentCard(version, id: String)
+GET           /api/$version<v[3-4]>/cards/ephemeral-key                     @controllers.rest.PaymentCardsController.createEphemeralKey(version, apiVersion: String)
 
 #Notifications
 POST          /api/$version<v[1-4]>/notifications/subscribe               @controllers.rest.PushNotificationsController.subscribe(version)
