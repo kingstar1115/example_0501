@@ -23,17 +23,17 @@ class VehiclesController @Inject()(val tokenStorage: TokenStorage,
 
   val db = dbConfigProvider.get.db
 
-  def getAvailableYears = Action.async { _ =>
+  def getAvailableYears(version: String) = Action.async { _ =>
     vehicleDataService.getAvailableYears
       .map(years => ok(years))
   }
 
-  def getMakesByYear(year: Int) = Action.async { _ =>
+  def getMakesByYear(version: String, year: Int) = Action.async { _ =>
     vehicleDataService.getMakesByYear(year)
       .map(makes => ok(makes))
   }
 
-  def getModelsByYearAndMake(year: Int, make: String) = Action.async { _ =>
+  def getModelsByYearAndMake(version: String, year: Int, make: String) = Action.async { _ =>
     vehicleDataService.getModelsByYearAndMake(year, make)
       .map(models => ok(models))
   }

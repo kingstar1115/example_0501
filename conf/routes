@@ -44,9 +44,9 @@ GET           /api/$version<v[1-4]>/tasks/agents/:id/coordinates          @contr
 GET           /api/$version<v[1-4]>/tasks/:id/cancel                      @controllers.rest.TasksController.cancelTask(version, id: Long)
 
 #Vehicles
-GET           /api/v3/vehicles/years                                      @controllers.rest.VehiclesController.getAvailableYears
-GET           /api/v3/vehicles/makes                                      @controllers.rest.VehiclesController.getMakesByYear(year: Int)
-GET           /api/v3/vehicles/models                                     @controllers.rest.VehiclesController.getModelsByYearAndMake(year: Int, make: String)
+GET           /api/$version<v[3-4]>/vehicles/years                        @controllers.rest.VehiclesController.getAvailableYears(version)
+GET           /api/$version<v[3-4]>/vehicles/makes                        @controllers.rest.VehiclesController.getMakesByYear(version, year: Int)
+GET           /api/$version<v[3-4]>/vehicles/models                       @controllers.rest.VehiclesController.getModelsByYearAndMake(version, year: Int, make: String)
 GET           /api/$version<v[1-4]>/vehicles                              @controllers.rest.VehiclesController.list(version, offset: Int = 0, limit: Int = 10)
 POST          /api/$version<v[1-4]>/vehicles/new                          @controllers.rest.VehiclesController.create(version)
 GET           /api/$version<v[1-4]>/vehicles/:id                          @controllers.rest.VehiclesController.get(version, id: Int)
@@ -57,7 +57,7 @@ PUT           /api/$version<v[1-4]>/vehicles/:id                          @contr
 POST          /api/$version<v[1-4]>/cards/new                             @controllers.rest.PaymentCardsController.addPaymentCard(version)
 GET           /api/$version<v[1-4]>/cards                                 @controllers.rest.PaymentCardsController.listPaymentCards(version)
 DELETE        /api/$version<v[1-4]>/cards/:id                             @controllers.rest.PaymentCardsController.removePaymentCard(version, id: String)
-GET           /api/$version<v[3-4]>/cards/ephemeral-key                     @controllers.rest.PaymentCardsController.createEphemeralKey(version, apiVersion: String)
+GET           /api/$version<v[3-4]>/cards/ephemeral-key                   @controllers.rest.PaymentCardsController.createEphemeralKey(version, apiVersion: String)
 
 #Notifications
 POST          /api/$version<v[1-4]>/notifications/subscribe               @controllers.rest.PushNotificationsController.subscribe(version)
