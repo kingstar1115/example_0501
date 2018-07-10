@@ -1,8 +1,7 @@
 package services.internal.settings
 
-import javax.inject.Inject
-
 import dao.settings.SettingsDao
+import javax.inject.Inject
 import play.api.Logger
 import play.api.libs.concurrent.Execution.Implicits._
 import services.internal.cache.CacheService
@@ -16,15 +15,17 @@ class DefaultSettingsService @Inject()(cacheService: CacheService,
                                        settingsDao: SettingsDao,
                                        servicesService: ServicesService) extends SettingsService {
 
+  val logger = Logger(this.getClass)
+
   override def getPriceSettings: Future[PriceSettings] = {
-    val servicesFuture = for {
+    (for {
       exteriorCleaning <- servicesService.getExteriorCleaningService
       exteriorAndInterior <- servicesService.getExteriorAndInteriorCleaningService
-    } yield (exteriorCleaning, exteriorAndInterior)
-    servicesFuture.map { tuple =>
-      val carWashingPrice = tuple._1.price
-      val interiorCleaningPrice = tuple._2.price - carWashingPrice
-      PriceSettings(carWashingPrice, interiorCleaningPrice)
+    } yield (exteriorCleaning, exteriorAndInterior)).map {
+      case (exteriorCleaning, exteriorAndInterior) =>
+        val carWashingPrice = exteriorCleaning.price
+        val interiorCleaningPrice = exteriorAndInterior.price - carWashingPrice
+        PriceSettings(carWashingPrice, interiorCleaningPrice)
     }
   }
 
@@ -49,7 +50,7 @@ class DefaultSettingsService @Inject()(cacheService: CacheService,
 
   private def loadValue(key: String): Future[Option[String]] = {
     settingsDao.findByKey(key).map(_.map { setting =>
-      Logger.info(s"Caching setting '$key:${setting.value}'")
+      logger.debug(s"Caching setting '$key:${setting.value}'")
       cacheService.set(key, setting.value)
       setting.value
     })

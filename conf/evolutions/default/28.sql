@@ -239,3 +239,14 @@ INSERT INTO zip_codes (zip_code, country_id) VALUES ('94169', 3);
 INSERT INTO zip_codes (zip_code, country_id) VALUES ('94170', 3);
 INSERT INTO zip_codes (zip_code, country_id) VALUES ('94172', 3);
 INSERT INTO zip_codes (zip_code, country_id) VALUES ('94188', 3);
+
+DELETE FROM time_slots
+WHERE start_time = (TIME '07:00:00')
+      AND reserved = 0
+      AND day_slot_id IN (SELECT id
+                          FROM day_slots
+                          WHERE date >= current_date);
+
+UPDATE settings
+SET value = 9
+WHERE key = 'day.slot.capacity';
