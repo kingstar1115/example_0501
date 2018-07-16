@@ -34,7 +34,7 @@ class BookingSlotController @Inject()(bookingService: BookingService,
         val daySlotDtos = bookingSlots.map(DaySlotDto.fromBookingSlot)
         val prevDate = getPrevDate(bookingRange)
         val nextDate = getNextDate(bookingRange, hasNext)
-        val selectedDate = if (daySlotDtos.exists(daySlot => daySlot.date.isEqual(date))) {
+        val selectedDate = if (daySlotDtos.isEmpty || daySlotDtos.exists(daySlot => daySlot.date.isEqual(date))) {
           date
         } else {
           daySlotDtos.head.date
