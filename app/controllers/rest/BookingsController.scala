@@ -23,7 +23,7 @@ class BookingsController @Inject()(val tokenStorage: TokenStorage,
       case "v4" =>
         bookingService.getBookingSlotsByCountries()
           .map(_.map(CountryBookingsDto.convert))
-          .map(bookingSlotsByCountries => ok(bookingSlotsByCountries))
+          .map(bookingSlotsByCountries => ok(CountryBookingsDto.toJson(bookingSlotsByCountries)))
       case _ =>
         Future.successful(badRequest(s"Unsupported API version $version for '/booking-slots'"))
     }

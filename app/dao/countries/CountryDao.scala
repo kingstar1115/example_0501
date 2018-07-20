@@ -16,7 +16,7 @@ trait CountryDao {
 
 object CountryDao {
 
-  case class Country(id: Int, createdDate: java.sql.Timestamp, name: String, default: Boolean)
+  case class Country(id: Int, createdDate: java.sql.Timestamp, name: String, code: String, default: Boolean)
 
   case class ZipCode(id: Int, createdDate: java.sql.Timestamp, zipCode: String, countryId: Int)
 

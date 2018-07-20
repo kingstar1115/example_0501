@@ -42,9 +42,10 @@ object SlickCountryDao {
     override val id: Rep[Int] = column[Int]("id", O.AutoInc, O.PrimaryKey)
     override val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
     val name: Rep[String] = column[String]("name", O.Length(100, varying = true))
+    val code: Rep[String] = column[String]("code", O.Length(100, varying = true))
     val default: Rep[Boolean] = column[Boolean]("default", O.Default(false))
 
-    override def * = (id, createdDate, name, default) <> (Country.tupled, Country.unapply)
+    override def * = (id, createdDate, name, code, default) <> (Country.tupled, Country.unapply)
   }
 
   class ZipCodesTable(tableTag: Tag) extends BaseTable[ZipCode](tableTag, "zip_codes") {

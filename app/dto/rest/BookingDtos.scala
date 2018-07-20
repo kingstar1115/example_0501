@@ -7,21 +7,33 @@ import commons.utils.implicits.WritesExt._
 import dao.countries.CountryDao.CountryWithZipCodes
 import dao.dayslots.BookingDao.BookingSlot
 import models.Tables._
-import play.api.libs.json.{Json, Writes}
+import play.api.libs.json._
 import services.internal.bookings.DefaultBookingService.CountryDaySlots
 
 object BookingDtos {
 
-  case class CountryBookingsDto(id: Int, name: String, zipCodes: Set[String], daySlots: Set[BookingDayDto])
+  case class CountryBookingsDto(id: Int, name: String, code: String, zipCodes: Set[String], daySlots: Set[BookingDayDto])
 
   object CountryBookingsDto {
 
-    implicit val countryDtoWrites: Writes[CountryBookingsDto] = Json.writes[CountryBookingsDto]
-
     def convert(countryDaySlot: CountryDaySlots): CountryBookingsDto = {
       val CountryWithZipCodes(country, zipCodes) = countryDaySlot.country
-      new CountryBookingsDto(country.id, country.name, zipCodes.map(_.zipCode),
+      new CountryBookingsDto(country.id, country.name, country.code, zipCodes.map(_.zipCode),
         BookingDayDto.fromBookingSlots(countryDaySlot.bookingSlots).toSet)
+    }
+
+    def toJson(countryBookingsDtos: Seq[CountryBookingsDto]): JsValue = {
+      val tuples = countryBookingsDtos.map(countryBookingSlots => {
+        countryBookingSlots.code -> JsObject(
+          Seq(
+            "id" -> JsNumber(countryBookingSlots.id),
+            "name" -> JsString(countryBookingSlots.name),
+            "zipCodes" -> Json.toJson(countryBookingSlots.zipCodes),
+            "daySlots" -> Json.toJson(countryBookingSlots.daySlots)
+          )
+        )
+      })
+      JsObject(tuples)
     }
   }
 

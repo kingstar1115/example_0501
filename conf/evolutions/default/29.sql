@@ -4,12 +4,13 @@ CREATE TABLE countries (
   id           SERIAL PRIMARY KEY,
   created_date TIMESTAMP    NOT NULL DEFAULT now(),
   name         VARCHAR(100) NOT NULL,
+  code         VARCHAR(100) NOT NULL UNIQUE,
   "default"    BOOLEAN      NOT NULL DEFAULT false
 );
 
-INSERT INTO countries (name, "default") VALUES ('San Mateo County', true);
-INSERT INTO countries (name) VALUES ('Santa Clara County');
-INSERT INTO countries (name) VALUES ('San Francisco County');
+INSERT INTO countries (name, code ,"default") VALUES ('San Mateo County', 'sanMateo' ,true);
+INSERT INTO countries (name, code) VALUES ('Santa Clara County', 'santaClara');
+INSERT INTO countries (name, code) VALUES ('San Francisco County', 'sanFrancisco');
 
 ALTER TABLE day_slots
   DROP CONSTRAINT day_slots_date_key,
