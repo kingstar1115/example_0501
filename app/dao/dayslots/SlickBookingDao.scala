@@ -38,7 +38,7 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
     }
   }
 
-  override def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[TimeSlotsRow]] = {
+  override def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[(TimeSlotsRow, DaySlotsRow)]] = {
     val timeSlotDBIAction = for {
       country <- countryDao.getDefaultCountry
       timeSlot <- daySlotQueryObject.withTimeSlots
@@ -46,7 +46,9 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
           case (daySlotRow, timeSlotRow) => (daySlotRow.countryId === country.id && daySlotRow.date === date
             && timeSlotRow.startTime === time && timeSlotRow.reserved < timeSlotRow.capacity)
         }
-        .map(_._2)
+        .map {
+          case (daySlotRow, timeSlotRow) => (timeSlotRow, daySlotRow)
+        }
         .result.headOption
     } yield timeSlot
     db.run(timeSlotDBIAction)

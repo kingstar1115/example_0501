@@ -31,18 +31,18 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
   private val logger = Logger(this.getClass)
 
   @deprecated
-  override def reserveBooking(dateTime: LocalDateTime): Future[Option[TimeSlotsRow]] = {
+  override def reserveBooking(dateTime: LocalDateTime): Future[Option[(TimeSlotsRow, DaySlotsRow)]] = {
     if (LocalDateTime.now().isBefore(dateTime)) {
       (for {
         timeSlot <- OptionT(findFreeTimeSlot(dateTime))
-        updatedTimeSlot <- OptionT(reserveBookingInternal(timeSlot))
-      } yield updatedTimeSlot).inner
+        updatedTimeSlot <- OptionT(reserveBookingInternal(timeSlot._1))
+      } yield (updatedTimeSlot, timeSlot._2)).inner
     } else {
       Future.successful(None)
     }
   }
 
-  def findFreeTimeSlot(timestamp: LocalDateTime): Future[Option[TimeSlotsRow]] = {
+  def findFreeTimeSlot(timestamp: LocalDateTime): Future[Option[(TimeSlotsRow, DaySlotsRow)]] = {
     val bookingDate = timestamp.toSqlDate
     val bookingTime = timestamp.toSqlTime
     bookingDao.findFreeTimeSlotByDateTime(bookingDate, bookingTime)
@@ -57,11 +57,11 @@ class DefaultBookingService @Inject()(bookingDao: BookingDao,
     }
   }
 
-  override def reserveBooking(timeSlotId: Int): Future[Option[TimeSlotsRow]] = {
+  override def reserveBooking(timeSlotId: Int): Future[Option[(TimeSlotsRow, DaySlotsRow)]] = {
     (for {
-      timeSlot <- OptionT(findTimeSlot(timeSlotId))
-      updatedTimeSlot <- OptionT(reserveBookingInternal(timeSlot))
-    } yield updatedTimeSlot).inner
+      timeSlot <- OptionT(dbService.run(TimeSlotQueryObject.findById(timeSlotId)))
+      updatedTimeSlot <- OptionT(reserveBookingInternal(timeSlot._1))
+    } yield (updatedTimeSlot, timeSlot._2)).inner
   }
 
   def releaseBooking(timeSlot: TimeSlotsRow): Future[TimeSlotsRow] = {

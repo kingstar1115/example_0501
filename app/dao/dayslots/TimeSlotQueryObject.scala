@@ -13,4 +13,9 @@ object TimeSlotQueryObject extends QueryObject[TimeSlots, TimeSlotsRow] {
     query returning query.map(_.id) into ((item, generatedId) => item.copy(id = generatedId))
   }
 
+  def findById(id: Int)  =
+    (for {
+      timeSlot <- query if timeSlot.id === id
+      daySlot <- DaySlots if daySlot.id === timeSlot.daySlotId
+    } yield (timeSlot, daySlot)).result.headOption
 }

@@ -46,11 +46,11 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   override def createTaskForCustomer(userId: Int, vehicleId: Int)
                                     (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, TookanService.AppointmentResponse]] = {
 
-    reserveBooking(appointmentTask) { timeSlot =>
+    reserveBooking(appointmentTask) { (timeSlot, daySlot) =>
       (for {
         taskData <- EitherT(loadCustomerTaskData(userId, vehicleId, timeSlot))
         charge <- EitherT(charge(taskData))
-        tookanTask <- EitherT(createTookanAppointment(taskData).flatMap(refund(_, charge)))
+        tookanTask <- EitherT(createTookanAppointment(taskData, timeSlot, daySlot).flatMap(refund(_, charge)))
       } yield (taskData, charge, tookanTask)).inner
         .flatMap {
           case Left(error) =>
@@ -58,7 +58,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
               .map(_ => Left(error))
           case Right((taskData, charge, tookanTask)) =>
             charge.map(c => stripeService.updateChargeMetadata(c, tookanTask.jobId))
-            saveTask(taskData, charge, tookanTask)
+            saveTask(taskData, charge, tookanTask, timeSlot, daySlot)
         }
     }
   }
@@ -86,12 +86,12 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createTaskForAnonymous(user: User, vehicle: Vehicle)
                                      (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    reserveBooking(appointmentTask) { timeSlot =>
+    reserveBooking(appointmentTask) { (timeSlot, daySlot) =>
       getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
         val taskData = TaskData(user, vehicle, timeSlot, serviceInformation)
         (for {
           charge <- EitherT(charge(taskData))
-          tookanTask <- EitherT(createTookanAppointment(taskData).flatMap(refund(_, charge)))
+          tookanTask <- EitherT(createTookanAppointment(taskData, timeSlot, daySlot).flatMap(refund(_, charge)))
         } yield (charge, tookanTask)).inner
           .flatMap {
             case Left(error) =>
@@ -108,23 +108,23 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createPartnershipTask(user: User, vehicle: Vehicle)
                                     (implicit appointmentTask: AppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    reserveBooking(appointmentTask) { timeSlot =>
+    reserveBooking(appointmentTask) { (timeSlot, daySlot) =>
       getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
         val taskData = TaskData(user, vehicle, timeSlot, serviceInformation)
-        createTookanAppointment(taskData)
+        createTookanAppointment(taskData, timeSlot, daySlot)
       }
     }
   }
 
-  private def reserveBooking[T](appointmentTask: AppointmentTask)(mapper: TimeSlotsRow => Future[Either[ServerError, T]]): Future[Either[ServerError, T]] = {
+  private def reserveBooking[T](appointmentTask: AppointmentTask)(mapper: (TimeSlotsRow, DaySlotsRow) => Future[Either[ServerError, T]]): Future[Either[ServerError, T]] = {
     (appointmentTask match {
       case appointmentWithTimeSlot: ZonedTimeSlot =>
         bookingService.reserveBooking(appointmentWithTimeSlot.timeSlot)
       case _ =>
         bookingService.reserveBooking(appointmentTask.dateTime)
     }).flatMap {
-      case Some(timeSlot) =>
-        mapper.apply(timeSlot)
+      case Some((timeSlot, daySlot)) =>
+        mapper.apply(timeSlot, daySlot)
       case None =>
         Future.successful(Left(ServerError("Oops! We are sorry, but this time is no longer available. Please select another one.")))
     }
@@ -223,12 +223,13 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   private def createTookanAppointment[T <: AppointmentTask, U <: AbstractUser, V <: AbstractVehicle]
-  (taskData: TaskData[U, V])
+  (taskData: TaskData[U, V], timeSlot: TimeSlotsRow, daySlot: DaySlotsRow)
   (implicit appointmentTask: T): Future[Either[ServerError, AppointmentResponse]] = {
     val metadata = getMetadata(taskData.vehicle, taskData.serviceInformation.services)
     val user = taskData.user
     tookanService.createAppointment(user.name, user.phone, appointmentTask.address, appointmentTask.description,
-      appointmentTask.dateTime, Option(appointmentTask.latitude), Option(appointmentTask.longitude), user.email, metadata)
+      LocalDateTime.of(daySlot.date.toLocalDate, timeSlot.startTime.toLocalTime), Option(appointmentTask.latitude),
+      Option(appointmentTask.longitude), user.email, metadata)
       .map(_.left.map(error => ServerError(error.message, Some(TookanError))))
   }
 
@@ -246,7 +247,9 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   private def saveTask(data: TaskData[PersistedUser, PersistedVehicle],
                        charge: Option[Charge],
-                       tookanTask: AppointmentResponse)
+                       tookanTask: AppointmentResponse,
+                       timeSlot: TimeSlotsRow,
+                       daySlot: DaySlotsRow)
                       (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
     val paymentMethod = getPaymentMethod(appointmentTask.paymentInformation)
     val basePrice = data.serviceInformation.services.map(_.price).sum
@@ -259,11 +262,12 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       })
       .getOrElse(0)
 
+    val scheduledTime = Timestamp.valueOf(LocalDateTime.of(daySlot.date.toLocalDate, timeSlot.startTime.toLocalTime))
     val insertTaskAction = for {
       taskId <- (
         Tasks.map(task => (task.jobId, task.userId, task.scheduledTime, task.vehicleId, task.hasInteriorCleaning, task.latitude, task.longitude, task.timeSlotId))
           returning Tasks.map(_.id)
-          += ((tookanTask.jobId, data.user.id, Timestamp.valueOf(appointmentTask.dateTime), data.vehicle.id,
+          += ((tookanTask.jobId, data.user.id, scheduledTime, data.vehicle.id,
           data.serviceInformation.hasInteriorCleaning, appointmentTask.latitude, appointmentTask.longitude, data.timeSlot.id))
         )
       _ <- (

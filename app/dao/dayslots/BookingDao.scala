@@ -18,7 +18,7 @@ trait BookingDao {
 
   def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]]
 
-  def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[TimeSlotsRow]]
+  def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[(TimeSlotsRow, DaySlotsRow)]]
 
   def increaseBooking(timeSlot: TimeSlotsRow): Future[Int]
 
