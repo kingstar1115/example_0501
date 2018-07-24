@@ -11,7 +11,6 @@ import controllers.rest.TasksController.TipDto
 import javax.inject.{Inject, Singleton}
 import models.Tables._
 import play.api.libs.concurrent.Execution.Implicits._
-import play.api.libs.json.Json
 import play.api.{Configuration, Logger}
 import services.StripeService._
 
@@ -92,15 +91,8 @@ class StripeService @Inject()(configuration: Configuration) {
   def charge(chargeRequest: ChargeRequest, metaData: Map[String, String] = Map.empty): Future[Either[ErrorResponse, Charge]] = {
     chargeRequest match {
       case TokenCharge(Some(email), source, _, _) =>
-        val token = Token.retrieve(source)
-        Option(token.getCard)
-          .map(_ => chargeFromTokenCard(chargeRequest, metaData, email, source))
-          .getOrElse {
-            chargeInternal(chargeRequest, metaData) { chargeParameters =>
-              logger.warn(s"No card retrieved from token ${Json.prettyPrint(Json.parse(token.toJson))}")
-              chargeParameters.put("source", source)
-            }
-          }
+        val customer = createCustomerIfNotExists(email)
+        linkTokenToCustomerAndCharge(chargeRequest, metaData, customer, source)
 
       case TokenCharge(None, token, _, _) =>
         logger.warn(s"Charging `$token` token for anonymous")
@@ -109,10 +101,8 @@ class StripeService @Inject()(configuration: Configuration) {
         }
 
       case tokenCharge: CustomerTokenCharge =>
-        chargeInternal(chargeRequest, metaData) { chargeParameters =>
-          chargeParameters.put("customer", tokenCharge.customerId)
-          chargeParameters.put("source", tokenCharge.token)
-        }
+        val customer = Customer.retrieve(tokenCharge.customerId)
+        linkTokenToCustomerAndCharge(tokenCharge, metaData, customer, tokenCharge.token)
 
       case cardCharge: CustomerCardCharge =>
         chargeInternal(chargeRequest, metaData) { chargeParameters =>
@@ -125,8 +115,7 @@ class StripeService @Inject()(configuration: Configuration) {
     }
   }
 
-  private def chargeFromTokenCard(chargeRequest: ChargeRequest, metaData: Map[String, String], email: String, source: String) = {
-    val customer = createCustomerIfNotExists(email)
+  private def linkTokenToCustomerAndCharge(chargeRequest: ChargeRequest, metaData: Map[String, String], customer: Customer, source: String) = {
     val params = new util.HashMap[String, Object]() {
       put("source", source)
     }
