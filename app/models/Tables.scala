@@ -202,7 +202,7 @@ trait Tables {
     val userId: Rep[Int] = column[Int]("user_id")
 
     /** Foreign key referencing Users (database name locations_user_id_fkey) */
-    lazy val usersFk = foreignKey("locations_user_id_fkey", userId, Users)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
+    lazy val usersFk = foreignKey("locations_user_id_fkey", userId, Users)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.Cascade)
   }
 
   /** Collection-like TableQuery object for table Locations */
@@ -252,7 +252,7 @@ trait Tables {
     val createdDate: Rep[java.sql.Timestamp] = column[java.sql.Timestamp]("created_date")
 
     /** Foreign key referencing Tasks (database name payment_details_task_id_fkey) */
-    lazy val tasksFk = foreignKey("payment_details_task_id_fkey", taskId, Tasks)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
+    lazy val tasksFk = foreignKey("payment_details_task_id_fkey", taskId, Tasks)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.Cascade)
   }
 
   /** Collection-like TableQuery object for table PaymentDetails */
@@ -465,17 +465,17 @@ trait Tables {
     /** Database column rating SqlType(int4), Default(None) */
     val rating: Rep[Option[Int]] = column[Option[Int]]("rating", O.Default(None))
 
-    /** Foreign key referencing Agents (database name jobs_agent_id_fkey) */
-    lazy val agentsFk = foreignKey("jobs_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
+    /** Foreign key referencing Agents (database name task_agent_id_fkey) */
+    lazy val agentsFk = foreignKey("tasks_agent_id_fkey", agentId, Agents)(r => Rep.Some(r.id), onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
     /** Foreign key referencing TimeSlots (database name tasks_time_slot_id_fkey) */
     lazy val timeSlotsFk = foreignKey("tasks_time_slot_id_fkey", timeSlotId, TimeSlots)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
-    /** Foreign key referencing Users (database name jobs_user_id_fkey) */
-    lazy val usersFk = foreignKey("jobs_user_id_fkey", userId, Users)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
-    /** Foreign key referencing Vehicles (database name jobs_vehicle_id_fkey) */
-    lazy val vehiclesFk = foreignKey("jobs_vehicle_id_fkey", vehicleId, Vehicles)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
+    /** Foreign key referencing Users (database name tasks_user_id_fkey) */
+    lazy val usersFk = foreignKey("tasks_user_id_fkey", userId, Users)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.Cascade)
+    /** Foreign key referencing Vehicles (database name tasks_vehicle_id_fkey) */
+    lazy val vehiclesFk = foreignKey("tasks_vehicle_id_fkey", vehicleId, Vehicles)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.Cascade)
 
     /** Uniqueness Index over (jobId) (database name jobs_job_id_key) */
-    val index1 = index("jobs_job_id_key", jobId, unique = true)
+    val index1 = index("tasks_job_id_key", jobId, unique = true)
   }
 
   /** Collection-like TableQuery object for table Tasks */
@@ -516,7 +516,7 @@ trait Tables {
     val taskId: Rep[Int] = column[Int]("task_id")
 
     /** Foreign key referencing Tasks (database name task_services_job_id_fkey) */
-    lazy val tasksFk = foreignKey("task_services_job_id_fkey", taskId, Tasks)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
+    lazy val tasksFk = foreignKey("task_services_job_id_fkey", taskId, Tasks)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.Cascade)
   }
 
   /** Collection-like TableQuery object for table TaskServices */
@@ -710,7 +710,7 @@ trait Tables {
     val vehicleSizeClass: Rep[String] = column[String]("vehicle_size_class", O.Length(150, varying = true))
 
     /** Foreign key referencing Users (database name vehicles_user_id_fkey) */
-    lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.NoAction)
+    lazy val usersFk = foreignKey("vehicles_user_id_fkey", userId, Users)(r => r.id, onUpdate = ForeignKeyAction.NoAction, onDelete = ForeignKeyAction.Cascade)
   }
 
   /** Collection-like TableQuery object for table Vehicles */
