@@ -20,7 +20,7 @@ libraryDependencies ++= Seq(cache, ws, filters, "postgresql" % "postgresql" % "9
   "com.typesafe.play.modules" %% "play-modules-redis" % "2.4.0",
   "com.github.t3hnar" % "scala-bcrypt_2.10" % "2.5",
   "com.typesafe.play" %% "play-mailer" % "3.0.1",
-  "com.stripe" % "stripe-java" % "1.45.0",
+  "com.stripe" % "stripe-java" % "5.36.0",
   "com.relayrides" % "pushy" % "0.8.1",
   "io.netty" % "netty-tcnative-boringssl-static" % "1.1.33.Fork22"
 )

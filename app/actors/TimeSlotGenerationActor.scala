@@ -6,28 +6,22 @@ import actors.TimeSlotGenerationActor.GenerateTimeSlots
 import akka.actor.Actor
 import commons.utils.TimeUtils._
 import javax.inject.Inject
-import models.Tables.DaySlotsRow
 import play.api.Logger
-import play.api.libs.concurrent.Execution.Implicits._
-import services.internal.dayslots.DaySlotsService
+import services.internal.bookings.BookingService
 
-
-class TimeSlotGenerationActor @Inject()(daySlotsService: DaySlotsService) extends Actor {
+class TimeSlotGenerationActor @Inject()(bookingService: BookingService) extends Actor {
 
   private val logger = Logger(this.getClass)
 
   override def receive: Receive = {
     case GenerateTimeSlots =>
       generateTimeSlots
-
     case _ =>
   }
 
   private def generateTimeSlots = {
     logger.info(s"Generating booking slots $currentDate - ${currentDate.addDays(13)}")
-    val bookingSlotDays = getBookingSlotDays
-    daySlotsService.findByDates(bookingSlotDays)
-      .map(createMissingBookingSlots(_, bookingSlotDays))
+    bookingService.createDaySlotWithTimeSlots(getBookingSlotDays)
   }
 
   private def getBookingSlotDays: Set[Date] = {
@@ -35,12 +29,6 @@ class TimeSlotGenerationActor @Inject()(daySlotsService: DaySlotsService) extend
     (0 to 13 map { index =>
       now.addDays(index)
     }).toSet
-  }
-
-  private def createMissingBookingSlots(bookingSlots: Seq[DaySlotsRow], dates: Set[Date]): Unit = {
-    val existingDates = bookingSlots.map(_.date)
-    dates.filter(date => !existingDates.contains(date))
-      .foreach(daySlotsService.createDaySlotWithTimeSlots)
   }
 
 }

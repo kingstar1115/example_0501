@@ -27,8 +27,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
                                 tokenProvider: TokenProvider,
                                 val tokenStorage: TokenStorage,
                                 val ws: WSClient,
-                                mailService: EmailService)
-  extends BaseController() with FacebookCalls {
+                                mailService: EmailService) extends BaseController() {
 
   val db = dbConfigProvider.get.db
 
@@ -75,7 +74,8 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
     db.run(userQuery.result.headOption)
       .map(userOpt => userOpt.map(Right(_)).getOrElse(Left(validationFailed("User not found"))))
       .flatMap {
-        case Left(error) => Future.successful(error)
+        case Left(error) =>
+          Future.successful(error)
         case Right(user) =>
           val code = tokenProvider.generateKey
           val recoverURL = controllers.routes.PasswordRecoveryController.getRecoverPasswordPage(code).absoluteURL()
@@ -92,16 +92,12 @@ object LogInController {
 
   case class EmailLogInDto(email: String, password: String)
 
-  case class FacebookLogInDto(token: String)
-
   case class ForgotPasswordDto(email: String)
 
   implicit val emailLogInDtoReads: Reads[EmailLogInDto] = (
     (JsPath \ "email").read[String](email) and
       (JsPath \ "password").read[String](minLength[String](6) keepAnd maxLength[String](32))
     ) (EmailLogInDto.apply _)
-
-  implicit val facebookLogInDtoReads: Reads[FacebookLogInDto] = (JsPath \ "token").read[String].map(FacebookLogInDto.apply)
 
   implicit val forgotPasswordDtoReads: Reads[ForgotPasswordDto] = (JsPath \ 'email).read[String].map(ForgotPasswordDto)
 

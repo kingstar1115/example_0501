@@ -4,12 +4,13 @@ import play.api.data.Form
 import play.api.data.Forms._
 
 
-case class TimeSlotForm(id: Int, date: String, startTime: String, endTime: String, capacity: Int, reserved: Int) {
+case class TimeSlotForm(id: Int, countryId: Int, date: String, startTime: String, endTime: String, capacity: Int, reserved: Int) {
   def wrapToForm(): Form[TimeSlotForm] = TimeSlotForm.form().fill(this)
 }
 
 object TimeSlotForm {
   val Id = "id"
+  val CountryId = "countryId"
   val Date = "date"
   val StartTime = "startTime"
   val EndTime = "endTime"
@@ -19,6 +20,7 @@ object TimeSlotForm {
   def form() = Form(
     mapping(
       Id -> number,
+      CountryId -> number,
       Date -> text,
       StartTime -> text,
       EndTime -> text,

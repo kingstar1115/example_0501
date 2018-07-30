@@ -11,9 +11,10 @@
             <h3 class="box-title">Time Slot:</h3>
         </div>
         <form role="form" method="post"
-        action="@controllers.admin.routes.BookingSlotController.updateBookingSlot(timeSlotForm("id").value.get.toInt)">
+        action="@controllers.admin.routes.BookingSlotController.updateBookingSlot(timeSlotForm("countryId").value.get.toInt, timeSlotForm("id").value.get.toInt)">
             <div class="box-body">
                 @input(timeSlotForm("id"), inputType = "hidden")
+                @input(timeSlotForm("countryId"), inputType = "hidden")
                 @input(timeSlotForm("date"), inputType = "hidden")
                 @input(timeSlotForm("startTime"), Some("Start Time"), args = Map('readonly -> true))
                 @input(timeSlotForm("endTime"), Some("End Time"), args = Map('readonly -> true))
@@ -21,7 +22,7 @@
                 @input(timeSlotForm("reserved"), Some("Reserved"), args = Map('readonly -> true))
             </div>
             <div class="box-footer">
-                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(LocalDate.parse(timeSlotForm("date").value.get))"
+                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(timeSlotForm("countryId").value.get.toInt, LocalDate.parse(timeSlotForm("date").value.get))"
                     class="btn btn-default">Cancel</a>
                 <button type="submit" class="btn btn-primary pull-right">Submit</button>
             </div>

@@ -1,33 +1,33 @@
 package dao.dayslots
 
 import java.sql.{Date, Time}
-import javax.inject.Inject
 
 import commons.utils.implicits.OrderingExt._
+import dao.countries.CountryDao
 import dao.dayslots.BookingDao.BookingSlot
-import models.Tables
+import javax.inject.Inject
 import models.Tables._
 import play.api.Logger
 import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
+import services.internal.bookings.DefaultBookingService.DaySlotWithTimeSlots
+import slick.dbio.Effect.Read
 import slick.driver.JdbcProfile
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
 
-class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
-  extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
+class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider,
+                                countryDao: CountryDao) extends BookingDao with HasDatabaseConfigProvider[JdbcProfile] {
+
+  val logger = Logger(this.getClass)
 
   import driver.api._
-
-  override def query: TableQuery[DaySlots] = DaySlots
 
   private val daySlotQueryObject = DaySlotQueryObject
   private val timeSlotQueryObject = TimeSlotQueryObject
 
-  override def findByDates(dates: Set[Date]): Future[Seq[DaySlotsRow]] = {
-    val daySlotQuery = daySlotQueryObject.filter(_.date inSet dates).sortBy(_.date.asc)
-    db.run(daySlotQuery.result)
+  override def findByDates(dates: Set[Date]): StreamingDBIO[Seq[DaySlotsRow], DaySlotsRow] = {
+    daySlotQueryObject.filter(_.date.inSet(dates)).result
   }
 
   override def findByDateWithTimeSlots(date: Date): Future[Option[(DaySlotsRow, Seq[TimeSlotsRow])]] = {
@@ -38,11 +38,20 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
     }
   }
 
-  override def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[TimeSlotsRow]] = {
-    val freeTimeSlotQuery = daySlotQueryObject.withTimeSlots
-      .filter(pair => pair._1.date === date && pair._2.startTime === time && pair._2.reserved < pair._2.capacity)
-      .map(_._2)
-    db.run(freeTimeSlotQuery.result.headOption)
+  override def findFreeTimeSlotByDateTime(date: Date, time: Time): Future[Option[(TimeSlotsRow, DaySlotsRow)]] = {
+    val timeSlotDBIAction = for {
+      country <- countryDao.getDefaultCountry
+      timeSlot <- daySlotQueryObject.withTimeSlots
+        .filter {
+          case (daySlotRow, timeSlotRow) => (daySlotRow.countryId === country.id && daySlotRow.date === date
+            && timeSlotRow.startTime === time && timeSlotRow.reserved < timeSlotRow.capacity)
+        }
+        .map {
+          case (daySlotRow, timeSlotRow) => (timeSlotRow, daySlotRow)
+        }
+        .result.headOption
+    } yield timeSlot
+    db.run(timeSlotDBIAction)
   }
 
   def increaseBooking(timeSlot: TimeSlotsRow): Future[Int] = {
@@ -70,24 +79,43 @@ class SlickBookingDao @Inject()(val dbConfigProvider: DatabaseConfigProvider)
     }
   }
 
+  override def findDaySlotsForCountries(countries: Set[Int], startDate: Date, endDate: Date)
+  : DBIOAction[List[BookingSlot], NoStream, Read] = {
+    daySlotQueryObject
+      .filter(daySlot => daySlot.countryId.inSet(countries) && daySlot.date >= startDate && daySlot.date <= endDate)
+      .join(TimeSlots).on(_.id === _.daySlotId).result
+      .map(_.groupBy(_._1.id).map({
+        case (_, daySlotTuples) =>
+          val (daySlot, timeSlot) = daySlotTuples.head
+          val timeSlots = List(timeSlot) ::: daySlotTuples.tail.map(_._2).toList
+          BookingSlot(daySlot, timeSlots.sortBy(_.startTime))
+      }).toList.sortBy(_.daySlot.date))
+  }
+
   override def hasBookingSlotsAfterDate(date: Date): Future[Boolean] = {
     db.run(daySlotQueryObject.filter(_.date >= date).length.result)
       .map(_ > 0)
   }
 
-  override def insertDaySlot(daySlot: Tables.DaySlotsRow, timeSlots: Seq[Tables.TimeSlotsRow]): Future[(Tables.DaySlotsRow, Seq[Tables.TimeSlotsRow])] = {
-    val insertAction = (for {
-      savedDaySlot <- daySlotQueryObject.insertQuery += daySlot
-      savedTimeSlots <- timeSlotQueryObject.insertQuery ++= timeSlots.map(timeSlot => timeSlot.copy(daySlotId = savedDaySlot.id))
-    } yield (savedDaySlot, savedTimeSlots)).transactionally
-    val insertFuture = db.run(insertAction)
-    insertFuture.onComplete {
-      case Success((savedDaySlot, _)) =>
-        Logger.info(s"Successfully created day slot for '${savedDaySlot.date}' with id: ${savedDaySlot.id}")
-      case Failure(e) =>
-        Logger.info(s"Failed to save day slot for '${daySlot.date}'", e)
-    }
-    insertFuture
+  override def createDaySlots(daySlotsWithTimeSlots: Seq[DaySlotWithTimeSlots]): DBIOAction[Seq[DaySlotWithTimeSlots], NoStream, Effect.Write with Effect.Transactional] = {
+    DBIO.sequence {
+      daySlotsWithTimeSlots.map { daySlotWithTimeSlots =>
+        (for {
+          savedDaySlot <- daySlotQueryObject.insertQuery += daySlotWithTimeSlots.daySlot
+          savedTimeSlots <- timeSlotQueryObject.insertQuery ++= daySlotWithTimeSlots.timeSlots
+            .map(timeSlot => timeSlot.copy(daySlotId = savedDaySlot.id))
+        } yield DaySlotWithTimeSlots(savedDaySlot, savedTimeSlots)).map { savedEntity =>
+          logger.info(s"Successfully created day slot for '(${savedEntity.daySlot.date}, ${savedEntity.daySlot.countryId})'")
+          savedEntity
+        }
+      }
+    }.transactionally
+  }
+
+  override def findTimeSlot(timeSlotId: Int): DBIOAction[Option[(TimeSlotsRow, DaySlotsRow)], NoStream, Effect.Read] = {
+    TimeSlotQueryObject.filter(_.id === timeSlotId)
+      .join(DaySlotQueryObject.query).on(_.daySlotId === _.id)
+      .result.headOption
   }
 }
 

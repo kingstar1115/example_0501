@@ -3,9 +3,6 @@ package dao.dayslots
 import dao.QueryObject
 import models.Tables._
 
-import scala.language.higherKinds
-
-
 object DaySlotQueryObject extends QueryObject[DaySlots, DaySlotsRow] {
 
   import profile.api._

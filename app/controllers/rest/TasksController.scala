@@ -8,6 +8,7 @@ import commons.enums.TaskStatuses
 import controllers.rest.TasksController._
 import controllers.rest.VehiclesController._
 import controllers.rest.base._
+import dto.rest.v4.{Task => V4}
 import javax.inject.Inject
 import models.Tables._
 import play.api.data.Forms.{email => _, _}
@@ -64,6 +65,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
 
     version match {
+      case "v4" =>
+        processRequestF[V4.CustomerTaskDto](request.body) { dto =>
+          val paymentInformation = CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId)
+          implicit val appointmentTask = PaidCustomerTaskWithTimeSlot(dto.description, dto.address, dto.latitude,
+            dto.longitude, dto.timeSlotId, paymentInformation, dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
+          createTask(dto.vehicleId)
+        }
       case "v3" =>
         processRequestF[CustomerTaskWithServicesDto](request.body) { dto =>
           implicit val appointmentTask = PaidCustomerTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude, dto.dateTime,
@@ -94,6 +102,13 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
 
     version match {
+      case "v4" =>
+        processRequestF[V4.AnonymousTaskDto](request.body) { dto =>
+          implicit val appointmentTask = PaidAnonymousTaskWithTimeSlot(dto.description, dto.address, dto.latitude, dto.longitude,
+            dto.timeSlotId, AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.tip,
+            dto.serviceDto.id, dto.serviceDto.extras)
+          createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
+        }
       case "v3" =>
         processRequestF[AnonymousTaskWithServicesDto](request.body) { dto =>
           implicit val appointmentTask = PaidAnonymousTaskWithAccommodations(dto.description, dto.address, dto.latitude, dto.longitude,
@@ -197,18 +212,16 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     }
   }
 
-  def listTasks(version: String, offset: Int, limit: Int) = authorized.async { request =>
+  def listTasks(version: String, offset: Int, limit: Int, status: Set[Int], ignore: Set[Int]) = authorized.async { request =>
     val userId = request.token.get.userInfo.id
-    val inStatuses = request.queryString.get("status").map(_.map(_.toInt).toSet)
-    val notInStatuses = request.queryString.get("ignore").map(_.map(_.toInt).toSet)
     val submitted = request.getQueryString("submitted").map(_.toBoolean)
 
     val baseQuery = for {
       ((task, agent), vehicle) <- Tasks joinLeft Agents on (_.agentId === _.id) join Vehicles on (_._1.vehicleId === _.id)
       if task.userId === userId
     } yield (task, agent, vehicle)
-    val filteredByInStatus = inStatuses.map(s => baseQuery.filter(_._1.jobStatus.inSet(s))).getOrElse(baseQuery)
-    val filteredByNotInStatus = notInStatuses.map(s => filteredByInStatus.filterNot(_._1.jobStatus.inSet(s))).getOrElse(filteredByInStatus)
+    val filteredByInStatus = if (status.nonEmpty) baseQuery.filter(_._1.jobStatus.inSet(status)) else baseQuery
+    val filteredByNotInStatus = if (ignore.nonEmpty) filteredByInStatus.filterNot(_._1.jobStatus.inSet(ignore)) else filteredByInStatus
     val listQuery = submitted.map(s => filteredByInStatus.filter(_._1.submitted === s)).getOrElse(filteredByNotInStatus)
 
     db.run(listQuery.length.result zip listQuery.sortBy(_._1.createdDate.desc).take(limit).drop(offset).result)
@@ -250,7 +263,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
     val userId = request.token.get.userInfo.id
     val taskQuery = (
       for {
-        ((((task, agent), vehicle), paymentDetails)) <- Tasks
+        (((task, agent), vehicle), paymentDetails) <- Tasks
           .joinLeft(Agents).on(_.agentId === _.id)
           .join(Vehicles).on(_._1.vehicleId === _.id)
           .join(PaymentDetails).on(_._1._1.id === _.taskId)

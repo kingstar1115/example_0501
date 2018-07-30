@@ -13,13 +13,12 @@ import commons.enums.{PaymentMethods, StripeError, TookanError}
 import commons.monads.transformers.EitherT
 import controllers.rest.TasksController
 import controllers.rest.TasksController.{CompleteTaskDto, TaskDetailsDto}
-import dao.SlickDbService
 import javax.inject.{Inject, Named}
 import models.Tables._
 import play.api.Logger
-import play.api.db.slick.DatabaseConfigProvider
+import play.api.db.slick.{DatabaseConfigProvider, HasDatabaseConfigProvider}
 import play.api.libs.concurrent.Execution.Implicits._
-import services.StripeService.ErrorResponse
+import services.StripeService.{CustomerCardCharge, ErrorResponse, TokenCharge}
 import services.TookanService.{AppointmentDetails, AppointmentResponse, Metadata}
 import services.internal.bookings.BookingService
 import services.internal.services.ServicesService
@@ -27,6 +26,7 @@ import services.internal.tasks.DefaultTaskService._
 import services.internal.tasks.TasksService._
 import services.internal.users.UsersService
 import services.{StripeService, TookanService}
+import slick.driver.JdbcProfile
 import slick.driver.PostgresDriver.api._
 
 import scala.concurrent.Future
@@ -34,23 +34,23 @@ import scala.concurrent.duration._
 
 class DefaultTaskService @Inject()(tookanService: TookanService,
                                    stripeService: StripeService,
-                                   dbConfigProvider: DatabaseConfigProvider,
+                                   val dbConfigProvider: DatabaseConfigProvider,
                                    @Named("taskActor") tasksActor: ActorRef,
                                    servicesService: ServicesService,
                                    usersService: UsersService,
-                                   bookingService: BookingService,
-                                   slickDbService: SlickDbService) extends TasksService {
+                                   bookingService: BookingService)
+  extends TasksService with HasDatabaseConfigProvider[JdbcProfile] {
 
-  private val db = dbConfigProvider.get.db
+  private val logger = Logger(this.getClass)
 
   override def createTaskForCustomer(userId: Int, vehicleId: Int)
                                     (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, TookanService.AppointmentResponse]] = {
 
-    reserveBooking(appointmentTask.dateTime) { timeSlot =>
+    reserveBooking(appointmentTask) { (timeSlot, daySlot) =>
       (for {
         taskData <- EitherT(loadCustomerTaskData(userId, vehicleId, timeSlot))
         charge <- EitherT(charge(taskData))
-        tookanTask <- EitherT(createTookanAppointment(taskData).flatMap(refund(_, charge)))
+        tookanTask <- EitherT(createTookanAppointment(taskData, timeSlot, daySlot).flatMap(refund(_, charge)))
       } yield (taskData, charge, tookanTask)).inner
         .flatMap {
           case Left(error) =>
@@ -58,7 +58,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
               .map(_ => Left(error))
           case Right((taskData, charge, tookanTask)) =>
             charge.map(c => stripeService.updateChargeMetadata(c, tookanTask.jobId))
-            saveTask(taskData, charge, tookanTask)
+            saveTask(taskData, charge, tookanTask, timeSlot, daySlot)
         }
     }
   }
@@ -66,9 +66,9 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   private def loadCustomerTaskData(userId: Int, vehicleId: Int, timeSlot: TimeSlotsRow)
                                   (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, TaskData[PersistedUser, PersistedVehicle]]] = {
     (for {
-      userWithVehicle <- loadUserWithVehicle(userId, vehicleId)
-      serviceInformation <- getServiceInformation(appointmentTask, userWithVehicle._2)
-    } yield Right(TaskData(userWithVehicle._1, userWithVehicle._2, timeSlot, serviceInformation))).recover {
+      (user, vehicle) <- loadUserWithVehicle(userId, vehicleId)
+      serviceInformation <- getServiceInformation(appointmentTask, vehicle)
+    } yield Right(TaskData(user, vehicle, timeSlot, serviceInformation))).recover {
       case e: Exception =>
         Logger.error(s"Failed to load user with id '$userId' and vehicle '$vehicleId'", e)
         Left(ServerError(s"User with such vehicle was not found"))
@@ -86,12 +86,12 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createTaskForAnonymous(user: User, vehicle: Vehicle)
                                      (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    reserveBooking(appointmentTask.dateTime) { timeSlot =>
+    reserveBooking(appointmentTask) { (timeSlot, daySlot) =>
       getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
         val taskData = TaskData(user, vehicle, timeSlot, serviceInformation)
         (for {
           charge <- EitherT(charge(taskData))
-          tookanTask <- EitherT(createTookanAppointment(taskData).flatMap(refund(_, charge)))
+          tookanTask <- EitherT(createTookanAppointment(taskData, timeSlot, daySlot).flatMap(refund(_, charge)))
         } yield (charge, tookanTask)).inner
           .flatMap {
             case Left(error) =>
@@ -108,41 +108,51 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   override def createPartnershipTask(user: User, vehicle: Vehicle)
                                     (implicit appointmentTask: AppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
-    reserveBooking(appointmentTask.dateTime) { timeSlot =>
+    reserveBooking(appointmentTask) { (timeSlot, daySlot) =>
       getServiceInformation(appointmentTask, vehicle).flatMap { serviceInformation =>
         val taskData = TaskData(user, vehicle, timeSlot, serviceInformation)
-        createTookanAppointment(taskData)
+        createTookanAppointment(taskData, timeSlot, daySlot)
       }
     }
   }
 
-  private def reserveBooking[T](dateTime: LocalDateTime)(mapper: TimeSlotsRow => Future[Either[ServerError, T]]): Future[Either[ServerError, T]] = {
-    bookingService.reserveBooking(dateTime).flatMap {
-      case Some(timeSlot) =>
-        mapper.apply(timeSlot)
+  private def reserveBooking[T](appointmentTask: AppointmentTask)(mapper: (TimeSlotsRow, DaySlotsRow) => Future[Either[ServerError, T]]): Future[Either[ServerError, T]] = {
+    (appointmentTask match {
+      case appointmentWithTimeSlot: ZonedTimeSlot =>
+        bookingService.reserveBooking(appointmentWithTimeSlot.timeSlot)
+      case _ =>
+        bookingService.reserveBooking(appointmentTask.dateTime)
+    }).flatMap {
+      case Some((timeSlot, daySlot)) =>
+        mapper.apply(timeSlot, daySlot)
       case None =>
-        Logger.info(s"Failed to book time slot for $dateTime")
         Future.successful(Left(ServerError("Oops! We are sorry, but this time is no longer available. Please select another one.")))
     }
   }
 
-  private def charge[U <: AbstractUser, V <: AbstractVehicle](data: TaskData[U, V])
-                                                             (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, Option[Charge]]] = {
+  private def charge[U <: AbstractUser, V <: AbstractVehicle]
+  (data: TaskData[U, V])(implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, Option[Charge]]] = {
 
-    def pay[T <: PaymentInformation](price: Int, paymentInformation: T): Future[Either[ErrorResponse, Charge]] = {
+    def pay[T <: PaymentInformation](price: Int, paymentInformation: T) = {
       val description = data.serviceInformation.services.map(_.name).mkString("; ")
       paymentInformation match {
         case customer: CustomerPaymentInformation =>
-          def payWithCard = getStripeId(data.user).map {
-            id =>
-              val paymentSource = StripeService.PaymentSource(id, customer.cardId)
-              stripeService.chargeFromCard(price, paymentSource, description)
-          }.getOrElse(Future(Left(ErrorResponse("User doesn't set up account to perform payment", StripeError))))
+          customer.token.map(token => {
+            val chargeRequest = TokenCharge(data.user.email, token, price, description)
+            stripeService.charge(chargeRequest)
+          }).getOrElse {
+            getStripeId(data.user) match {
+              case Some(id) =>
+                val chargeRequest = CustomerCardCharge(id, customer.cardId, price, description)
+                stripeService.charge(chargeRequest)
 
-          customer.token.map(token => stripeService.chargeFromToken(price, token, description))
-            .getOrElse(payWithCard)
+              case _ =>
+                Future(Left(ErrorResponse("User doesn't set up account to perform payment", StripeError)))
+            }
+          }
         case anonymous: AnonymousPaymentInformation =>
-          stripeService.chargeFromToken(price, anonymous.token, description)
+          val chargeRequest = TokenCharge(data.user.email, anonymous.token, price, description)
+          stripeService.charge(chargeRequest)
       }
     }
 
@@ -213,12 +223,13 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   private def createTookanAppointment[T <: AppointmentTask, U <: AbstractUser, V <: AbstractVehicle]
-  (taskData: TaskData[U, V])
+  (taskData: TaskData[U, V], timeSlot: TimeSlotsRow, daySlot: DaySlotsRow)
   (implicit appointmentTask: T): Future[Either[ServerError, AppointmentResponse]] = {
     val metadata = getMetadata(taskData.vehicle, taskData.serviceInformation.services)
     val user = taskData.user
     tookanService.createAppointment(user.name, user.phone, appointmentTask.address, appointmentTask.description,
-      appointmentTask.dateTime, Option(appointmentTask.latitude), Option(appointmentTask.longitude), user.email, metadata)
+      LocalDateTime.of(daySlot.date.toLocalDate, timeSlot.startTime.toLocalTime), Option(appointmentTask.latitude),
+      Option(appointmentTask.longitude), user.email, metadata)
       .map(_.left.map(error => ServerError(error.message, Some(TookanError))))
   }
 
@@ -236,7 +247,9 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   private def saveTask(data: TaskData[PersistedUser, PersistedVehicle],
                        charge: Option[Charge],
-                       tookanTask: AppointmentResponse)
+                       tookanTask: AppointmentResponse,
+                       timeSlot: TimeSlotsRow,
+                       daySlot: DaySlotsRow)
                       (implicit appointmentTask: PaidAppointmentTask): Future[Either[ServerError, AppointmentResponse]] = {
     val paymentMethod = getPaymentMethod(appointmentTask.paymentInformation)
     val basePrice = data.serviceInformation.services.map(_.price).sum
@@ -248,11 +261,13 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
           promotion
       })
       .getOrElse(0)
-    val insertTask = (for {
+
+    val scheduledTime = Timestamp.valueOf(LocalDateTime.of(daySlot.date.toLocalDate, timeSlot.startTime.toLocalTime))
+    val insertTaskAction = for {
       taskId <- (
         Tasks.map(task => (task.jobId, task.userId, task.scheduledTime, task.vehicleId, task.hasInteriorCleaning, task.latitude, task.longitude, task.timeSlotId))
           returning Tasks.map(_.id)
-          += ((tookanTask.jobId, data.user.id, Timestamp.valueOf(appointmentTask.dateTime), data.vehicle.id,
+          += ((tookanTask.jobId, data.user.id, scheduledTime, data.vehicle.id,
           data.serviceInformation.hasInteriorCleaning, appointmentTask.latitude, appointmentTask.longitude, data.timeSlot.id))
         )
       _ <- (
@@ -264,8 +279,15 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
         data.serviceInformation.services
           .map(service => TaskServices.map(taskService => (taskService.price, taskService.name, taskService.taskId)) += ((service.price, service.name, taskId)))
       )
-    } yield ()).transactionally
-    db.run(insertTask).map {
+    } yield ()
+    val insertAction = ((data.user.stripeId, charge) match {
+      case (None, Some(taskCharge)) =>
+        insertTaskAction.zip(Users.filter(_.id === data.user.id).map(_.stripeId).update(Option(taskCharge.getCustomer)))
+      case _ =>
+        insertTaskAction
+    }).transactionally
+
+    db.run(insertAction).map {
       _ =>
         refreshTask(tookanTask.jobId)
         Right(tookanTask)
@@ -281,7 +303,8 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
 
   def getStripeId[U <: AbstractUser](user: U): Option[String] = {
     user match {
-      case persistedUser: PersistedUser => persistedUser.stripeId
+      case PersistedUser(_, _, _, _, Some(stripeId)) => Some(stripeId)
+      case PersistedUser(_, _, _, Some(email), None) => Some(stripeService.createCustomerIfNotExists(email).getId)
       case _ => None
     }
   }
@@ -354,11 +377,12 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
         val updated = task.copy(submitted = true, rating = dto.customerReview.map(_.rating))
         val updateAction = chargeOptional.map { charge =>
           DBIO.seq(
+            //TODO: Migrate to long
             PaymentDetails.filter(_.taskId === updated.id).map(_.tip).update(charge.getAmount.toInt),
             Tasks.update(updated)
           ).transactionally
         }.getOrElse(Tasks.update(updated))
-        slickDbService.run(updateAction).map(_ => Right(updated))
+        db.run(updateAction).map(_ => Right(updated))
 
       case Left(error) =>
         Future.successful(Left(error))
@@ -370,7 +394,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
       (task, user) <- Tasks join Users on (_.userId === _.id)
       if task.jobId === jobId && task.jobStatus === Successful.code && task.submitted === false && task.userId === userId
     } yield (task, user)
-    slickDbService.run(taskWithUser.result.headOption).map {
+    db.run(taskWithUser.result.headOption).map {
       case None =>
         Logger.warn(s"Task $jobId for user $userId was not found for completing")
         Left(ServerError("Failed to complete task"))
@@ -380,28 +404,18 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
   }
 
   private def chargeTip(completeTaskDto: CompleteTaskDto, user: UsersRow): Future[Either[ServerError, Option[Charge]]] = {
-    completeTaskDto.tip.map { tip =>
-      val metadata = Map(("jobId", completeTaskDto.jobId.toString))
-      val chargeResult = tip.token match {
-        case Some(token) =>
-          Logger.debug(s"Charging tip for task ${completeTaskDto.jobId} from token $token")
-          stripeService.chargeFromToken(tip.amount, token, "Tip", metadata)
-        case None =>
-          user.stripeId.map { stripeId =>
-            val paymentSource = StripeService.PaymentSource(stripeId, tip.cardId)
-            stripeService.chargeFromCard(tip.amount, paymentSource, "Tip", metadata)
-          }.getOrElse {
-            Future(Left(ErrorResponse("User doesn't set a payment method", StripeError)))
-          }
-      }
-      chargeResult.map {
-        case Right(charge) =>
-          Right(Some(charge))
-        case Left(error) =>
-          Logger.debug(s"Failed to charge tip: ${error.message} for task ${completeTaskDto.jobId}")
-          Left(ServerError(error.message, Some(error.errorType)))
-      }
-    }.getOrElse(Future.successful(Right(None)))
+    stripeService.createTipCharge(user, completeTaskDto.tip)
+      .map(chargeRequest => {
+        logger.info(s"Charging tip for task ${completeTaskDto.jobId} from $chargeRequest")
+        val metadata = Map(("jobId", completeTaskDto.jobId.toString))
+        stripeService.charge(chargeRequest, metadata).map {
+          case Right(charge) =>
+            Right(Some(charge))
+          case Left(error) =>
+            logger.warn(s"Failed to charge tip for $chargeRequest for task ${completeTaskDto.jobId}. Error: ${error.message}")
+            Left(ServerError(error.message, Some(error.errorType)))
+        }
+      }).getOrElse(Future.successful(Right(None)))
   }
 
   override def getTask(id: Long, userId: Int): Future[Option[TaskDetailsDto]] = {
@@ -413,7 +427,7 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
         .join(TaskServices).on(_._1._1._1.id === _.taskId)
       if task.userId === userId && task.jobId === id
     } yield (task, agent, vehicle, paymentDetails, services)
-    slickDbService.run(selectQuery.result).map(result => {
+    db.run(selectQuery.result).map(result => {
       if (result.isEmpty) {
         None
       } else {
