@@ -1,10 +1,10 @@
 package services.internal.notifications
 
 import java.util.concurrent.{TimeUnit, Future => JFuture}
-import javax.inject.Inject
 
 import com.relayrides.pushy.apns.util.{ApnsPayloadBuilder, SimpleApnsPushNotification, TokenUtil}
 import com.relayrides.pushy.apns.{ApnsClient, ApnsClientBuilder}
+import javax.inject.Inject
 import play.api.inject.ApplicationLifecycle
 import play.api.libs.concurrent.Execution.Implicits._
 import play.api.{Configuration, Environment, Logger}
@@ -24,11 +24,11 @@ class APNotificationService @Inject()(lifecycle: ApplicationLifecycle,
 
   private val p12FileName = config.getString("apns.certificate").get
   private val password = config.getString("apns.password").getOrElse("")
-  private val serverAddress = p12FileName match {
-    case "qweex_push.p12" => ApnsClient.PRODUCTION_APNS_HOST
-    case _ => ApnsClient.DEVELOPMENT_APNS_HOST
-  }
   private val topic = config.getString("apns.topic").get
+  private val serverAddress = if (config.getBoolean("apns.production").get)
+    ApnsClient.PRODUCTION_APNS_HOST
+  else
+    ApnsClient.DEVELOPMENT_APNS_HOST
 
   private val client = new ApnsClientBuilder()
     .setClientCredentials(environment.resourceAsStream(p12FileName).get, password)
