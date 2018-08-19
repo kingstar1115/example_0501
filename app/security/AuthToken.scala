@@ -20,7 +20,8 @@ case class AuthResponse(key: String,
                         userType: Int,
                         verified: Boolean,
                         picture: Option[String],
-                        phone: String)
+                        phone: String,
+                        email: String)
 
 object AuthToken {
   implicit val userInfoFormat: Format[UserInfo] = Json.format[UserInfo]

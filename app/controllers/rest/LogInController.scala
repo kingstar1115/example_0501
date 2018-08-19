@@ -45,7 +45,7 @@ class LogInController @Inject()(dbConfigProvider: DatabaseConfigProvider,
             tokenStorage.setToken(token)
 
             ok(AuthResponse(token.key, user.firstName, user.lastName, user.userType, user.verified,
-              user.profilePicture, user.phoneCode.concat(user.phone)))(AuthToken.authResponseFormat)
+              user.profilePicture, user.phoneCode.concat(user.phone), user.email))(AuthToken.authResponseFormat)
           }.getOrElse(validationFailed("Wrong email or password"))
       }
     }

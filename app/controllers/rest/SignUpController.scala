@@ -72,7 +72,7 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
         emailService.sendUserRegisteredEmail(signUpDto.firstName, signUpDto.lastName, signUpDto.email)
 
         ok(AuthResponse(token.key, token.userInfo.firstName, token.userInfo.lastName,
-          EmailUserType, token.userInfo.verified, None, signUpDto.phoneCode.concat(signUpDto.phone)))(AuthToken.authResponseFormat)
+          EmailUserType, token.userInfo.verified, None, signUpDto.phoneCode.concat(signUpDto.phone), signUpDto.email))(AuthToken.authResponseFormat)
       case Failure(e) =>
         badRequest(e.getMessage, DatabaseError)
     }
@@ -88,7 +88,7 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
         case Some(user) =>
           val tokenKey = getToken(user.id, (user.firstName, user.lastName, user.email, FacebookUserType)).key
           val responseDto = AuthResponse(tokenKey, user.firstName, user.lastName, FacebookUserType, user.verified, user.profilePicture,
-            user.phoneCode.concat(user.phone))
+            user.phoneCode.concat(user.phone), user.email)
           ok(responseDto)(AuthToken.authResponseFormat)
 
         case None =>
@@ -160,7 +160,7 @@ class SignUpController @Inject()(val dbConfigProvider: DatabaseConfigProvider,
         val tokenKey = getToken(userId, (sighUpDto.firstName, sighUpDto.lastName, sighUpDto.email, FacebookUserType)).key
 
         ok(AuthResponse(tokenKey, sighUpDto.firstName, sighUpDto.lastName, FacebookUserType, verified = false,
-          Option(fbUser.picture.data.url), sighUpDto.phoneCode.concat(sighUpDto.phone)))(AuthToken.authResponseFormat)
+          Option(fbUser.picture.data.url), sighUpDto.phoneCode.concat(sighUpDto.phone), sighUpDto.email))(AuthToken.authResponseFormat)
 
       case Failure(e) =>
         badRequest(e.getMessage, DatabaseError)

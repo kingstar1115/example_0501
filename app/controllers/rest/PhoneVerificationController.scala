@@ -28,7 +28,7 @@ class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProv
   def verifyCode(version: String, code: String) = authorized.async { request =>
     val token = request.token.get
     val user = token.userInfo
-    val userQuery = for {u <- Users if u.id === user.id && u.verified === false} yield (u.phoneCode, u.phone)
+    val userQuery = for {u <- Users if u.id === user.id && u.verified === false} yield (u.phoneCode, u.phone, u.email)
     db.run(userQuery.result.headOption).flatMap { resultSet =>
       resultSet.map { phone =>
         verifyService.checkVerifyCode(phone._1, phone._2, code).flatMap {
@@ -39,7 +39,7 @@ class PhoneVerificationController @Inject()(dbConfigProvider: DatabaseConfigProv
                 val updatedToken = token.copy(userInfo = user.copy(verified = true))
                 tokenStorage.updateToken(updatedToken)
                 ok(AuthResponse(updatedToken.key, updatedToken.userInfo.firstName, updatedToken.userInfo.lastName,
-                  0, updatedToken.userInfo.verified, updatedToken.userInfo.picture, phone._1.concat(phone._2)))(AuthToken.authResponseFormat)
+                  0, updatedToken.userInfo.verified, updatedToken.userInfo.picture, phone._1.concat(phone._2), phone._3))(AuthToken.authResponseFormat)
               case _ => badRequest("Can't verify user", DatabaseError)
             }
 
