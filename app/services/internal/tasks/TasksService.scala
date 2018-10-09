@@ -85,6 +85,8 @@ object TasksService {
     def paymentInformation: PaymentInformation
 
     def promotion: Option[Int]
+
+    def discount: Option[Int]
   }
 
   trait PaidAnonymousAppointmentTask extends PaidAppointmentTask {
@@ -113,7 +115,9 @@ object TasksService {
                                                   dateTime: LocalDateTime,
                                                   paymentInformation: CustomerPaymentInformation,
                                                   promotion: Option[Int],
-                                                  hasInteriorCleaning: Boolean) extends PaidAppointmentTask with InteriorCleaning
+                                                  hasInteriorCleaning: Boolean) extends PaidAppointmentTask with InteriorCleaning {
+    override def discount: Option[Int] = None
+  }
 
   case class PaidCustomerTaskWithAccommodations(description: String,
                                                 address: String,
@@ -123,7 +127,9 @@ object TasksService {
                                                 paymentInformation: CustomerPaymentInformation,
                                                 promotion: Option[Int],
                                                 serviceId: Int,
-                                                extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation
+                                                extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation {
+    override def discount: Option[Int] = None
+  }
 
   case class PaidCustomerTaskWithTimeSlot(description: String,
                                           address: String,
@@ -132,6 +138,7 @@ object TasksService {
                                           timeSlot: Int,
                                           paymentInformation: CustomerPaymentInformation,
                                           promotion: Option[Int],
+                                          discount: Option[Int],
                                           serviceId: Int,
                                           extras: Set[Int]) extends PaidAppointmentTask with ServicesInformation with ZonedTimeSlot {
     override def dateTime: LocalDateTime = throw new UnsupportedOperationException("Use time slot id instead of date/time")
@@ -144,7 +151,9 @@ object TasksService {
                                                    dateTime: LocalDateTime,
                                                    paymentInformation: AnonymousPaymentInformation,
                                                    promotion: Option[Int],
-                                                   hasInteriorCleaning: Boolean) extends PaidAppointmentTask with InteriorCleaning
+                                                   hasInteriorCleaning: Boolean) extends PaidAppointmentTask with InteriorCleaning {
+    override def discount: Option[Int] = None
+  }
 
   case class PaidAnonymousTaskWithAccommodations(description: String,
                                                  address: String,
@@ -155,7 +164,9 @@ object TasksService {
                                                  promotion: Option[Int],
                                                  tip: Option[Int],
                                                  serviceId: Int,
-                                                 extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation
+                                                 extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation {
+    override def discount: Option[Int] = None
+  }
 
   case class PaidAnonymousTaskWithTimeSlot(description: String,
                                            address: String,
@@ -168,6 +179,8 @@ object TasksService {
                                            serviceId: Int,
                                            extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation with ZonedTimeSlot {
     override def dateTime: LocalDateTime = throw new UnsupportedOperationException("Use time slot id instead of date/time")
+
+    override def discount: Option[Int] = None
   }
 
   case class PartnershipTaskWithInteriorCleaning(description: String,

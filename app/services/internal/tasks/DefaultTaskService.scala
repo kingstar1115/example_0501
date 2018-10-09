@@ -184,19 +184,26 @@ class DefaultTaskService @Inject()(tookanService: TookanService,
     }
 
     Logger.debug(s"Calculating task price. Base price: $price")
-    val discountedPrice = appointmentTask.promotion.map { promotion =>
-      Logger.info(s"Promotion value: $promotion")
+    val priceWithAppliedPromotion = appointmentTask.promotion.map { promotion =>
+      Logger.info(s"Promotion value: `$promotion`")
       price - adjustPromotionValue(promotion)
     }.getOrElse(price)
+
+    val priceWithAppliedDiscount = appointmentTask.discount.map{ discount =>
+      Logger.info(s"Discount value: `$discount%`")
+      val result: Int = priceWithAppliedPromotion - ((priceWithAppliedPromotion * discount) / 100)
+      Logger.info(s"Discounted value: `$result`")
+      result
+    }.getOrElse(priceWithAppliedPromotion)
 
     val priceWithTip = appointmentTask match {
       case x: PaidAnonymousAppointmentTask =>
         x.tip.map { tip =>
           Logger.debug(s"Adding tip: $tip")
-          discountedPrice + tip
-        }.getOrElse(discountedPrice)
+          priceWithAppliedDiscount + tip
+        }.getOrElse(priceWithAppliedDiscount)
       case _ =>
-        discountedPrice
+        priceWithAppliedDiscount
     }
     Logger.debug(s"Calculated task price: $priceWithTip")
     priceWithTip

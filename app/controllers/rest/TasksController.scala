@@ -69,7 +69,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         processRequestF[V4.CustomerTaskDto](request.body) { dto =>
           val paymentInformation = CustomerPaymentInformation(dto.paymentDetails.token, dto.paymentDetails.cardId)
           implicit val appointmentTask = PaidCustomerTaskWithTimeSlot(dto.description, dto.address, dto.latitude,
-            dto.longitude, dto.timeSlotId, paymentInformation, dto.paymentDetails.promotion, dto.service.id, dto.service.extras)
+            dto.longitude, dto.timeSlotId, paymentInformation, dto.paymentDetails.promotion, dto.paymentDetails.discount, dto.service.id, dto.service.extras)
           createTask(dto.vehicleId)
         }
       case "v3" =>
@@ -449,12 +449,14 @@ object TasksController {
 
   case class CustomerPaymentDetails(promotion: Option[Int],
                                     token: Option[String],
-                                    cardId: Option[String])
+                                    cardId: Option[String],
+                                    discount: Option[Int])
 
   implicit val customerPaymentDetailsReads: Reads[CustomerPaymentDetails] = (
     (__ \ "promotion").readNullable[Int] and
       (__ \ "token").readNullable[String] and
-      (__ \ "cardId").readNullable[String]
+      (__ \ "cardId").readNullable[String] and
+      (__ \ "discount").readNullable[Int]
     ) (CustomerPaymentDetails.apply _)
     .filter(ValidationError("Token or card id must be provided"))(dto => dto.token.isDefined || dto.cardId.isDefined)
 
