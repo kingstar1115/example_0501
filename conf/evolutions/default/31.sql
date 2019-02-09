@@ -1,6 +1,6 @@
 # --- !Ups
 
-INSERT INTO countries (name, code) VALUES ('East Bay', 'eastBay');
+INSERT INTO countries (id, name, code) VALUES (4, 'East Bay', 'eastBay');
 
 INSERT INTO zip_codes (zip_code, country_id) VALUES ('94501', 4);
 INSERT INTO zip_codes (zip_code, country_id) VALUES ('94502', 4);
