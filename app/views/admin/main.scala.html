@@ -60,6 +60,11 @@
                                     <span>San Francisco County</span>
                                 </a>
                             </li>
+                            <li class="@if(activeLink.equals("bookingDays:4")){active}">
+                                <a href="@controllers.admin.routes.BookingSlotController.getBookingSlots(4)">
+                                    <span>East Bay</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                 </ul>
