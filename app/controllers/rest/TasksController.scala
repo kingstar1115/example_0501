@@ -106,7 +106,7 @@ class TasksController @Inject()(val tokenStorage: TokenStorage,
         processRequestF[V4.AnonymousTaskDto](request.body) { dto =>
           implicit val appointmentTask = PaidAnonymousTaskWithTimeSlot(dto.description, dto.address, dto.latitude, dto.longitude,
             dto.timeSlotId, AnonymousPaymentInformation(dto.paymentDetails.token), dto.paymentDetails.promotion, dto.paymentDetails.tip,
-            dto.serviceDto.id, dto.serviceDto.extras)
+            dto.serviceDto.id, dto.serviceDto.extras, dto.paymentDetails.discount)
           createTask(dto.userDto.mapToUser, dto.vehicleDto.mapToVehicle)
         }
       case "v3" =>
@@ -501,7 +501,7 @@ object TasksController {
       (__ \ "paymentDetails").read[AnonymousPaymentDetailsWithInterior]
     ) (AnonymousTaskDto.apply _)
 
-  case class AnonymousPaymentDetails(token: String, promotion: Option[Int], tip: Option[Int])
+  case class AnonymousPaymentDetails(token: String, promotion: Option[Int], tip: Option[Int], discount: Option[Int])
 
   implicit val anonymousPaymentDetailsFormat: Format[AnonymousPaymentDetails] = Json.format[AnonymousPaymentDetails]
 

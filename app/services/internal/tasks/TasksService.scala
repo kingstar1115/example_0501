@@ -177,10 +177,9 @@ object TasksService {
                                            promotion: Option[Int],
                                            tip: Option[Int],
                                            serviceId: Int,
-                                           extras: Set[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation with ZonedTimeSlot {
+                                           extras: Set[Int],
+                                           discount: Option[Int]) extends PaidAnonymousAppointmentTask with ServicesInformation with ZonedTimeSlot {
     override def dateTime: LocalDateTime = throw new UnsupportedOperationException("Use time slot id instead of date/time")
-
-    override def discount: Option[Int] = None
   }
 
   case class PartnershipTaskWithInteriorCleaning(description: String,
