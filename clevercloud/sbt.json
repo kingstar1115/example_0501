@@ -1,5 +1,5 @@
 {
   "deploy":{
-    "goal": "-Duser.timezone=PST"
+    "goal": "-Duser.timezone=America/Los_Angeles"
   }
 }
