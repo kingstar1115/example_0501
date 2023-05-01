@@ -2,3 +2,5 @@
 logs
 target
 /.idea
+.metals
+.vscode
