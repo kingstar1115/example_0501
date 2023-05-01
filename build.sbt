@@ -6,17 +6,16 @@ version := "1.0-SNAPSHOT"
 
 lazy val root = (project in file(".")).enablePlugins(PlayScala)
 
-scalaVersion := "2.11.7"
+scalaVersion := "3.2.2"
 
 resolvers ++= Seq(
   "scalaz-bintray" at "http://dl.bintray.com/scalaz/releases",
   "google-sedis-fix" at "http://pk11-scratch.googlecode.com/svn/trunk"
 )
-
 libraryDependencies ++= Seq(cache, ws, filters, "org.postgresql" % "postgresql" % "42.2.18",
-  "com.typesafe.play" %% "play-slick" % "1.1.0",
-  "com.typesafe.play" %% "play-slick-evolutions" % "1.1.0",
-  "com.typesafe.slick" %% "slick-codegen" % "3.1.0",
+  "com.typesafe.play" %% "play-slick" % "5.0.0",
+  "com.typesafe.play" %% "play-slick-evolutions" % "5.0.0",
+  "com.typesafe.slick" %% "slick-codegen" % "3.4.0-M1",
   "com.typesafe.play.modules" %% "play-modules-redis" % "2.4.0",
   "com.github.t3hnar" % "scala-bcrypt_2.10" % "2.5",
   "com.typesafe.play" %% "play-mailer" % "3.0.1",
@@ -48,3 +47,5 @@ lazy val slickCodeGenTask = (sourceManaged, fullClasspath in Compile, runner in 
   val fname = outputDir + s"/$pkg/Tables.scala"
   Seq(file(fname))
 }
+
+

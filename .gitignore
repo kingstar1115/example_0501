@@ -2,3 +2,10 @@
 logs
 target
 /.idea
+
+*.log
+*.lock.db
+*.mv.db
+
+settings.json
+.metals/
